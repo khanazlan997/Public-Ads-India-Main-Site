@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 
 async function startServer() {
@@ -18,7 +19,27 @@ async function startServer() {
       server: { middlewareMode: true },
       appType: "spa",
     });
+    
+    // Use vite's connect instance as middleware
     app.use(vite.middlewares);
+
+    // Handle SPA fallback routing in development so page refresh doesn't return 404
+    app.get("*", async (req, res, next) => {
+      const url = req.originalUrl;
+      try {
+        // Read index.html
+        let template = fs.readFileSync(
+          path.resolve(process.cwd(), "index.html"),
+          "utf-8"
+        );
+        // Apply Vite HTML transforms
+        template = await vite.transformIndexHtml(url, template);
+        // Send the transformed HTML back
+        res.status(200).set({ "Content-Type": "text/html" }).end(template);
+      } catch (e) {
+        next(e);
+      }
+    });
   } else {
     console.log("Starting server in production mode...");
     const distPath = path.join(process.cwd(), "dist");

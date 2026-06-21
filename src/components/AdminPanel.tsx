@@ -42,7 +42,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     deleteEmployee, 
     backupLogs, 
     triggerBackup, 
-    activityLogs 
+    activityLogs,
+    purgeAllSystemData 
   } = useAppState();
 
   // Admin login states
@@ -125,6 +126,20 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       triggerBackup();
     } else {
       setAdminError('Invalid administrator credentials.');
+    }
+  };
+
+  const [isPurging, setIsPurging] = useState(false);
+
+  const handleSystemPurge = async () => {
+    setIsPurging(true);
+    const res = await purgeAllSystemData();
+    setIsPurging(false);
+    if (res.success) {
+      setShowIntegrityAlert(res.message);
+      setTimeout(() => setShowIntegrityAlert(null), 8000);
+    } else {
+      alert(res.message);
     }
   };
 
@@ -1862,6 +1877,49 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+
+              {/* Danger Zone: Purge System Data */}
+              <div className="mt-8 border border-red-200 bg-red-50/50 p-6 rounded-2xl">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-black text-red-900 flex items-center gap-2">
+                      <Trash2 className="w-4.5 h-4.5 text-red-650" />
+                      Danger Zone: Database Reset & Purge Area
+                    </h4>
+                    <p className="text-[11px] text-red-700 leading-normal font-medium max-w-2xl">
+                      This action will **PERMANENTLY DESTRUCTIVELY DELETE** all user registers (publishers), client action submissions, banking ledger details, lead earnings, and audit logs. This cannot be undone. Active campaigns and employees will remain preserved. Use this strictly when initiating a new advertiser cycle.
+                    </p>
+                  </div>
+                  <div>
+                    <button
+                      id="admin-destructive-purge-btn"
+                      type="button"
+                      disabled={isPurging}
+                      onClick={() => {
+                        const promptWord = prompt("WARNING! This will clear all publishers, earnings, and submissions. To verify, type the word 'CONFIRM' below:");
+                        if (promptWord === 'CONFIRM') {
+                          handleSystemPurge();
+                        } else if (promptWord !== null) {
+                          alert("Invalid confirmation text. Data purge canceled.");
+                        }
+                      }}
+                      className="whitespace-nowrap px-4 py-2.5 bg-red-650 hover:bg-red-700 active:bg-red-850 disabled:opacity-50 text-white font-extrabold text-xs rounded-xl uppercase tracking-wider cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+                    >
+                      {isPurging ? (
+                        <>
+                          <RefreshCcw className="w-4.5 h-4.5 animate-spin" />
+                          Purging Data...
+                        </>
+                      ) : (
+                        <>
+                          <AlertTriangle className="w-4.5 h-4.5 animate-pulse" style={{ animationDuration: '2s' }} />
+                          Purge Old Registers
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 

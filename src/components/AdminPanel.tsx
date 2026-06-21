@@ -12,7 +12,7 @@ interface AdminPanelProps {
   onNavigate: (route: string) => void;
 }
 
-type AdminTab = 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs';
+type AdminTab = 'overview' | 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs';
 
 export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const { 
@@ -52,7 +52,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
   // Active Admin Tab
-  const [activeTab, setActiveTab] = useState<AdminTab>('campaigns');
+  const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [adminTabDropdownOpen, setAdminTabDropdownOpen] = useState(false);
 
   // Campaign create form states
@@ -445,6 +445,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               <span className="flex items-center gap-2.5">
                 {(() => {
                   const current = [
+                    { tab: 'overview', label: 'Console Overview', icon: <Activity className="w-4.5 h-4.5 text-indigo-600 animate-pulse" /> },
                     { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
                     { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
@@ -466,7 +467,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-
+ 
             {adminTabDropdownOpen && (
               <>
                 {/* Backdrop overlay to close dropdown */}
@@ -477,6 +478,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 
                 <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 animate-fade-up max-h-80 overflow-y-auto">
                   {[
+                    { tab: 'overview', label: 'Console Overview', icon: <Activity className="w-4.5 h-4.5 text-indigo-600" /> },
                     { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
                     { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
@@ -506,7 +508,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               </>
             )}
           </div>
-
+ 
           {/* Desktop Tab Sidebar (hidden lg:block) */}
           <div className="hidden lg:block bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-1">
             <div className="px-3 py-1 bg-slate-50 rounded mb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -514,6 +516,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
             </div>
             
             {[
+              { tab: 'overview', label: 'Console Overview', icon: <Activity className="w-4.5 h-4.5 text-indigo-600" /> },
               { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
               { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
               { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
@@ -543,6 +546,214 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
         {/* Right Active Workspace Container */}
         <main className="lg:col-span-9 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm min-h-[60vh] space-y-6">
           
+          {/* TAB 0: Dashboard Overview */}
+          {activeTab === 'overview' && (
+            <div id="tabContent-overview" className="space-y-6 animate-fade-up">
+              
+              {/* Header section with live indicator */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
+                <div>
+                  <h3 className="text-xl font-black text-slate-800">Console Admin Overview</h3>
+                  <p className="text-xs text-slate-400 mt-1">Real-time supervision of active client devices, registries, and campaign leads.</p>
+                </div>
+                {/* Live Connection Sync Notification with Green Ping Dot */}
+                <div className="flex items-center gap-2.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl max-w-max self-start sm:self-auto">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-mono">
+                    Live Firestore Synchronized
+                  </span>
+                </div>
+              </div>
+
+              {/* Statistics Bento Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Card 1: Total Registered Clients */}
+                <div onClick={() => setActiveTab('publishers')} className="p-5 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100 rounded-2xl shadow-sm hover:shadow transition-all duration-300 cursor-pointer group hover:-translate-y-0.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-black text-indigo-800 uppercase tracking-widest font-sans">
+                      All Registered Clients
+                    </span>
+                    <Users className="w-5 h-5 text-indigo-600 transition-transform group-hover:scale-110" />
+                  </div>
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-slate-800">{publishers.length}</span>
+                    <span className="text-[10px] font-black text-emerald-600 bg-emerald-100/80 px-1.5 py-0.5 rounded-md uppercase">Live</span>
+                  </div>
+                  <p className="text-[10.5px] text-indigo-700/80 font-bold mt-1.5">Click to view complete registry & lock profiles →</p>
+                </div>
+
+                {/* Card 2: Total Campaign Submissions */}
+                <div onClick={() => setActiveTab('mis_database')} className="p-5 bg-gradient-to-br from-orange-50 to-orange-100/50 border border-orange-100 rounded-2xl shadow-sm hover:shadow transition-all duration-300 cursor-pointer group hover:-translate-y-0.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-black text-orange-800 uppercase tracking-widest font-sans">
+                      Campaign Action Leads
+                    </span>
+                    <CheckSquare className="w-5 h-5 text-orange-500 transition-transform group-hover:scale-110" />
+                  </div>
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-slate-800">{submissions.length}</span>
+                    <span className="text-[10px] font-black text-slate-500 font-mono">records</span>
+                  </div>
+                  <p className="text-[10.5px] text-orange-700/80 font-bold mt-1.5">Click to verify screenshots & filter status →</p>
+                </div>
+
+                {/* Card 3: Pending verification leads */}
+                <div onClick={() => setActiveTab('mis_database')} className="p-5 bg-gradient-to-br from-violet-50 to-violet-100/50 border border-violet-100 rounded-2xl shadow-sm hover:shadow transition-all duration-300 cursor-pointer group hover:-translate-y-0.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-black text-violet-800 uppercase tracking-widest font-sans">
+                      Awaiting Verification
+                    </span>
+                    <Clock className="w-5 h-5 text-violet-600 transition-transform group-hover:scale-110" />
+                  </div>
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-violet-700 font-mono">
+                      {submissions.filter(s => s.status === 'Process').length}
+                    </span>
+                    <span className="text-[10px] bg-violet-100 text-violet-700 font-black px-1.5 py-0.5 rounded-md uppercase animate-pulse">Pending</span>
+                  </div>
+                  <p className="text-[10.5px] text-violet-700/80 font-bold mt-1.5">Click to approve payouts immediately →</p>
+                </div>
+
+                {/* Card 4: Active Campaigns */}
+                <div onClick={() => setActiveTab('campaigns')} className="p-5 bg-gradient-to-br from-emerald-50 to-emerald-100/50 border border-emerald-100 rounded-2xl shadow-sm hover:shadow transition-all duration-300 cursor-pointer group hover:-translate-y-0.5">
+                  <div className="flex justify-between items-start">
+                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-sans">
+                      Active Campaigns
+                    </span>
+                    <Flame className="w-5 h-5 text-emerald-600 transition-transform group-hover:scale-110" />
+                  </div>
+                  <div className="mt-2.5 flex items-baseline gap-1.5">
+                    <span className="text-2xl font-black text-slate-800">
+                      {campaigns.filter(c => c.active !== false).length}
+                    </span>
+                    <span className="text-[10px] font-black text-indigo-600">running</span>
+                  </div>
+                  <p className="text-[10.5px] text-emerald-700/80 font-bold mt-1.5">Click to add payouts or check tracking links →</p>
+                </div>
+              </div>
+
+              {/* Two Column Layout for live feed tracking */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                {/* Column Left: Live registered clients feed */}
+                <div className="border border-slate-200/80 rounded-2xl bg-white p-5 space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-105 pb-3">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-5 h-5 text-indigo-600" />
+                      <h4 className="text-sm font-black text-slate-800">Registered Clients (Device Signups Live Feed)</h4>
+                    </div>
+                    <span className="text-xs font-black text-[#25D366] shrink-0 uppercase tracking-wider font-mono">
+                      ● Live Sync Active
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Whenever an agent makes a publisher account on another device, their details will display here instantaneously.
+                  </p>
+
+                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    {publishers.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        No publishers registered yet.
+                      </div>
+                    ) : (
+                      [...publishers]
+                        .sort((a,b) => b.id.localeCompare(a.id))
+                        .slice(0, 10)
+                        .map(pub => (
+                          <div key={pub.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-indigo-50/40 border border-slate-100 transition-colors">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className="text-xl shrink-0 select-none">{pub.avatar || '👤'}</span>
+                              <div className="truncate">
+                                <p className="text-xs font-black text-slate-800 truncate">{pub.name}</p>
+                                <p className="text-[10px] text-slate-400 truncate">Mobile: {pub.phone} | Email: {pub.email}</p>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] font-mono font-bold text-indigo-600 block bg-indigo-50 px-2 py-0.5 rounded-lg">{pub.id}</span>
+                              <span className="text-[9px] text-slate-400 mt-0.5 block">{pub.joinedDate}</span>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+
+                  <button 
+                    onClick={() => setActiveTab('publishers')}
+                    className="w-full text-center py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-extrabold rounded-xl transition-all cursor-pointer"
+                  >
+                    Manage all {publishers.length} Publisher Accounts →
+                  </button>
+                </div>
+
+                {/* Column Right: Action Leads Submissions Live Feed */}
+                <div className="border border-slate-200/80 rounded-2xl bg-white p-5 space-y-4">
+                  <div className="flex justify-between items-center border-b border-slate-105 pb-3">
+                    <div className="flex items-center gap-2">
+                      <CheckSquare className="w-5 h-5 text-orange-500" />
+                      <h4 className="text-sm font-black text-slate-800">Recent Lead Actions Feed</h4>
+                    </div>
+                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                      Recent {Math.min(submissions.length, 5)}
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-400">
+                    Live tracking of campaign payouts and task reports completed on different devices.
+                  </p>
+
+                  <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
+                    {submissions.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        No lead submissions received yet.
+                      </div>
+                    ) : (
+                      [...submissions]
+                        .sort((a,b) => b.id.localeCompare(a.id))
+                        .slice(0, 10)
+                        .map(sub => (
+                          <div key={sub.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-orange-50/40 border border-slate-100 transition-colors">
+                            <div className="truncate pr-2">
+                              <p className="text-xs font-black text-slate-800 truncate">{sub.clientName}</p>
+                              <p className="text-[10px] text-slate-400 truncate">
+                                Publisher: <span className="font-bold text-slate-650">{sub.publisherName}</span>
+                              </p>
+                              <p className="text-[9px] text-slate-400 truncate mt-0.5 font-mono">
+                                Campaign: {sub.campaignName}
+                              </p>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <span className={`text-[9px] font-black px-2 py-0.5 rounded-md block text-center uppercase tracking-wider ${
+                                sub.status === 'Payment Done' ? 'bg-emerald-100 text-emerald-800'  :
+                                sub.status === 'Process' ? 'bg-amber-100 text-amber-800 animate-pulse' :
+                                sub.status === 'Reject' ? 'bg-rose-100 text-rose-800' :
+                                'bg-indigo-100 text-indigo-800'
+                              }`}>
+                                {sub.status}
+                              </span>
+                              <span className="text-[10px] font-bold text-slate-800 block mt-1 font-mono text-right">₹{sub.payout}</span>
+                            </div>
+                          </div>
+                        ))
+                    )}
+                  </div>
+
+                  <button 
+                    onClick={() => setActiveTab('mis_database')}
+                    className="w-full text-center py-2 bg-orange-50 hover:bg-orange-100/80 text-orange-700 text-xs font-extrabold rounded-xl transition-all cursor-pointer"
+                  >
+                    Open MIS Lead Verification Dashboard →
+                  </button>
+                </div>
+
+              </div>
+
+            </div>
+          )}
+
           {/* TAB 1: Campaign Manager */}
           {activeTab === 'campaigns' && (
             <div id="tabContent-campaigns" className="space-y-6 animate-fade-up">

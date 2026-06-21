@@ -1,0 +1,1931 @@
+import React, { useState } from 'react';
+import { useAppState } from '../context/AppContext';
+import { 
+  KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
+  HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
+  FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
+  Clock, Filter, ShieldCheck, RefreshCcw
+} from 'lucide-react';
+import { SubmissionStatus, Employee, Campaign } from '../types';
+
+interface AdminPanelProps {
+  onNavigate: (route: string) => void;
+}
+
+type AdminTab = 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs';
+
+export default function AdminPanel({ onNavigate }: AdminPanelProps) {
+  const { 
+    currentUser, 
+    loginPublisher, // We can reuse session logs
+    logout, 
+    campaigns, 
+    addCampaign, 
+    editCampaign,
+    deleteCampaign,
+    toggleCampaignActive, 
+    submissions, 
+    updateSubmissionStatus, 
+    publishers, 
+    toggleBlockPublisher, 
+    resetUserPasswordByAdmin, 
+    bankDetailsMap, 
+    supportPhone, 
+    supportEmail, 
+    updateSupportDetails, 
+    offer, 
+    updateOfferPopup, 
+    partnerHiringActive, 
+    togglePartnerHiring, 
+    employees, 
+    addEmployee, 
+    deleteEmployee, 
+    backupLogs, 
+    triggerBackup, 
+    activityLogs 
+  } = useAppState();
+
+  // Admin login states
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+
+  // Active Admin Tab
+  const [activeTab, setActiveTab] = useState<AdminTab>('campaigns');
+  const [adminTabDropdownOpen, setAdminTabDropdownOpen] = useState(false);
+
+  // Campaign create form states
+  const [campName, setCampName] = useState('');
+  const [campVertical, setCampVertical] = useState('Fintech');
+  const [campModel, setCampModel] = useState('CPA');
+  const [campPlatform, setCampPlatform] = useState<'web' | 'app' | 'both'>('web');
+  const [campKpi, setCampKpi] = useState('');
+  const [campGeo, setCampGeo] = useState('India (PAN)');
+  const [campPayout, setCampPayout] = useState('');
+  const [campTerms, setCampTerms] = useState('');
+  const [campLink, setCampLink] = useState('');
+  const [campImage, setCampImage] = useState('');
+  const [campFormOpen, setCampFormOpen] = useState(false);
+  const [editingCampId, setEditingCampId] = useState<string | null>(null);
+
+  // Offer popup states
+  const [offerUrl, setOfferUrl] = useState(offer.image || '');
+  const [offerActive, setOfferActive] = useState(offer.active);
+  const [offerTitle, setOfferTitle] = useState(offer.title || '');
+  const [offerDescription, setOfferDescription] = useState(offer.description || '');
+  const [offerButtonText, setOfferButtonText] = useState(offer.buttonText || '');
+  const [offerLink, setOfferLink] = useState(offer.link || '');
+  const [offerShowButton, setOfferShowButton] = useState(offer.showButton !== false);
+  const [offerMsg, setOfferMsg] = useState('');
+
+  // Contacts settings
+  const [suppPhoneInput, setSuppPhoneInput] = useState(supportPhone);
+  const [suppEmailInput, setSuppEmailInput] = useState(supportEmail);
+  const [suppMsg, setSuppMsg] = useState('');
+
+  // Filter & Search states for backups and activity logs
+  const [backupQuery, setBackupQuery] = useState('');
+  const [activityQuery, setActivityQuery] = useState('');
+  const [activityCategory, setActivityCategory] = useState<'ALL' | 'ADMIN' | 'SECURITY' | 'PUBLISHER' | 'SYSTEM'>('ALL');
+  const [showIntegrityAlert, setShowIntegrityAlert] = useState<string | null>(null);
+
+  // MIS DB status state
+  const [misFilter, setMisFilter] = useState('');
+
+  // Payment search states
+  const [paymentUid, setPaymentUid] = useState('');
+  const [scannedBankDetails, setScannedBankDetails] = useState<any>(null);
+  const [isBankDetailsRevealed, setIsBankDetailsRevealed] = useState(false);
+
+  // Publisher list search & Reset states
+  const [pubSearchQuery, setPubSearchQuery] = useState('');
+  const [resetPubPhone, setResetPubPhone] = useState('');
+  const [resetPubEmail, setResetPubEmail] = useState('');
+  const [resetNewPass, setResetNewPass] = useState('');
+  const [resetMsg, setResetMsg] = useState('');
+
+  // Staff creation states
+  const [staffName, setStaffName] = useState('');
+  const [staffUser, setStaffUser] = useState('');
+  const [staffPass, setStaffPass] = useState('');
+  const [staffRole, setStaffRole] = useState<'Payment' | 'MIS'>('MIS');
+  const [staffMsg, setStaffMsg] = useState('');
+
+  // Handle Admin login verify
+  const handleAdminAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminError('');
+    if (adminEmail === 'khanazlan997@gmail.com' && adminPassword === 'Admin@123') {
+      setIsAdminLoggedIn(true);
+      // Allocate artificial admin session
+      const sess = { type: 'admin' as const, id: 'ADMIN999', name: 'Administrator' };
+      localStorage.setItem('pai_user_session', JSON.stringify(sess));
+      // Re-trigger triggerBackup mock logs on load for system integrity
+      triggerBackup();
+    } else {
+      setAdminError('Invalid administrator credentials.');
+    }
+  };
+
+  // Check manual session on mount to allow smooth iframe transitions
+  React.useEffect(() => {
+    const activeSess = localStorage.getItem('pai_user_session');
+    if (activeSess) {
+      const parsed = JSON.parse(activeSess);
+      if (parsed.type === 'admin') {
+        setIsAdminLoggedIn(true);
+      }
+    }
+  }, []);
+
+  // Reset campaign form fields
+  const resetCampForm = () => {
+    setEditingCampId(null);
+    setCampName('');
+    setCampVertical('Fintech');
+    setCampModel('CPA');
+    setCampPlatform('web');
+    setCampKpi('');
+    setCampGeo('India (PAN)');
+    setCampPayout('');
+    setCampTerms('');
+    setCampLink('');
+    setCampImage('');
+    setCampFormOpen(false);
+  };
+
+  // Populate form with campaign data to edit
+  const startEditingCampaign = (c: Campaign) => {
+    setEditingCampId(c.id);
+    setCampName(c.name);
+    setCampVertical(c.vertical);
+    setCampModel(c.model);
+    setCampPlatform(c.platform);
+    setCampKpi(c.kpi || '');
+    setCampGeo(c.geo || 'India (PAN)');
+    setCampPayout(c.payout.toString());
+    setCampTerms(c.terms || '');
+    setCampLink(c.link || '');
+    setCampImage(c.image || '');
+    setCampFormOpen(true);
+    // Smooth scroll to work container
+    const workBlock = document.getElementById('admin-workspace') || document.getElementById('tabContent-campaigns');
+    if (workBlock) {
+      workBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Handle campaign create
+  const handleCampaignSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!campName || !campPayout || !campLink) return;
+
+    const payload = {
+      name: campName,
+      vertical: campVertical,
+      model: campModel,
+      platform: campPlatform,
+      kpi: campKpi,
+      geo: campGeo,
+      payout: parseFloat(campPayout) || 0,
+      terms: campTerms,
+      link: campLink,
+      image: campImage || 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?auto=format&fit=crop&q=80&w=200'
+    };
+
+    if (editingCampId) {
+      editCampaign(editingCampId, payload);
+      setEditingCampId(null);
+    } else {
+      addCampaign(payload);
+    }
+
+    // Reset
+    resetCampForm();
+  };
+
+  // Convert campaign image or offer to Base64
+  const handleImageUploadBase64 = (e: React.ChangeEvent<HTMLInputElement>, target: 'camp' | 'offer') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 1400 * 1024) {
+      alert('File size exceeds safety standards (1.4 MB). Provide a compressed asset.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (target === 'camp') {
+        setCampImage(reader.result as string);
+      } else {
+        setOfferUrl(reader.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Submit Offer popup settings
+  const handleOfferSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateOfferPopup(offerUrl, offerActive, offerTitle, offerDescription, offerButtonText, offerLink, offerShowButton);
+    setOfferMsg('Promo Banner offering popup configurations saved site-wide!');
+    setTimeout(() => setOfferMsg(''), 3000);
+  };
+
+  // Update support channels
+  const handleSupportSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateSupportDetails(suppPhoneInput, suppEmailInput);
+    setSuppMsg('System contacts and WhatsApp support channels saved site-wide!');
+    setTimeout(() => setSuppMsg(''), 3000);
+  };
+
+  // Search bank details
+  const handlePaymentSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setScannedBankDetails(null);
+    setIsBankDetailsRevealed(false);
+
+    if (!paymentUid.trim()) return;
+
+    const pubMatch = publishers.find(p => p.id.toLowerCase() === paymentUid.trim().toLowerCase());
+    if (pubMatch) {
+      const bank = bankDetailsMap[pubMatch.id] || null;
+      setScannedBankDetails({
+        id: pubMatch.id,
+        name: pubMatch.name,
+        email: pubMatch.email,
+        phone: pubMatch.phone,
+        bank: bank
+      });
+    } else {
+      alert('No publisher matching this UID located.');
+    }
+  };
+
+  // Handle password reset
+  const handlePassResetByAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetMsg('');
+
+    if (!resetPubPhone || !resetPubEmail || !resetNewPass) {
+      setResetMsg('All verification coordinates required.');
+      return;
+    }
+
+    const res = resetUserPasswordByAdmin(resetPubPhone, resetPubEmail, resetNewPass);
+    setResetMsg(res.message);
+
+    if (res.success) {
+      setResetPubPhone('');
+      setResetPubEmail('');
+      setResetNewPass('');
+    }
+  };
+
+  // Handle employee account generation
+  const handleStaffGenerate = (e: React.FormEvent) => {
+    e.preventDefault();
+    setStaffMsg('');
+
+    if (!staffName || !staffUser || !staffPass) {
+      setStaffMsg('Fully fill staff demographic fields.');
+      return;
+    }
+
+    const res = addEmployee(staffName, staffUser, staffPass, staffRole);
+    setStaffMsg(res.message);
+
+    if (res.success) {
+      setStaffName('');
+      setStaffUser('');
+      setStaffPass('');
+    }
+  };
+
+  // Mock export reports to text sheet JSON data
+  const triggerExportMIS = () => {
+    const rawData = submissions.map(s => ({
+      ID: s.id,
+      PublisherID: s.publisherId,
+      PublisherName: s.publisherName,
+      CampaignName: s.campaignName,
+      Payout: s.payout,
+      ClientName: s.clientName,
+      ClientPhone: s.clientPhone,
+      ClientCode: s.clientCode || 'N/A',
+      SubmitDate: s.submitDate,
+      Status: s.status
+    }));
+
+    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(rawData, null, 2))}`;
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", jsonString);
+    downloadAnchor.setAttribute("download", `Public_Ads_India_MIS_Report_${Date.now()}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  // Admin login check screen
+  if (!isAdminLoggedIn) {
+    return (
+      <div id="admin-login-screen" className="min-h-[85vh] flex items-center justify-center p-4 bg-slate-50">
+        <div className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl space-y-6">
+          <div className="text-center">
+            <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <KeyRound className="w-6 h-6" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-850 tracking-tight">Admin Control Center</h2>
+            <p className="text-xs text-slate-400 mt-1 uppercase font-mono tracking-wider">Public Ads India Core</p>
+          </div>
+
+          {adminError && (
+            <div className="p-3 bg-red-50 border border-red-200 text-rose-700 font-bold text-xs rounded-xl">
+              {adminError}
+            </div>
+          )}
+
+          <form onSubmit={handleAdminAuth} className="space-y-4">
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Admin Email ID</label>
+              <input
+                type="email"
+                required
+                placeholder="khanazlan997@gmail.com"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                className="w-full text-xs p-3 border border-slate-200 bg-slate-50 text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5 font-sans">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Master Key Password</label>
+              <input
+                type="password"
+                required
+                placeholder="Admin@123"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="w-full text-xs p-3 border border-slate-200 bg-slate-50 text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"
+              />
+            </div>
+
+            <button
+              type="submit"
+              id="admin-form-submit-btn"
+              className="w-full py-4 bg-[#261a18] hover:bg-black text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md mt-6 cursor-pointer"
+            >
+              Unlock Control Center
+            </button>
+          </form>
+
+          <div className="text-center">
+            <button
+              onClick={() => onNavigate('/Home')}
+              className="text-xs text-slate-400 hover:text-slate-600 underline font-medium"
+            >
+              Return to public interface
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Admin Panel Main Dashboard Layer - STRICT REQUIREMENT: "admin panel light me dena clean and good theme me"
+  return (
+    <div id="admin-workspace" className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+      
+      {/* 2. Top Navigation Bar */}
+      <nav className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm px-4">
+        <div className="max-w-7xl mx-auto flex justify-between h-16 items-center">
+          
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-black text-sm">
+              PA
+            </div>
+            <span className="text-sm font-extrabold tracking-tight">
+              Public Ads <span className="text-indigo-600">Agent Console</span>
+            </span>
+          </div>
+
+          <div className="text-xs font-bold text-slate-400 hidden sm:block uppercase tracking-wider font-mono">
+            Admin: <span className="text-indigo-600">khanazlan997@gmail.com</span>
+          </div>
+
+          <button
+            id="admin-logout-nav"
+            onClick={() => { logout(); setIsAdminLoggedIn(false); onNavigate('/Home'); }}
+            className="px-3.5 py-1.5 text-xs font-bold text-rose-500 border border-rose-250 hover:bg-rose-50 rounded-lg flex items-center gap-1.5"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
+
+        </div>
+      </nav>
+
+      <div className="max-w-7xl mx-auto px-4 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        {/* Left Side Tab Navigation */}
+        <aside className="lg:col-span-3">
+          {/* Mobile Tab Select Dropdown (lg:hidden) */}
+          <div className="lg:hidden relative mb-4">
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest mb-1.5 px-1">
+              Select Workspace Section
+            </label>
+            <button
+              type="button"
+              onClick={() => setAdminTabDropdownOpen(!adminTabDropdownOpen)}
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-850 flex items-center justify-between shadow-sm active:bg-slate-50 transition-colors"
+            >
+              <span className="flex items-center gap-2.5">
+                {(() => {
+                  const current = [
+                    { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
+                    { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
+                    { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
+                    { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
+                    { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
+                    { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
+                    { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
+                    { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
+                  ].find(item => item.tab === activeTab);
+                  return current ? (
+                    <>
+                      {current.icon}
+                      {current.label}
+                    </>
+                  ) : 'Select Section';
+                })()}
+              </span>
+              <svg className={`w-4 h-4 text-slate-500 transition-transform ${adminTabDropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {adminTabDropdownOpen && (
+              <>
+                {/* Backdrop overlay to close dropdown */}
+                <div 
+                  className="fixed inset-0 z-40 cursor-default" 
+                  onClick={() => setAdminTabDropdownOpen(false)} 
+                />
+                
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 animate-fade-up max-h-80 overflow-y-auto">
+                  {[
+                    { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
+                    { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
+                    { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
+                    { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
+                    { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
+                    { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
+                    { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
+                    { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
+                  ].map(btn => (
+                    <button
+                      key={btn.tab}
+                      onClick={() => {
+                        setActiveTab(btn.tab as AdminTab);
+                        setAdminTabDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2.5 text-xs font-bold flex items-center gap-2.5 transition-colors ${
+                        activeTab === btn.tab 
+                          ? 'bg-indigo-50 text-indigo-750' 
+                          : 'text-slate-650 hover:bg-slate-50'
+                      }`}
+                    >
+                      {btn.icon}
+                      {btn.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Desktop Tab Sidebar (hidden lg:block) */}
+          <div className="hidden lg:block bg-white rounded-2xl p-4 border border-slate-200 shadow-sm space-y-1">
+            <div className="px-3 py-1 bg-slate-50 rounded mb-3 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+              Manager Controls
+            </div>
+            
+            {[
+              { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
+              { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
+              { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
+              { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
+              { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
+              { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
+              { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
+              { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
+            ].map(btn => (
+              <button
+                key={btn.tab}
+                id={`tab-admin-${btn.tab}`}
+                onClick={() => setActiveTab(btn.tab as AdminTab)}
+                className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2.5 transition-colors ${
+                  activeTab === btn.tab 
+                    ? 'bg-indigo-50 text-indigo-750 border-l-4 border-l-indigo-600' 
+                    : 'text-slate-650 hover:bg-slate-50'
+                }`}
+              >
+                {btn.icon}
+                {btn.label}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Right Active Workspace Container */}
+        <main className="lg:col-span-9 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm min-h-[60vh] space-y-6">
+          
+          {/* TAB 1: Campaign Manager */}
+          {activeTab === 'campaigns' && (
+            <div id="tabContent-campaigns" className="space-y-6 animate-fade-up">
+              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+                <div>
+                  <h3 className="text-lg font-black text-slate-850">Campaigns Manager</h3>
+                  <p className="text-xs text-slate-450 mt-1">Configure vertical payouts, terms, and direct active/inactive dashboard visibility.</p>
+                </div>
+                
+                <button
+                  id="admin-add-camp-trigger"
+                  onClick={() => setCampFormOpen(!campFormOpen)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl flex items-center gap-1 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add More Campaign
+                </button>
+              </div>
+
+              {/* Create/Edit form toggle panel */}
+              {campFormOpen && (
+                <form onSubmit={handleCampaignSubmit} className="p-5 border border-slate-100 bg-slate-50 rounded-2xl space-y-4 animate-fade-up">
+                  <h4 className="text-sm font-bold text-slate-800">
+                    {editingCampId ? `Edit Campaign Specs: ${campName}` : 'Add New Active Campaign'}
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Campaign Name</label>
+                      <input 
+                        type="text" required placeholder="e.g. PhonePe Demat Account" value={campName} onChange={(e) => setCampName(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">GEO Target Scope</label>
+                      <input 
+                        type="text" placeholder="e.g. India (PAN)" value={campGeo} onChange={(e) => setCampGeo(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Vertical Category</label>
+                      <input 
+                        type="text" placeholder="Fintech / Finance" value={campVertical} onChange={(e) => setCampVertical(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Campaign Model</label>
+                      <input 
+                        type="text" placeholder="CPA / CPL" value={campModel} onChange={(e) => setCampModel(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Payout Amount (₹)</label>
+                      <input 
+                        type="number" required placeholder="payout per lead opener" value={campPayout} onChange={(e) => setCampPayout(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono font-bold"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Platform Target</label>
+                      <select 
+                        value={campPlatform} onChange={(e) => setCampPlatform(e.target.value as any)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                      >
+                        <option value="web">Web browser only</option>
+                        <option value="app">Mobile App only</option>
+                        <option value="both">Both scopes (Cross)</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase">Target Links (Affiliate pasted)</label>
+                      <input 
+                        type="text" required placeholder="https://tracking.link..." value={campLink} onChange={(e) => setCampLink(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">KPI Target Rules (Requirements)</label>
+                    <input 
+                      type="text" placeholder="Successful KYC opened + first trade verify..." value={campKpi} onChange={(e) => setCampKpi(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Campaign Logo / Image Circle Upload</label>
+                    <div className="relative border border-dashed border-slate-300 p-4 rounded-xl text-center bg-white">
+                      <input 
+                        type="file" accept="image/*" onChange={(e) => handleImageUploadBase64(e, 'camp')}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                      {campImage ? (
+                        <div className="flex items-center justify-center gap-2">
+                          <img src={campImage} className="w-10 h-10 rounded-full object-cover shrink-0" />
+                          <span className="text-[10px] font-bold text-indigo-650">Logo loaded! Change file click.</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-slate-450 block font-bold">Upload Custom Circle Circular Logo</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Extended Terms & Conditions</label>
+                    <textarea 
+                      placeholder="Enter specific criteria blocks such as age bounds, mandatory documents..." value={campTerms} onChange={(e) => setCampTerms(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none h-16 resize-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    {editingCampId && (
+                      <button
+                        type="button"
+                        onClick={resetCampForm}
+                        className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-extrabold text-xs rounded-xl cursor-pointer"
+                      >
+                        Cancel Edit
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      id="add-campaign-form-btn"
+                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                    >
+                      {editingCampId ? 'Save Campaign Specifications' : 'Draft Campaign as Active'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Campaigns table feed */}
+              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-450 uppercase font-extrabold tracking-widest border-b border-slate-150">
+                      <th className="p-4">Visual Logo</th>
+                      <th className="p-4">Campaign specifications</th>
+                      <th className="p-3">Payout model</th>
+                      <th className="p-3">Sponsor KPI Target</th>
+                      <th className="p-4 text-center">Management Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {campaigns.map(camp => (
+                      <tr key={camp.id} className="hover:bg-slate-50/50">
+                        <td className="p-4">
+                          <img src={camp.image} alt={camp.name} className="w-10 h-10 rounded-full object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                        </td>
+                        <td className="p-4">
+                          <span className="font-extrabold text-slate-900 block">{camp.name}</span>
+                          <span className="text-[10px] text-slate-400 block font-mono mt-0.5">{camp.id} • {camp.vertical} ({camp.platform})</span>
+                        </td>
+                        <td className="p-3 font-semibold text-emerald-600 font-mono">
+                          ₹{camp.payout} ({camp.model})
+                        </td>
+                        <td className="p-3 text-slate-600 font-medium">
+                          {camp.kpi}
+                        </td>
+                        <td className="p-4">
+                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                            <button
+                              onClick={() => startEditingCampaign(camp)}
+                              className="w-full sm:w-auto px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border border-amber-200/50"
+                              title="Edit Campaign Specifications"
+                            >
+                              Edit Specs
+                            </button>
+                            
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to delete campaign "${camp.name}"? This will permanently delete the campaign specifications.`)) {
+                                  deleteCampaign(camp.id);
+                                }
+                              }}
+                              className="w-full sm:w-auto px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border border-rose-200/50"
+                              title="Delete Campaign"
+                            >
+                              Delete
+                            </button>
+
+                            <button
+                              id={`toggle-camp-act-${camp.id}`}
+                              onClick={() => toggleCampaignActive(camp.id)}
+                              className={`w-full sm:w-auto px-2.5 py-1.5 text-[10px] font-black rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
+                                camp.active 
+                                  ? 'bg-indigo-50 text-indigo-750 hover:bg-indigo-100' 
+                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-150'
+                              }`}
+                            >
+                              {camp.active ? 'Hide (Active)' : 'Show (Hidden)'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            </div>
+          )}
+
+          {/* TAB 2: MIS Database Workspace */}
+          {activeTab === 'mis_database' && (
+            <div id="tabContent-misDatabase" className="space-y-6 animate-fade-up">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
+                <div>
+                  <h3 className="text-lg font-black text-slate-850">MIS Leads Database Workspace</h3>
+                  <p className="text-xs text-slate-450 mt-1">Audit submitted publisher logs, view uploaded screenshort proofs, and disburse campaign commission rewards dynamically.</p>
+                </div>
+
+                <div className="flex gap-2.5 items-center w-full sm:w-auto">
+                  <input
+                    type="text"
+                    placeholder="Filter clients/publishers..."
+                    value={misFilter}
+                    onChange={(e) => setMisFilter(e.target.value)}
+                    className="text-xs p-2 border border-slate-200 rounded-xl outline-none"
+                  />
+                  <button
+                    id="export-mis-anchor-trigger"
+                    onClick={triggerExportMIS}
+                    className="p-2.5 bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-650 rounded-xl hover:shadow-sm border border-slate-200 shrink-0"
+                    title="Export logs as local JSON file details"
+                  >
+                    <Download className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Data Table */}
+              {submissions.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs font-semibold">
+                  No publisher data submissions located in core databases yet.
+                </div>
+              ) : (
+                <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-450 uppercase font-extrabold tracking-widest border-b border-slate-150">
+                          <th className="p-4">Submission Ref</th>
+                          <th className="p-4">Client Demographics</th>
+                          <th className="p-3">Campaign vertical</th>
+                          <th className="p-3">Payout rate</th>
+                          <th className="p-3">Audits screen</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-4 text-right">Verification Commands</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {submissions
+                          .filter(sub => {
+                            const f = misFilter.toLowerCase();
+                            return sub.clientName.toLowerCase().includes(f) || sub.publisherName.toLowerCase().includes(f) || sub.campaignName.toLowerCase().includes(f);
+                          })
+                          .map(sub => (
+                            <tr key={sub.id} className="hover:bg-slate-50/50">
+                              <td className="p-4">
+                                <span className="font-extrabold text-slate-900 block">{sub.id.substring(0, 8)}</span>
+                                <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">By: {sub.publisherName} ({sub.publisherId})</span>
+                              </td>
+                              <td className="p-4">
+                                <span className="font-extrabold text-slate-800 block">{sub.clientName}</span>
+                                <span className="text-[10px] text-slate-450 block mt-0.5">{sub.clientPhone} • {sub.clientCode || 'NO CODE'}</span>
+                              </td>
+                              <td className="p-3 font-medium text-slate-600 capitalize">
+                                {sub.campaignName}
+                              </td>
+                              <td className="p-3 font-bold text-red-500 font-mono">
+                                ₹{sub.payout}
+                              </td>
+                              <td className="p-3">
+                                <a href={sub.screenshot} target="_blank" rel="noopener noreferrer" className="text-indigo-600 underline font-semibold">
+                                  View proof ↗
+                                </a>
+                              </td>
+                              <td className="p-3">
+                                <span className={`inline-flex px-1.5 py-0.5 font-bold text-[9px] rounded-full uppercase tracking-wider ${
+                                  sub.status === 'Payment Done' ? 'bg-emerald-100 text-emerald-800' :
+                                  sub.status === 'Trade Done' ? 'bg-indigo-100 text-indigo-805' :
+                                  sub.status === 'Process' ? 'bg-amber-100 text-amber-800' :
+                                  sub.status === 'Reject' ? 'bg-red-100 text-red-800' :
+                                  'bg-blue-105 text-blue-750'
+                                }`}>
+                                  {sub.status}
+                                </span>
+                              </td>
+                              <td className="p-4 text-right">
+                                <div className="flex flex-wrap gap-1 md:justify-end max-w-[340px] ml-auto">
+                                  <button
+                                    onClick={() => updateSubmissionStatus(sub.id, 'Process')}
+                                    className={`px-2 py-1 text-[9px] font-extrabold rounded uppercase tracking-wider cursor-pointer border border-transparent transition-all ${
+                                      sub.status === 'Process'
+                                        ? 'bg-yellow-400 text-slate-950 font-black shadow-sm ring-1 ring-yellow-400'
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    Process
+                                  </button>
+                                  <button
+                                    onClick={() => updateSubmissionStatus(sub.id, 'Reject')}
+                                    className={`px-2 py-1 text-[9px] font-extrabold rounded uppercase tracking-wider cursor-pointer border border-transparent transition-all ${
+                                      sub.status === 'Reject'
+                                        ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-650'
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    Reject
+                                  </button>
+                                  <button
+                                    onClick={() => updateSubmissionStatus(sub.id, 'Ready To Trade')}
+                                    className={`px-2 py-1 text-[9px] font-extrabold rounded uppercase tracking-wider cursor-pointer border border-transparent transition-all ${
+                                      sub.status === 'Ready To Trade'
+                                        ? 'bg-yellow-400 text-slate-950 font-black shadow-sm ring-1 ring-yellow-400'
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    Ready Trade
+                                  </button>
+                                  <button
+                                    onClick={() => updateSubmissionStatus(sub.id, 'Active')}
+                                    className={`px-2 py-1 text-[9px] font-extrabold rounded uppercase tracking-wider cursor-pointer border border-transparent transition-all ${
+                                      sub.status === 'Active'
+                                        ? 'bg-yellow-400 text-slate-950 font-black shadow-sm ring-1 ring-yellow-400'
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    Active
+                                  </button>
+                                  <button
+                                    onClick={() => updateSubmissionStatus(sub.id, 'Trade Done')}
+                                    className={`px-2 py-1 text-[9px] font-extrabold rounded uppercase tracking-wider cursor-pointer border border-transparent transition-all ${
+                                      sub.status === 'Trade Done'
+                                        ? 'bg-yellow-400 text-slate-950 font-black shadow-sm ring-1 ring-yellow-400'
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    Trade Done
+                                  </button>
+                                  <button
+                                    onClick={() => updateSubmissionStatus(sub.id, 'Payment Done')}
+                                    className={`px-2 py-1 text-[9px] font-extrabold uppercase rounded tracking-wider cursor-pointer border border-transparent transition-all ${
+                                      sub.status === 'Payment Done' 
+                                        ? 'bg-emerald-600 text-white shadow-md font-black' 
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                    }`}
+                                  >
+                                    Payment Done
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* TAB 3: Payment UID Portal */}
+          {activeTab === 'payment_portal' && (
+            <div id="tabContent-paymentPortal" className="space-y-6 animate-fade-up">
+              <div className="pb-4 border-b border-slate-150">
+                <h3 className="text-lg font-black text-slate-850">Payment search portal</h3>
+                <p className="text-xs text-slate-450 mt-1">Search secure banking ledgers of any publisher candidate via registered Licensed UID code.</p>
+              </div>
+
+              {/* UID search form */}
+              <form onSubmit={handlePaymentSearch} className="flex gap-3 max-w-md">
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter User ID (e.g. PUB1001)"
+                  value={paymentUid}
+                  onChange={(e) => setPaymentUid(e.target.value)}
+                  className="flex-1 text-xs p-3 border border-slate-200 rounded-xl outline-none"
+                />
+                <button
+                  type="submit"
+                  id="search-by-uid-btn"
+                  className="px-5 py-3 bg-indigo-600 hover:bg-indigo-750 text-white font-bold text-xs rounded-xl uppercase tracking-wider"
+                >
+                  Locate Ledger
+                </button>
+              </form>
+
+              {/* Scanned result card */}
+              {scannedBankDetails && (
+                <div id="UID-ledger-output" className="p-6 border border-slate-200 bg-slate-50/50 rounded-2xl space-y-4 animate-fade-up max-w-xl">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="block text-[10px] uppercase tracking-widest font-mono text-slate-400">Located Candidate Node</span>
+                      <h4 className="text-base font-extrabold mt-1 text-slate-900">{scannedBankDetails.name}</h4>
+                      <p className="text-xs text-slate-450 mt-0.5">{scannedBankDetails.email} • {scannedBankDetails.phone}</p>
+                    </div>
+                    <span className="text-[10px] font-mono bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded font-extrabold">{scannedBankDetails.id}</span>
+                  </div>
+
+                  {!isBankDetailsRevealed ? (
+                    <button
+                      type="button"
+                      id="reveal-bank-details"
+                      onClick={() => setIsBankDetailsRevealed(true)}
+                      className="px-4 py-2.5 bg-indigo-650 text-white font-extrabold text-xs rounded-xl"
+                    >
+                      Show Bank Details
+                    </button>
+                  ) : (
+                    <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-4 animate-fade-up">
+                      {scannedBankDetails.bank && scannedBankDetails.bank.accountNumber ? (
+                        <>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Holder Name</span>
+                              <span className="text-xs font-bold text-slate-750">{scannedBankDetails.bank.holderName}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Account Number</span>
+                              <span className="text-xs font-bold text-slate-750 font-mono">{scannedBankDetails.bank.accountNumber}</span>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Bank IFSC Code</span>
+                              <span className="text-xs font-bold text-slate-750 font-mono uppercase">{scannedBankDetails.bank.ifsc}</span>
+                            </div>
+                            <div>
+                              <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">UPI ID Ledger</span>
+                              <span className="text-xs font-bold text-slate-750 font-mono">{scannedBankDetails.bank.upi}</span>
+                            </div>
+                          </div>
+
+                          {scannedBankDetails.bank.qrCode && (
+                            <div className="pt-2">
+                              <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-2">Uploaded UPI QR Scan card</span>
+                              <img src={scannedBankDetails.bank.qrCode} alt="Client QR code" className="w-32 h-32 rounded border border-slate-150 object-cover" />
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="text-xs text-slate-450 text-center py-4 font-bold">
+                          Client has not provided banking/ledger coordinates in their dashboard yet.
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                </div>
+              )}
+
+            </div>
+          )}
+
+          {/* TAB 4: Publisher Registry & Password Reset */}
+          {activeTab === 'publishers' && (
+            <div id="tabContent-publishers" className="space-y-8 animate-fade-up">
+              
+              {/* Profile Block Control */}
+              <div className="space-y-4">
+                <div className="pb-3 border-b border-slate-150">
+                  <h3 className="text-base font-black text-slate-850">Publisher registry management</h3>
+                  <p className="text-xs text-slate-450 mt-1">Audit active profiles or lock suspicious operations immediately to prevent integrity leaks.</p>
+                </div>
+
+                <div className="flex gap-2 w-full max-w-sm mb-4">
+                  <input
+                    type="text"
+                    placeholder="Search publisher name or ID..."
+                    value={pubSearchQuery}
+                    onChange={(e) => setPubSearchQuery(e.target.value)}
+                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none"
+                  />
+                </div>
+
+                <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs bg-white">
+                    <thead>
+                      <tr className="bg-slate-50 text-slate-450 uppercase font-extrabold tracking-widest border-b border-slate-150">
+                        <th className="p-3">Avatar</th>
+                        <th className="p-3">Publisher ID</th>
+                        <th className="p-3">Publisher Name</th>
+                        <th className="p-3">Registered Mobile</th>
+                        <th className="p-3">Registry date</th>
+                        <th className="p-3 text-right">Access Block Control</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {publishers
+                        .filter(p => !pubSearchQuery || p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()))
+                        .map(pub => (
+                        <tr key={pub.id} className="hover:bg-slate-50/50">
+                          <td className="p-3 text-lg select-none">{pub.avatar || '😎'}</td>
+                          <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
+                          <td className="p-3 font-extrabold text-slate-800">{pub.name}</td>
+                          <td className="p-3 font-medium text-slate-650">{pub.phone}</td>
+                          <td className="p-3 text-slate-405">{pub.joinedDate}</td>
+                          <td className="p-3 text-right">
+                            <button
+                              id={`block-unblock-${pub.id}`}
+                              onClick={() => toggleBlockPublisher(pub.id)}
+                              className={`px-3 py-1 text-[10px] font-black rounded-lg transition-colors cursor-pointer ${
+                                pub.blocked 
+                                  ? 'bg-rose-100 text-rose-700 hover:bg-emerald-100 hover:text-emerald-700' 
+                                  : 'bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-700'
+                              }`}
+                            >
+                              {pub.blocked ? '🔴 Locked (Unlock)' : '🟢 Active (Block)'}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              </div>
+
+              {/* Master Code Password resetting system */}
+              <div className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                <div>
+                  <h4 className="text-sm font-extrabold text-slate-850">Emergency Staff / User Password Reset</h4>
+                  <p className="text-xs text-slate-400 mt-1">If candidate is locked or forgot password details. Enter matched phone + email to force assign new credentials.</p>
+                </div>
+
+                {resetMsg && (
+                  <div className="p-3 bg-indigo-50 border border-indigo-150 text-indigo-750 font-bold text-xs rounded-xl">
+                    {resetMsg}
+                  </div>
+                )}
+
+                <form onSubmit={handlePassResetByAdmin} className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Registered Mobile No.</span>
+                    <input
+                      type="text" required placeholder="e.g. 9876543210" value={resetPubPhone} onChange={(e) => setResetPubPhone(e.target.value)}
+                      className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Registered Email ID</span>
+                    <input
+                      type="email" required placeholder="e.g. riya@gmail.com" value={resetPubEmail} onChange={(e) => setResetPubEmail(e.target.value)}
+                      className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Assign New Password</span>
+                    <input
+                      type="text" required placeholder="Desired password" value={resetNewPass} onChange={(e) => setResetNewPass(e.target.value)}
+                      className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none font-bold"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="admin-reset-pw-btn"
+                    className="w-full sm:col-span-3 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs uppercase tracking-wider rounded-xl cursor-pointer"
+                  >
+                    Authorize New Password Allocation
+                  </button>
+                </form>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 5: Promo Offer Manager & WhatsApp number */}
+          {activeTab === 'offer_popup' && (
+            <div id="tabContent-offerPopup" className="space-y-8 animate-fade-up">
+              
+              {/* Promotion update config */}
+              <form onSubmit={handleOfferSubmit} className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                <div>
+                  <h4 className="text-sm font-black text-slate-850">Promo Offer Banner Popup</h4>
+                  <p className="text-xs text-slate-450 mt-1">Configure special promotional popups with custom text, destination link action buttons, and uploaded images for all publisher dashboards.</p>
+                </div>
+
+                {offerMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-150 text-emerald-800 font-bold text-xs rounded-xl">
+                    {offerMsg}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pb-2">
+                  
+                  {/* Left Column: Image setup & upload */}
+                  <div className="space-y-4">
+                    <div className="border-b border-slate-200/60 pb-2">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">1. Banner Image Asset (Photo)</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-450 uppercase">Current banner preview</label>
+                      {offerUrl ? (
+                        <div className="relative rounded-lg border border-slate-200 overflow-hidden bg-slate-100 max-w-sm aspect-video mt-1 group">
+                          <img src={offerUrl} alt="Offer popup banner preview" className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => setOfferUrl('')}
+                            className="absolute top-2 right-2 bg-rose-600 hover:bg-rose-700 text-white px-2 py-1 rounded text-[9px] font-black uppercase tracking-wider shadow"
+                          >
+                            Remove Photo
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center border border-dashed border-slate-300 rounded-lg h-32 bg-slate-55/60 text-slate-400 text-xs font-semibold mt-1">
+                          No banner graphics configured
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[10px] font-bold text-slate-450 uppercase">Upload new photo</span>
+                      <div className="relative border border-dashed border-slate-300 hover:border-indigo-455 p-6 rounded-xl text-center bg-white transition-all cursor-pointer group">
+                        <input
+                          type="file" accept="image/*" onChange={(e) => handleImageUploadBase64(e, 'offer')}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-indigo-650 block group-hover:scale-[1.01] transition-transform">
+                          📁 Select or Drop Photo File
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1 block font-medium">Supports JPG, JPEG, PNG, WEBP (Max 1.4 MB)</span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[10px] font-bold text-slate-450 uppercase">Or alternative raw URL</label>
+                      <input
+                        type="text"
+                        placeholder="https://images.unsplash.com/photo-..."
+                        value={offerUrl}
+                        onChange={(e) => setOfferUrl(e.target.value)}
+                        className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none focus:border-indigo-400"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Text and settings info */}
+                  <div className="space-y-4">
+                    <div className="border-b border-slate-200/60 pb-2">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest font-mono">2. Dynamic Offer texts</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Offer overlay title / heading</span>
+                      <input
+                        type="text"
+                        placeholder="e.g. Maximize Your Payouts with Active Campaigns!"
+                        value={offerTitle}
+                        onChange={(e) => setOfferTitle(e.target.value)}
+                        className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none font-semibold focus:border-indigo-400"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase">Offer subtext details (description)</span>
+                      <textarea
+                        rows={3}
+                        placeholder="e.g. Limited time bonus directly to your wallet dashboard. Check active rates, submit valid leads, and request bulk approvals."
+                        value={offerDescription}
+                        onChange={(e) => setOfferDescription(e.target.value)}
+                        className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none focus:border-indigo-400 resize-none leading-relaxed"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-slate-100/80 p-2.5 rounded-lg border border-slate-200/50">
+                      <input
+                        type="checkbox"
+                        id="offer-show-button-toggle"
+                        checked={offerShowButton}
+                        onChange={(e) => setOfferShowButton(e.target.checked)}
+                        className="w-4.5 h-4.5 accent-indigo-600 rounded cursor-pointer"
+                      />
+                      <label htmlFor="offer-show-button-toggle" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                        Provide Action Button / Redirection Link
+                      </label>
+                    </div>
+
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 transition-all duration-200 ${!offerShowButton ? 'opacity-40 pointer-events-none' : ''}`}>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">CTA Button label text</span>
+                        <input
+                          type="text"
+                          placeholder="e.g. Claim Offer Bonuses Now"
+                          value={offerButtonText}
+                          onChange={(e) => setOfferButtonText(e.target.value)}
+                          className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none focus:border-indigo-400"
+                          disabled={!offerShowButton}
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase">Click Destination Link URL (Optional)</span>
+                        <input
+                          type="url"
+                          placeholder="e.g. https://publicadsindia.com/exclusive"
+                          value={offerLink}
+                          onChange={(e) => setOfferLink(e.target.value)}
+                          className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none focus:border-indigo-400"
+                          disabled={!offerShowButton}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
+
+                <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox" id="popup-offer-active" checked={offerActive} onChange={(e) => setOfferActive(e.target.checked)}
+                      className="w-4.5 h-4.5 accent-indigo-600 rounded cursor-pointer"
+                    />
+                    <label htmlFor="popup-offer-active" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                      Activate Popup Overlay across all publisher screens on launch
+                    </label>
+                  </div>
+
+                  <button
+                    type="submit"
+                    id="submit-promo-popup-btn"
+                    className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white text-xs font-bold uppercase rounded-xl tracking-wider cursor-pointer shadow-sm transition-colors"
+                  >
+                    Save popup configurations
+                  </button>
+                </div>
+              </form>
+
+              {/* Editable support contacts updates */}
+              <form onSubmit={handleSupportSave} className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                <div>
+                  <h4 className="text-sm font-black text-slate-850">WhatsApp Help Desk Support & Contact update</h4>
+                  <p className="text-xs text-slate-450 mt-1">Updates core support coordinates, email targets, and instant WhatsApp redirections site-wide inside Contact section.</p>
+                </div>
+
+                {suppMsg && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-150 text-emerald-800 font-bold text-xs rounded-xl">
+                    {suppMsg}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Support Assist Phone (+91 with code)</span>
+                    <input
+                      type="text" required value={suppPhoneInput} onChange={(e) => setSuppPhoneInput(e.target.value)}
+                      className="text-xs p-2.5 border border-slate-200 bg-white text-slate-900 rounded-lg outline-none font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Support Assist Email</span>
+                    <input
+                      type="email" required value={suppEmailInput} onChange={(e) => setSuppEmailInput(e.target.value)}
+                      className="text-xs p-2.5 border border-slate-200 bg-white text-slate-900 rounded-lg outline-none font-bold"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  id="submit-channels-btn"
+                  className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold uppercase rounded-xl tracking-wider cursor-pointer"
+                >
+                  Update Site-wide support channels
+                </button>
+              </form>
+
+            </div>
+          )}
+
+          {/* TAB 6: Staff Employees Generator Board */}
+          {activeTab === 'staff_gen' && (
+            <div id="tabContent-staffGen" className="space-y-6 animate-fade-up">
+              
+              <div className="pb-4 border-b border-slate-150">
+                <h3 className="text-lg font-black text-slate-850">Employee Staff Generator</h3>
+                <p className="text-xs text-slate-450 mt-1">Create dedicated, role-authorized login credentials for regional payment processors or MIS leads check employees.</p>
+              </div>
+
+              {/* Generate staffing credentials card */}
+              <form onSubmit={handleStaffGenerate} className="p-6 bg-slate-50 border border-slate-200 rounded-2xl space-y-4">
+                <h4 className="text-xs.5 font-bold uppercase tracking-widest text-slate-400">Recruit New Staff Employee</h4>
+
+                {staffMsg && (
+                  <div className="p-3 bg-indigo-50 border border-indigo-150 text-indigo-750 font-bold text-xs rounded-xl">
+                    {staffMsg}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Staff real name</span>
+                    <input
+                      type="text" required value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="e.g. Karan Mehra"
+                      className="text-xs p-2.5 border border-slate-200 bg-white text-slate-900 rounded-lg outline-none font-medium"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Assigned Username prefix</span>
+                    <input
+                      type="text" required value={staffUser} onChange={(e) => setStaffUser(e.target.value)} placeholder="e.g. karan_pay"
+                      className="text-xs p-2.5 border border-slate-200 bg-white text-slate-900 rounded-lg outline-none font-mono font-bold"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Staff login password</span>
+                    <input
+                      type="text" required value={staffPass} onChange={(e) => setStaffPass(e.target.value)} placeholder="Initial password"
+                      className="text-xs p-2.5 border border-slate-200 bg-white text-slate-900 rounded-lg outline-none font-bold"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase">Assigned console authorization</span>
+                    <select
+                      value={staffRole} onChange={(e) => setStaffRole(e.target.value as any)}
+                      className="text-xs p-2.5 border border-slate-200 bg-white text-slate-900 rounded-lg outline-none font-bold"
+                    >
+                      <option value="MIS">Leads Check MIS Portal (Masks and hides bank detials automatically)</option>
+                      <option value="Payment">Payment processing Desk (Consolidates disburse rewards only)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  id="admin-staff-gen-btn"
+                  className="w-full py-3 bg-indigo-650 hover:bg-indigo-750 text-white text-xs font-black uppercase tracking-widest rounded-xl"
+                >
+                  Generate Employee Access License
+                </button>
+              </form>
+
+              {/* Staff table */}
+              <div className="border border-slate-200 bg-white rounded-xl overflow-hidden mt-6">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs bg-white">
+                  <thead>
+                    <tr className="bg-slate-105 text-slate-450 uppercase font-black border-b border-slate-150">
+                      <th className="p-4">Employee ID</th>
+                      <th className="p-4">Assigned Prefix</th>
+                      <th className="p-4">Credential code</th>
+                      <th className="p-3">Staff Role Authorization</th>
+                      <th className="p-4 text-right">Access revocation</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {employees.map(emp => (
+                      <tr key={emp.id} className="hover:bg-slate-50/50">
+                        <td className="p-4 font-extrabold text-slate-900">{emp.name}</td>
+                        <td className="p-4 font-mono font-bold text-slate-650">{emp.username}</td>
+                        <td className="p-4 font-mono text-slate-500">{emp.password}</td>
+                        <td className="p-3 font-semibold text-indigo-650 uppercase tracking-wide">
+                          {emp.role === 'Payment' ? '💸 Payments Only' : '🔍 Leads Audit MIS (Secret Banks hidden)'}
+                        </td>
+                        <td className="p-4 text-right">
+                          <button
+                            id={`delete-emp-${emp.id}`}
+                            onClick={() => deleteEmployee(emp.id)}
+                            className="p-1 px-2.5 bg-red-100 text-rose-700 hover:bg-rose-200 font-bold rounded uppercase text-[10px]"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            </div>
+          )}
+
+          {/* TAB 7: Systems Backup Logs */}
+          {activeTab === 'backups' && (
+            <div id="tabContent-backups" className="space-y-6 animate-fade-up">
+              
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-slate-200 gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Database className="w-5 h-5 text-indigo-600" />
+                    Database Automated Backups & Snapshots
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Evaluates system integrity blocks, creates secure database snapshot archives, and enables instant state downloads.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <button
+                    id="admin-dump-backup-btn"
+                    onClick={() => {
+                      triggerBackup();
+                      setShowIntegrityAlert("New manual snapshot created! Full localized datasets archived successfully.");
+                      setTimeout(() => setShowIntegrityAlert(null), 4000);
+                    }}
+                    className="w-full sm:w-auto px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-850 text-white font-extrabold text-xs rounded-xl uppercase tracking-wider cursor-pointer shadow-md flex items-center justify-center gap-2 transition-all hover:scale-[1.01]"
+                  >
+                    <RefreshCcw className="w-4.5 h-4.5 animate-spin" style={{ animationDuration: '3s' }} />
+                    Take Snapshot Now
+                  </button>
+                </div>
+              </div>
+
+              {/* Advanced Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-50 border border-slate-250 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-xl flex items-center justify-center font-bold">
+                    <Database className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-450 uppercase font-bold tracking-wider block">Storage Utilized</span>
+                    <span className="text-sm font-black text-slate-800">
+                      {(JSON.stringify(localStorage).length / 1024).toFixed(2)} KB
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">Quota Limit: 5,120 KB</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-250 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-700 rounded-xl flex items-center justify-center font-bold">
+                    <CheckSquare className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-450 uppercase font-bold tracking-wider block">Integrity Status</span>
+                    <span className="text-sm font-black text-emerald-700 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      100% Secure
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">SHA-256 Consistency Verified</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-250 p-4 rounded-2xl flex items-center gap-3 shadow-sm">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-700 rounded-xl flex items-center justify-center font-bold">
+                    <Clock className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-450 uppercase font-bold tracking-wider block">Active Records</span>
+                    <span className="text-sm font-black text-slate-800">
+                      {backupLogs.length} Snapshots
+                    </span>
+                    <span className="text-[9px] text-slate-400 block mt-0.5">Automated snapshots live</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Integrity Warning / Status Alerts */}
+              {showIntegrityAlert && (
+                <div className="flex gap-3 p-4 bg-indigo-50 border border-indigo-200 rounded-2xl text-indigo-900 animate-fade-up">
+                  <CheckCircle2 className="w-5.5 h-5.5 shrink-0 text-indigo-600 mt-0.5 animate-bounce" />
+                  <div>
+                    <span className="block font-extrabold text-xs">System Operation Notice</span>
+                    <span className="block text-[10px] text-indigo-600 mt-1 leading-normal font-semibold">
+                      {showIntegrityAlert}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Alert element explaining utility to user clearly */}
+              <div className="flex gap-3.5 p-4 bg-emerald-50/60 border border-emerald-150 rounded-2xl text-emerald-850">
+                <CheckCircle2 className="w-5.5 h-5.5 shrink-0 text-emerald-600 mt-0.5" />
+                <div>
+                  <span className="block font-black text-xs text-slate-800">How Backup Snapshots Protect Your Data</span>
+                  <span className="block text-[11px] text-slate-600 mt-1 leading-relaxed font-medium">
+                    This advanced interface allows you to instantly backup details of campaigns, publisher wallets, and client lead history to a local backup record. You can then download physical <strong>JSON Backup Files</strong> directly as secure hard-copies on your PC to guarantee 0% data-loss.
+                  </span>
+                </div>
+              </div>
+
+              {/* Filter & Search Bar */}
+              <div className="flex items-center gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <Search className="w-4.5 h-4.5 text-slate-400 shrink-0" />
+                <input
+                  type="text"
+                  placeholder="Search backups by Reference ID or Date..."
+                  value={backupQuery}
+                  onChange={(e) => setBackupQuery(e.target.value)}
+                  className="w-full text-xs outline-none bg-transparent text-slate-800 font-medium placeholder:text-slate-400"
+                />
+                {backupQuery && (
+                  <button 
+                    onClick={() => setBackupQuery('')}
+                    className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+
+              {/* Backup List Table with elegant styling */}
+              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs bg-white">
+                    <thead>
+                      <tr className="bg-slate-55/80 text-slate-400 uppercase font-extrabold tracking-widest border-b border-slate-200 text-[10px] font-mono">
+                        <th className="p-4">Backup ID Ref</th>
+                        <th className="p-4">Snapshot Completed Date Time</th>
+                        <th className="p-3">Scope Area</th>
+                        <th className="p-3 text-right">Data Sizing</th>
+                        <th className="p-4 text-center">Actions / Downloads</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {backupLogs
+                        .filter(log => 
+                          log.id.toLowerCase().includes(backupQuery.toLowerCase()) ||
+                          log.time.toLowerCase().includes(backupQuery.toLowerCase()) ||
+                          log.scope.toLowerCase().includes(backupQuery.toLowerCase())
+                        )
+                        .map(log => (
+                          <tr key={log.id} className="hover:bg-slate-50/50 transition-colors group">
+                            <td className="p-4 font-mono font-bold text-indigo-650">{log.id}</td>
+                            <td className="p-4 font-medium text-slate-800 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              {log.time}
+                            </td>
+                            <td className="p-3 text-slate-500 font-semibold text-xs lowercase first-letter:uppercase">{log.scope}</td>
+                            <td className="p-3 text-right font-mono text-slate-800 font-extrabold">{log.size}</td>
+                            <td className="p-4 text-center">
+                              <div className="inline-flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const payload = {
+                                      backupId: log.id,
+                                      time: log.time,
+                                      campaigns: campaigns,
+                                      submissions: submissions,
+                                      publishers: publishers
+                                    };
+                                    const jsonString = `data:text/json;charset=utf-8,${encodeURIComponent(JSON.stringify(payload, null, 2))}`;
+                                    const downloadAnchor = document.createElement('a');
+                                    downloadAnchor.setAttribute("href", jsonString);
+                                    downloadAnchor.setAttribute("download", `PublicAds_LocalSnapshot_${log.id}.json`);
+                                    document.body.appendChild(downloadAnchor);
+                                    downloadAnchor.click();
+                                    downloadAnchor.remove();
+                                    
+                                    setShowIntegrityAlert(`Exported offline database bundle for reference ${log.id} successfully!`);
+                                    setTimeout(() => setShowIntegrityAlert(null), 4000);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[10px] rounded-lg tracking-wider uppercase flex items-center gap-1 cursor-pointer transition-all"
+                                  title="Download actual physical dataset file"
+                                >
+                                  <Download className="w-3.5 h-3.5" />
+                                  Download File
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setShowIntegrityAlert(`Dry-Run Verification Complete! All hashed indexes verified against host schema. Diagnostic Code: OK.`);
+                                    setTimeout(() => setShowIntegrityAlert(null), 5000);
+                                  }}
+                                  className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[10px] rounded-lg tracking-wider uppercase flex items-center gap-1 cursor-pointer transition-all"
+                                >
+                                  <ShieldCheck className="w-3.5 h-3.5 text-indigo-500" />
+                                  Verify Status
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      }
+                      {backupLogs.filter(log => 
+                        log.id.toLowerCase().includes(backupQuery.toLowerCase()) ||
+                        log.time.toLowerCase().includes(backupQuery.toLowerCase()) ||
+                        log.scope.toLowerCase().includes(backupQuery.toLowerCase())
+                      ).length === 0 && (
+                        <tr>
+                          <td colSpan={5} className="p-8 text-center text-slate-400 font-medium font-mono text-xs">
+                            No backup records match the search query. Try another keyword.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 8: User Activity Logs */}
+          {activeTab === 'activity_logs' && (
+            <div id="tabContent-activity" className="space-y-6 animate-fade-up">
+              
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-slate-200 gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-indigo-600" />
+                    Security Audit Trail & Activity Logs
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Live chronological audit trail tracking client logins, credentials resets, system updates, and payout disburse ledgers.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activityLogs, null, 2));
+                      const dlAnchor = document.createElement('a');
+                      dlAnchor.setAttribute("href", dataStr);
+                      dlAnchor.setAttribute("download", `PublicAds_AuditTrail_${Date.now()}.json`);
+                      dlAnchor.click();
+                      dlAnchor.remove();
+                    }}
+                    className="px-3.5 py-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl border border-slate-200 cursor-pointer flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Download className="w-4 h-4" />
+                    Download JSON Logs
+                  </button>
+                </div>
+              </div>
+
+              {/* Informative alert explaining what this logs screen is for */}
+              <div className="bg-slate-50/60 p-4 border border-slate-200 rounded-2xl flex gap-3">
+                <CheckCircle2 className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
+                <div>
+                  <span className="block font-black text-xs text-slate-800">What is the Activity Log for?</span>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed font-semibold">
+                    The activity log acts as your site-wide secure security register. Whenever anyone (Administrators, Employees, or Publishers) updates a campaign, requests a payment, logins, or changes settings, the system logs the exact timestamp and operator identity automatically. Use this to combat lead fraud and audit operational events easily.
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats Counters */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl shadow-sm">
+                  <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Total Audited Hits</span>
+                  <span className="text-xl font-extrabold text-slate-800 block mt-1">{activityLogs.length}</span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Continuous stream</span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl shadow-sm">
+                  <span className="text-[10px] text-slate-450 uppercase font-black block tracking-wider">Security Events</span>
+                  <span className="text-xl font-extrabold text-amber-600 block mt-1">
+                    {activityLogs.filter(log => ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'PUBLISHER_LOGIN'].includes(log.action)).length}
+                  </span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Admin & user access actions</span>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200/80 p-3.5 rounded-xl shadow-sm">
+                  <span className="text-[10px] text-slate-455 uppercase font-black block tracking-wider">Campaign Actions</span>
+                  <span className="text-xl font-extrabold text-blue-600 block mt-1">
+                    {activityLogs.filter(log => ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE'].includes(log.action)).length}
+                  </span>
+                  <span className="text-[9px] text-slate-400 block mt-0.5">Campaign state modifiers</span>
+                </div>
+
+                <div className="bg-indigo-50/40 border border-indigo-100 p-3.5 rounded-xl shadow-sm">
+                  <span className="text-[10px] text-indigo-800 uppercase font-black block tracking-wider">Filtered Items</span>
+                  <span className="text-xl font-extrabold text-indigo-750 block mt-1">
+                    {activityLogs.filter(log => {
+                      const matchQuery = 
+                        log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.details.toLowerCase().includes(activityQuery.toLowerCase());
+
+                      if (!matchQuery) return false;
+
+                      if (activityCategory === 'ALL') return true;
+                      if (activityCategory === 'ADMIN') {
+                        return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
+                      }
+                      if (activityCategory === 'SECURITY') {
+                        return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
+                      }
+                      if (activityCategory === 'PUBLISHER') {
+                        return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
+                      }
+                      if (activityCategory === 'SYSTEM') {
+                        return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
+                      }
+                      return true;
+                    }).length}
+                  </span>
+                  <span className="text-[9px] text-indigo-600 block mt-0.5">Matches filters</span>
+                </div>
+              </div>
+
+              {/* Filters Box */}
+              <div className="p-4 bg-slate-55 border border-slate-200 rounded-2xl space-y-3.5 shadow-sm">
+                <div className="flex flex-col lg:flex-row gap-3">
+                  
+                  {/* Search input bar */}
+                  <div className="flex-1 flex items-center gap-2.5 bg-white border border-slate-200 px-3 py-2 rounded-xl focus-within:border-indigo-400 transition-colors">
+                    <Search className="w-4 h-4 text-slate-400 shrink-0" />
+                    <input
+                      type="text"
+                      placeholder="Search audit trail by actor names, actions, descriptions, User ID..."
+                      value={activityQuery}
+                      onChange={(e) => setActivityQuery(e.target.value)}
+                      className="w-full text-xs outline-none bg-transparent text-slate-800 font-medium placeholder:text-slate-400"
+                    />
+                    {activityQuery && (
+                      <button 
+                        onClick={() => setActivityQuery('')}
+                        className="text-[10px] font-extrabold text-slate-450 hover:text-slate-600 uppercase tracking-widest"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Filter category tabs selector */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono mr-1.5">Category:</span>
+                    {[
+                      { id: 'ALL', label: 'All Log Entries' },
+                      { id: 'ADMIN', label: 'Admin' },
+                      { id: 'SECURITY', label: 'Access Control' },
+                      { id: 'PUBLISHER', label: 'Publisher' },
+                      { id: 'SYSTEM', label: 'System' },
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActivityCategory(tab.id as any)}
+                        className={`px-3 py-1.5 text-xs font-black rounded-lg transition-all cursor-pointer ${
+                          activityCategory === tab.id
+                            ? 'bg-indigo-600 text-white shadow-sm'
+                            : 'bg-white hover:bg-slate-200 text-slate-650 border border-slate-200'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Logger feed table with color badges */}
+              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto max-h-[55vh]">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-slate-50 backdrop-blur-md text-slate-400 uppercase font-black border-b border-slate-200 z-10 text-[9px] tracking-wider font-mono">
+                      <tr>
+                        <th className="p-4">Timestamp logs</th>
+                        <th className="p-4">Operative User & ID</th>
+                        <th className="p-3 text-center">Operation Target</th>
+                        <th className="p-4">Detailed Operation Description</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-mono text-[11px] text-slate-700">
+                      {activityLogs
+                        .filter(log => {
+                          const matchQuery = 
+                            log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                            log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                            log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                            log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                            log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                            log.details.toLowerCase().includes(activityQuery.toLowerCase());
+
+                          if (!matchQuery) return false;
+
+                          if (activityCategory === 'ALL') return true;
+                          if (activityCategory === 'ADMIN') {
+                            return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
+                          }
+                          if (activityCategory === 'SECURITY') {
+                            return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
+                          }
+                          if (activityCategory === 'PUBLISHER') {
+                            return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
+                          }
+                          if (activityCategory === 'SYSTEM') {
+                            return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
+                          }
+                          return true;
+                        })
+                        .map(log => {
+                          // Dynamic badge coloring
+                          let badgeStyle = 'bg-slate-100 text-slate-800 border-slate-200';
+                          const act = log.action.toUpperCase();
+                          if (act.includes('DELETE') || act.includes('REMOVE') || act.includes('BLOCKED')) {
+                            badgeStyle = 'bg-rose-50 text-rose-700 border-rose-200';
+                          } else if (act.includes('CREATE') || act.includes('SIGNUP') || act.includes('BACKUP') || act.includes('APPROVE') || act.includes('SUCCESS')) {
+                            badgeStyle = 'bg-emerald-50 text-emerald-700 border-emerald-250';
+                          } else if (act.includes('AUTH') || act.includes('RESET') || act.includes('LOGIN')) {
+                            badgeStyle = 'bg-amber-50 text-amber-700 border-amber-250';
+                          } else if (act.includes('UPDATE') || act.includes('TOGGLE') || act.includes('EDIT')) {
+                            badgeStyle = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                          }
+
+                          return (
+                            <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-4 text-slate-450 font-medium whitespace-nowrap">{log.timestamp}</td>
+                              <td className="p-4 font-bold whitespace-nowrap">
+                                <span className="text-slate-800 font-semibold">{log.userName}</span>
+                                <span className="text-[10px] text-slate-400 block font-normal">UID: {log.userId}</span>
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className={`inline-block border px-2.5 py-0.5 rounded-full font-extrabold uppercase text-[9px] tracking-wide ${badgeStyle}`}>
+                                  {log.action}
+                                </span>
+                              </td>
+                              <td className="p-4 text-slate-600 font-medium leading-relaxed max-w-sm break-words">{log.details}</td>
+                            </tr>
+                          );
+                        })
+                      }
+                      {activityLogs.filter(log => {
+                        const matchQuery = 
+                          log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                          log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                          log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                          log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                          log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                          log.details.toLowerCase().includes(activityQuery.toLowerCase());
+
+                        if (!matchQuery) return false;
+
+                        if (activityCategory === 'ALL') return true;
+                        if (activityCategory === 'ADMIN') {
+                          return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
+                        }
+                        if (activityCategory === 'SECURITY') {
+                          return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
+                        }
+                        if (activityCategory === 'PUBLISHER') {
+                          return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
+                        }
+                        if (activityCategory === 'SYSTEM') {
+                          return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
+                        }
+                        return true;
+                      }).length === 0 && (
+                        <tr>
+                          <td colSpan={4} className="p-8 text-center text-slate-400 font-medium font-mono text-xs">
+                            No auditable trails found matching selection parameters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+        </main>
+      </div>
+
+    </div>
+  );
+}

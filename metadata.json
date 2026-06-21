@@ -1,0 +1,6 @@
+{
+  "name": "Public Ads India",
+  "description": "India's #1 Zero-Investment Fintech Ad Network connecting publishers and advertisers with secure earnings, real-time analytics, and ISO certificate verifications.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

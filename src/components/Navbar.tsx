@@ -11,6 +11,7 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
   const { theme, setTheme, currentUser, logout } = useAppState();
   const [certDropdownOpen, setCertDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -50,22 +51,39 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
             className="flex items-center gap-2.5 cursor-pointer select-none"
             id="nav-logo"
           >
-            <div className="relative h-13 flex items-center select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
-              <img
-                src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijSD_VcoYPOVgBiucO3HXuvw0_ZSsIwHThGbE2YvolhBQnY40fTjFgz8gl9Zv-sbSqPQlhmxbtMkMY-98lS41zLsFbPFe5pioxQWN8Ux88eNw37D78fFvIYyNmHrWZfKot-6Y0icFWU4x9KQdqmW82UPHjHyM0LE3q0o3T1Et0UJ3oqPbAQ0HxIMaRBLcM/s2560/1000182948.png"
-                alt="Public Ads India Logo"
-                className="h-11 w-auto object-contain select-none pointer-events-none rounded"
-                draggable={false}
-                onContextMenu={(e) => e.preventDefault()}
-                referrerPolicy="no-referrer"
-              />
-              {/* Overlapping guard transparent div blocker to completely shield from right-click downloads */}
-              <div 
-                className="absolute inset-0 bg-transparent z-10" 
-                onContextMenu={(e) => e.preventDefault()}
-                style={{ WebkitTouchCallout: 'none' }}
-              />
-            </div>
+            {!logoError ? (
+              <div className="relative h-13 flex items-center select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
+                <img
+                  src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijSD_VcoYPOVgBiucO3HXuvw0_ZSsIwHThGbE2YvolhBQnY40fTjFgz8gl9Zv-sbSqPQlhmxbtMkMY-98lS41zLsFbPFe5pioxQWN8Ux88eNw37D78fFvIYyNmHrWZfKot-6Y0icFWU4x9KQdqmW82UPHjHyM0LE3q0o3T1Et0UJ3oqPbAQ0HxIMaRBLcM/s2560/1000182948.png"
+                  alt="Public Ads India Logo"
+                  className="h-11 w-auto object-contain select-none pointer-events-none rounded"
+                  draggable={false}
+                  onContextMenu={(e) => e.preventDefault()}
+                  onError={() => setLogoError(true)}
+                  referrerPolicy="no-referrer"
+                />
+                {/* Overlapping guard transparent div blocker to completely shield from right-click downloads */}
+                <div 
+                  className="absolute inset-0 bg-transparent z-10" 
+                  onContextMenu={(e) => e.preventDefault()}
+                  style={{ WebkitTouchCallout: 'none' }}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white font-extrabold shadow-md border border-blue-400/20">
+                  <Landmark className="w-5.5 h-5.5 text-white animate-pulse" />
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+                    Public Ads <span className="text-brand-accent">India</span>
+                  </span>
+                  <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-widest mt-0.5 font-mono">
+                    Fintech Network
+                  </span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Center Links - Desktop */}

@@ -1,17 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, Newspaper, Megaphone, Users, Award, Flame, HeartHandshake, CheckCircle2,
-  ShieldAlert, ShieldCheck, IndianRupee, ArrowRight, Eye, Mail, Phone, ExternalLink 
+  ShieldAlert, ShieldCheck, IndianRupee, ArrowRight, Eye, Mail, Phone, ExternalLink, Search 
 } from 'lucide-react';
 import { useAppState } from '../context/AppContext';
 import GeometricBackground from './GeometricBackground';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface HomeViewProps {
   onNavigate: (route: string) => void;
 }
 
 export default function HomeView({ onNavigate }: HomeViewProps) {
-  const { supportPhone, supportEmail, partnerHiringActive } = useAppState();
+  const { supportPhone, supportEmail, partnerHiringActive, publishers } = useAppState();
+  
+  // Public registry search states
+  const [registrySearchId, setRegistrySearchId] = useState('');
+  const [registrySearchResult, setRegistrySearchResult] = useState<any>(null);
+  const [hasRegistrySearched, setHasRegistrySearched] = useState(false);
+
+  const handleRegistryVerify = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registrySearchId.trim()) return;
+    
+    // Check match
+    const found = publishers.find(p => 
+      p.id.toLowerCase() === registrySearchId.trim().toLowerCase()
+    );
+    setRegistrySearchResult(found || null);
+    setHasRegistrySearched(true);
+  };
   
   // Stats counters simulation
   const [activePubs, setActivePubs] = useState(0);
@@ -508,6 +526,102 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         </div>
       </section>
 
+      {/* Public Registry Verification Desk */}
+      <section id="public-registry-desk" className="py-16 max-w-7xl mx-auto px-4 border-t border-slate-200/50 dark:border-slate-800/60">
+        <div className="bg-slate-50 dark:bg-[#0a1122]/40 rounded-3xl p-6 sm:p-10 md:p-14 border border-slate-200/80 dark:border-slate-800/80">
+          <div className="max-w-2xl mx-auto text-center space-y-6">
+            <span className="text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest leading-none">Public Licensing Registry</span>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+              Official UID Registry Verification Desk
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-lg mx-auto">
+              Verify any registered remote publisher ID across India here. Newly created publisher accounts are immediately saved in our dynamic system registry.
+            </p>
+
+            <form onSubmit={handleRegistryVerify} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto items-stretch mt-8">
+              <div className="relative flex-1">
+                <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Enter Publisher ID (e.g. PUB1001)"
+                  value={registrySearchId}
+                  onChange={(e) => {
+                    setRegistrySearchId(e.target.value);
+                    setHasRegistrySearched(false);
+                  }}
+                  className="w-full text-xs p-3.5 pl-10 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#070d19] rounded-xl outline-none focus:border-brand-primary dark:focus:border-amber-400 font-mono font-bold text-slate-850 dark:text-white"
+                />
+              </div>
+              <button
+                type="submit"
+                className="px-6 py-3.5 bg-blue-600 hover:bg-blue-750 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md cursor-pointer whitespace-nowrap"
+              >
+                Query Database
+              </button>
+            </form>
+
+            <AnimatePresence mode="wait">
+              {hasRegistrySearched && (
+                <div className="mt-8 max-w-md mx-auto">
+                  {registrySearchResult ? (
+                    <div className="bg-white dark:bg-[#0d1628] rounded-2xl p-6 border-2 border-emerald-500/35 relative overflow-hidden text-left shadow-lg">
+                      {/* Decorative stamp element */}
+                      <div className="absolute right-[-20px] bottom-[-20px] w-32 h-32 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full border-4 border-dashed border-emerald-500/20 flex items-center justify-center rotate-12 select-none pointer-events-none">
+                        <span className="text-[10px] font-black text-emerald-500/30 uppercase tracking-widest">VERIFIED</span>
+                      </div>
+
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/50 flex items-center justify-center text-emerald-500 text-xl font-bold shrink-0">
+                          {registrySearchResult.blocked ? '⚠️' : (registrySearchResult.avatar || '👤')}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono font-extrabold text-indigo-600 dark:text-amber-400">{registrySearchResult.id}</span>
+                            {registrySearchResult.blocked ? (
+                              <span className="text-[9px] px-2 py-0.5 bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-400 rounded-sm font-extrabold uppercase">LOCKED</span>
+                            ) : (
+                              <span className="text-[9px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 rounded-sm font-extrabold uppercase">ACTIVE REGISTERED</span>
+                            )}
+                          </div>
+                          <h4 className="text-sm font-black text-slate-800 dark:text-white mt-1.5 truncate">{registrySearchResult.name}</h4>
+                          <span className="text-[10px] text-slate-400 block font-semibold mt-1">Registry Date: {registrySearchResult.joinedDate}</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-4 border-t border-slate-105 dark:border-slate-800 flex justify-between items-center text-[10px] font-mono font-bold text-slate-400">
+                        <span>SECURITY CHECK: SECURED NODE</span>
+                        <span className="text-emerald-500 flex items-center gap-0.5">
+                          <ShieldCheck className="w-3.5 h-3.5" /> PASSED
+                        </span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white dark:bg-[#0d1628] rounded-2xl p-6 border-2 border-rose-500/35 text-center shadow-lg">
+                      <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200/50 flex items-center justify-center text-rose-500 text-xl font-bold mx-auto mb-3">
+                        ❌
+                      </div>
+                      <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wide">ID Not Found</h4>
+                      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
+                        No publisher account matches "<span className="font-mono font-bold text-rose-600">{registrySearchId}</span>" in our active database nodes.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onNavigate('/Dashboard');
+                        }}
+                        className="mt-4 text-xs font-bold text-blue-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                      >
+                        Create a Free ID Now <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </section>
+
       {/* 6. Bottom 3 Action Links & Trigger Boxes */}
       <section className="py-12 bg-slate-100/40 dark:bg-[#070d19] border-t border-slate-200/40 dark:border-slate-800/40">
         <div className="max-w-7xl mx-auto px-4">
@@ -588,7 +702,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       <footer className="py-8 text-center bg-slate-905 border-t border-slate-200/50 dark:border-slate-800/50 select-none">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400">
           <span>&copy; 2025 Public Ads India | Fintech Lead Acquirement Corporation</span>
-          <a href="https://www.publicadsindia.com" className="hover:text-brand-accent transition-colors font-bold">
+          <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold">
             Design by. BharatX Web Agency
           </a>
         </div>

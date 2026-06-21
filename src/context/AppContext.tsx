@@ -329,6 +329,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  // Listen for localstorage changes across tabs to sync state real-time
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      try {
+        if (!e.key) return;
+        if (e.key === 'pai_pubs' && e.newValue) {
+          setPublishers(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_theme' && e.newValue) {
+          setThemeState(e.newValue as 'light' | 'dark');
+        }
+        if (e.key === 'pai_campaigns' && e.newValue) {
+          setCampaigns(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_bank' && e.newValue) {
+          setBankDetailsMap(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_earnings' && e.newValue) {
+          setEarnings(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_subs' && e.newValue) {
+          setSubmissions(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_employees' && e.newValue) {
+          setEmployees(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_partners' && e.newValue) {
+          setPartnerApplications(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_offer' && e.newValue) {
+          setOffer(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_supp_phone' && e.newValue) {
+          setSupportPhone(e.newValue);
+        }
+        if (e.key === 'pai_supp_email' && e.newValue) {
+          setSupportEmail(e.newValue);
+        }
+        if (e.key === 'pai_hiring_active' && e.newValue) {
+          setPartnerHiringActive(e.newValue === 'true');
+        }
+        if (e.key === 'pai_user_session') {
+          setCurrentUser(e.newValue ? JSON.parse(e.newValue) : null);
+        }
+        if (e.key === 'pai_logs' && e.newValue) {
+          setActivityLogs(JSON.parse(e.newValue));
+        }
+        if (e.key === 'pai_backup_logs' && e.newValue) {
+          setBackupLogs(JSON.parse(e.newValue));
+        }
+      } catch (err) {
+        console.error('Error syncing on storage event', err);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const setTheme = (t: 'light' | 'dark') => {
     setThemeState(t);
     localStorage.setItem('pai_theme', t);

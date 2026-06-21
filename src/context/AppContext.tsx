@@ -152,6 +152,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [partnerHiringActive, setPartnerHiringActive] = useState(true);
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const [initDoneState, setInitDoneState] = useState<boolean | null>(null);
+  const [activePath, setActivePath] = useState<string>('/Home');
+
+  // Dynamically track the active location hash/route to prevent loading the entire database on public home page
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      const cleanHash = hash ? hash.replace(/^#\/?/, '/') : '';
+      const pathname = window.location.pathname;
+      setActivePath(cleanHash || pathname || '/Home');
+    };
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange, { passive: true });
+    window.addEventListener('popstate', handleHashChange, { passive: true });
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, []);
 
   // Monitor initialization state to avoid auto-generating mock records if database is empty or purged
   useEffect(() => {
@@ -232,6 +250,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 2. Sync Publishers
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesPublishers = ['/Admin', '/Employee', '/Dashboard', '/Partner'].includes(activePath) || currentUser !== null;
+    if (!deservesPublishers) {
+      setPublishers([]);
+      return;
+    }
     const q = collection(db, 'publishers');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -257,11 +280,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath, currentUser]);
 
   // 3. Sync Bank Details Map
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesBank = ['/Admin', '/Dashboard'].includes(activePath) || currentUser !== null;
+    if (!deservesBank) {
+      setBankDetailsMap({});
+      return;
+    }
     const q = collection(db, 'bank_details');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -286,11 +314,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath, currentUser]);
 
   // 4. Sync Earnings
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesEarnings = ['/Admin', '/Dashboard', '/Employee'].includes(activePath) || currentUser !== null;
+    if (!deservesEarnings) {
+      setEarnings([]);
+      return;
+    }
     const q = collection(db, 'earnings');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -320,11 +353,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath, currentUser]);
 
   // 5. Sync Submissions
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesSubmissions = ['/Admin', '/Employee', '/Dashboard'].includes(activePath) || currentUser !== null;
+    if (!deservesSubmissions) {
+      setSubmissions([]);
+      return;
+    }
     const q = collection(db, 'submissions');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -389,11 +427,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath, currentUser]);
 
   // 6. Sync Employees
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesEmployees = ['/Admin', '/Employee'].includes(activePath);
+    if (!deservesEmployees) {
+      setEmployees([]);
+      return;
+    }
     const q = collection(db, 'employees');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -417,11 +460,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath]);
 
   // 7. Sync Partner Applications
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesPartners = ['/Admin', '/Partner'].includes(activePath);
+    if (!deservesPartners) {
+      setPartnerApplications([]);
+      return;
+    }
     const q = collection(db, 'partners');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -444,11 +492,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath]);
 
   // 8. Sync Activity Logs
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesLogs = activePath === '/Admin';
+    if (!deservesLogs) {
+      setActivityLogs([]);
+      return;
+    }
     const q = collection(db, 'activity_logs');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -473,7 +526,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath]);
 
   // 9. Sync Settings
   useEffect(() => {
@@ -503,6 +556,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 10. Sync Backup Logs
   useEffect(() => {
     if (initDoneState === null) return;
+    const deservesBackups = activePath === '/Admin';
+    if (!deservesBackups) {
+      setBackupLogs([]);
+      return;
+    }
     const q = collection(db, 'backups');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
@@ -528,7 +586,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, [initDoneState, activePath]);
 
   const setTheme = (t: 'light' | 'dark') => {
     setThemeState(t);

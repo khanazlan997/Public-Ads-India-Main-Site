@@ -20,27 +20,44 @@ function AppContent() {
   // Monitor path modifications from browser address bar or buttons
   useEffect(() => {
     const handleLocationChange = () => {
-      const path = window.location.pathname;
-      if (['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(path)) {
-        setRoute(path);
+      // Prioritize hash routing to prevent 404 on refresh in any cloud runtime
+      const hash = window.location.hash;
+      let path = '/Home';
+
+      if (hash) {
+        // Support both '#/Dashboard' and '#Dashboard' styles
+        const cleanHash = hash.replace(/^#\/?/, '/');
+        if (['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(cleanHash)) {
+          path = cleanHash;
+        }
       } else {
-        // Fallback to Home if unknown or blank
-        setRoute('/Home');
+        // Fallback or migration: if user is on a clean pathname, translate it to hash so refresh is saved
+        const pathname = window.location.pathname;
+        if (['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(pathname)) {
+          path = pathname;
+          window.location.hash = `#${pathname}`;
+          window.history.replaceState(null, '', '/');
+        }
       }
+      setRoute(path);
     };
 
     // Initialize routing on load
     handleLocationChange();
 
-    // Monitor back/forward actions
+    // Monitor popstate and hashchange events
     window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
+    window.addEventListener('hashchange', handleLocationChange);
+    return () => {
+      window.removeEventListener('popstate', handleLocationChange);
+      window.removeEventListener('hashchange', handleLocationChange);
+    };
   }, []);
 
-  // Update real URL path dynamically to reflect active panels
+  // Update URL via hash dynamically to reflect active panels across refreshes
   const navigateTo = (newRoute: string) => {
     setRoute(newRoute);
-    window.history.pushState(null, '', newRoute);
+    window.location.hash = `#${newRoute}`;
   };
 
   // Bind site-wide HTML dark mode Class changes

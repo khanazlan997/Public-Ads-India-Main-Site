@@ -4,7 +4,7 @@ import {
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
   Camera, UploadCloud, Edit3, Sparkles, LogOut, Check, ChevronDown, ChevronRight,
-  Lock, X
+  Lock, X, Download
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
 
@@ -62,6 +62,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   // File states (for screenshot uploads as base64)
   const [screenBase64, setScreenBase64] = useState('');
   const [screenFileName, setScreenFileName] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // Bank Form States
   const [bankHolderName, setBankHolderName] = useState('');
@@ -490,6 +491,49 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </form>
           )}
 
+        </div>
+      </div>
+    );
+  }
+
+  // Check if current logged-in publisher is blocked in the database
+  const currentPublisherRecord = publishers.find(pub => pub.id === currentUser?.id);
+  const isCurrentlyBlocked = currentUser?.type === 'publisher' && currentPublisherRecord?.blocked === true;
+
+  if (isCurrentlyBlocked) {
+    return (
+      <div id="publisher-blocked-wrapper" className="min-h-[75vh] flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-[#0d1628] rounded-3xl overflow-hidden border-2 border-rose-200 dark:border-rose-950/60 p-8 sm:p-10 shadow-2xl text-center space-y-6">
+          <div className="w-16 h-16 bg-rose-100 dark:bg-rose-950/30 rounded-full flex items-center justify-center text-rose-600 dark:text-rose-455 mx-auto animate-bounce">
+            <Lock className="w-8 h-8" />
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
+              Aapka Account Blocked Hai!
+            </h2>
+            <p className="text-sm text-slate-600 dark:text-slate-350 font-medium">
+              Administrator ne aapka account temporary lock ya block kar diya hai. Aap dashboard access nahi kar sakte.
+            </p>
+            <p className="text-xs text-slate-400">
+              Kripya system administrator ya support team se contact karein.
+            </p>
+          </div>
+
+          <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-150 dark:border-slate-800 space-y-2">
+            <div className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">Support Helpline</div>
+            <div className="text-sm font-black text-slate-800 dark:text-white font-mono">{supportPhone || '+91 91199 00143'}</div>
+          </div>
+
+          <button
+            onClick={() => {
+              logout();
+              onNavigate('/Home');
+            }}
+            className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md cursor-pointer"
+          >
+            Logout From Network
+          </button>
         </div>
       </div>
     );
@@ -1327,9 +1371,13 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                           {sub.submitDate}
                         </td>
                         <td className="p-3">
-                          <a href={sub.screenshot} target="_blank" rel="noopener noreferrer" className="text-brand-accent underline hover:text-blue-500">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(sub.screenshot)}
+                            className="text-brand-accent underline hover:text-blue-500 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
+                          >
                             View ↗
-                          </a>
+                          </button>
                         </td>
                         <td className="p-3 text-right">
                           <span className={`inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
@@ -1639,6 +1687,48 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </button>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Image Preview Modal */}
+      {previewImage && (
+        <div 
+          id="proof-image-preview-modal-client" 
+          className="fixed inset-0 bg-[#060b13]/85 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative bg-white dark:bg-slate-900 rounded-3xl overflow-hidden max-w-3xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+              <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-wider">Submitted Lead Screenshot Preview</span>
+              <div className="flex gap-2">
+                <a 
+                  href={previewImage} 
+                  download={`proof-${Date.now()}.png`}
+                  className="px-3 py-1 bg-brand-accent hover:bg-opacity-90 text-[#0d1628] font-extrabold text-[10px] uppercase rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" /> Save Image
+                </a>
+                <button 
+                  onClick={() => setPreviewImage(null)}
+                  className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl font-black text-slate-750 dark:text-slate-250 cursor-pointer text-[10px]"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+            {/* Image viewport */}
+            <div className="p-4 bg-slate-950 flex items-center justify-center max-h-[72vh] min-h-[250px] overflow-auto">
+              <img 
+                src={previewImage} 
+                alt="Uploaded Verification Screenshot" 
+                className="max-w-full max-h-[66vh] object-contain rounded-lg shadow-md border border-slate-800" 
+              />
+            </div>
           </div>
         </div>
       )}

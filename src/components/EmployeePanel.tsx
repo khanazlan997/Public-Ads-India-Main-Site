@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppState } from '../context/AppContext';
-import { Lock, Eye, EyeOff, ShieldCheck, UserCheck, Search, Users, Banknote, ListTodo, LogOut, CheckCircle2 } from 'lucide-react';
+import { Lock, Eye, EyeOff, ShieldCheck, UserCheck, Search, Users, Banknote, ListTodo, LogOut, CheckCircle2, Download } from 'lucide-react';
 import { SubmissionStatus } from '../types';
 
 interface EmployeePanelProps {
@@ -23,6 +23,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
 
   // Search filtering state
   const [filterQuery, setFilterQuery] = useState('');
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -249,15 +250,19 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                           <span className="font-extrabold text-slate-850 dark:text-amber-500 text-red-500 font-mono">₹{sub.payout}</span>
                         </td>
                         <td className="p-3">
-                          <a href={sub.screenshot} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold border border-blue-100 dark:border-blue-900 hover:underline">
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(sub.screenshot)}
+                            className="inline-flex items-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold border border-blue-100 dark:border-blue-900 cursor-pointer"
+                          >
                             Screenshot <CheckCircle2 className="w-3 h-3" />
-                          </a>
+                          </button>
                         </td>
                         <td className="p-3">
                           <span className={`inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
                             sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
                             sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400' :
-                            sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400' :
+                            sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-855 dark:text-amber-400' :
                             sub.status === 'Reject' ? 'bg-red-105 dark:bg-red-950/40 text-rose-700 dark:text-rose-400' :
                             'bg-blue-105 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350'
                           }`}>
@@ -321,6 +326,48 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
         </div>
 
       </div>
+
+      {/* Interactive Image Preview Modal */}
+      {previewImage && (
+        <div 
+          id="proof-image-preview-modal-emp" 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden max-w-3xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/40">
+              <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-wider">Candidate Verification Proof Preview</span>
+              <div className="flex gap-2">
+                <a 
+                  href={previewImage} 
+                  download={`proof-${Date.now()}.png`}
+                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" /> Download
+                </a>
+                <button 
+                  onClick={() => setPreviewImage(null)}
+                  className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl font-black text-slate-750 dark:text-slate-250 cursor-pointer text-[10px]"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+            {/* Image Box */}
+            <div className="p-4 bg-slate-950 flex items-center justify-center max-h-[72vh] min-h-[250px] overflow-auto">
+              <img 
+                src={previewImage} 
+                alt="Verification Proof" 
+                className="max-w-full max-h-[66vh] object-contain rounded-lg shadow-md border border-slate-700" 
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

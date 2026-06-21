@@ -140,7 +140,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   }, [activeTab]);
 
   // Auth handlers
-  const handleAuthSubmit = (e: React.FormEvent) => {
+  const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError('');
 
@@ -149,7 +149,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         setAuthError('All registration fields are required.');
         return;
       }
-      const res = signupPublisher(authName, authEmail, authPhone, authPassword);
+      const res = await signupPublisher(authName, authEmail, authPhone, authPassword);
       if (!res.success) {
         setAuthError(res.message);
       }
@@ -158,7 +158,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         setAuthError('Email/Phone and Password criteria required.');
         return;
       }
-      const res = loginPublisher(authEmail, authPassword);
+      const res = await loginPublisher(authEmail, authPassword);
       if (!res.success) {
         setAuthError(res.message);
       }

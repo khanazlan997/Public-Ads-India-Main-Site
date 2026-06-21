@@ -131,11 +131,11 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           </div>
 
           {/* Two CTA Buttons - Floating Anim */}
-          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-md mx-auto">
+          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
             <button 
               id="hero-btn-publisher"
               onClick={() => onNavigate('/Dashboard')}
-              className="w-full sm:w-auto px-8 py-4 bg-brand-primary hover:bg-blue-700 text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-md border border-blue-400/20 transition-all hover:-translate-y-1 active:translate-y-0 text-sm tracking-wide animate-float-btn cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-[0_10px_25px_-5px_rgba(59,130,246,0.4)] transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer font-sans"
             >
               <Newspaper className="w-5 h-5 shrink-0" />
               Publisher Login
@@ -149,9 +149,9 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                   if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
                 }, 100);
               }}
-              className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-[#0d1628] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-white font-extrabold rounded-2xl flex items-center justify-center gap-2.5 shadow-sm border-2 border-amber-400 hover:border-amber-500 transition-all hover:-translate-y-1 active:translate-y-0 text-sm tracking-wide animate-float-btn cursor-pointer"
+              className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-[#0d1628] hover:bg-amber-500/10 text-slate-800 dark:text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-lg border-2 border-amber-500 hover:border-amber-600 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer font-sans"
             >
-              <Megaphone className="w-5 h-5 text-amber-500 shrink-0" />
+              <Megaphone className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
               Advertiser Inquiry
             </button>
           </div>

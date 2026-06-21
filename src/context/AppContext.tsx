@@ -1,5 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { 
+  collection, 
+  doc, 
+  setDoc, 
+  onSnapshot, 
+  updateDoc, 
+  deleteDoc,
+  query,
+  where,
+  getDocs
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { 
   Campaign, 
   Publisher, 
   EarningRecord, 
@@ -30,8 +42,8 @@ interface AppContextType {
   currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
   
   // Actions
-  loginPublisher: (phoneOrEmail: string, password: string) => { success: boolean; message: string; publisher?: Publisher };
-  signupPublisher: (name: string, email: string, phone: string, password: string) => { success: boolean; message: string; publisher?: Publisher };
+  loginPublisher: (phoneOrEmail: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
+  signupPublisher: (name: string, email: string, phone: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
   logout: () => void;
   updatePublisherProfile: (name: string, avatar: string) => void;
   sendPasswordReset: (phone: string, email: string) => { success: boolean; found: boolean; message: string };
@@ -145,53 +157,110 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     { id: 'b-2', time: '2026-06-16 04:00:00', scope: 'Full Database Auto-Backup', size: '1.38 MB', status: 'Success' }
   ]);
 
-  // Load state from localstorage
+  // Load local state from localStorage (Theme and User Session)
   useEffect(() => {
     try {
       const storedTheme = localStorage.getItem('pai_theme');
       if (storedTheme) setThemeState(storedTheme as 'light' | 'dark');
 
-      const storedCampaigns = localStorage.getItem('pai_campaigns');
-      if (storedCampaigns) {
-        setCampaigns(JSON.parse(storedCampaigns));
-      } else {
-        setCampaigns(defaultCampaigns);
-        localStorage.setItem('pai_campaigns', JSON.stringify(defaultCampaigns));
-      }
+      const storedUser = localStorage.getItem('pai_user_session');
+      if (storedUser) setCurrentUser(JSON.parse(storedUser));
+    } catch (e) {
+      console.error('Error loading LocalStorage values', e);
+    }
+  }, []);
 
-      // Load or initialize publishers
-      const storedPubs = localStorage.getItem('pai_pubs');
-      if (storedPubs) {
-        setPublishers(JSON.parse(storedPubs));
+  // Listen for localstorage changes across tabs (just for Theme & User Session)
+  useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      try {
+        if (!e.key) return;
+        if (e.key === 'pai_theme' && e.newValue) {
+          setThemeState(e.newValue as 'light' | 'dark');
+        }
+        if (e.key === 'pai_user_session') {
+          setCurrentUser(e.newValue ? JSON.parse(e.newValue) : null);
+        }
+      } catch (err) {
+        console.error('Error syncing on storage event', err);
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  // 1. Sync Campaigns
+  useEffect(() => {
+    const q = collection(db, 'campaigns');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        defaultCampaigns.forEach((c) => {
+          setDoc(doc(db, 'campaigns', c.id), c);
+        });
       } else {
-        // Pre-create two mock publishers
+        const list: Campaign[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as Campaign);
+        });
+        setCampaigns(list);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 2. Sync Publishers
+  useEffect(() => {
+    const q = collection(db, 'publishers');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialPubs: Publisher[] = [
           { id: 'PUB1001', name: 'Riya Sharma', email: 'riya@gmail.com', phone: '9876543210', password: 'password123', avatar: '👩', blocked: false, joinedDate: '2025-01-10' },
           { id: 'PUB1002', name: 'Amit Patel', email: 'amit@gmail.com', phone: '8765432109', password: 'password123', avatar: '👨', blocked: false, joinedDate: '2025-02-15' },
           { id: 'PUB1003', name: 'Zeeshan Khan', email: 'zeeshan@gmail.com', phone: '7654321098', password: 'password123', avatar: '😎', blocked: false, joinedDate: '2025-03-01' }
         ];
-        setPublishers(initialPubs);
-        localStorage.setItem('pai_pubs', JSON.stringify(initialPubs));
-      }
-
-      // Load or initialize BankDetails
-      const storedBank = localStorage.getItem('pai_bank');
-      if (storedBank) {
-        setBankDetailsMap(JSON.parse(storedBank));
+        initialPubs.forEach((p) => {
+          setDoc(doc(db, 'publishers', p.id), p);
+        });
       } else {
+        const list: Publisher[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as Publisher);
+        });
+        setPublishers(list);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 3. Sync Bank Details Map
+  useEffect(() => {
+    const q = collection(db, 'bank_details');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialBank: Record<string, BankDetails> = {
           'PUB1001': { publisherId: 'PUB1001', holderName: 'Riya Sharma', phone: '9876543210', email: 'riya@gmail.com', accountNumber: '5010024921092', ifsc: 'HDFC0000213', upi: 'riyasharma@okhdfc', qrCode: '' },
           'PUB1002': { publisherId: 'PUB1002', holderName: 'Amit Patel', phone: '8765432109', email: 'amit@gmail.com', accountNumber: '3029108391039', ifsc: 'SBIN0001092', upi: 'amitpatel@okaxis', qrCode: '' }
         };
-        setBankDetailsMap(initialBank);
-        localStorage.setItem('pai_bank', JSON.stringify(initialBank));
-      }
-
-      // Load or initialize Earnings
-      const storedEarnings = localStorage.getItem('pai_earnings');
-      if (storedEarnings) {
-        setEarnings(JSON.parse(storedEarnings));
+        Object.entries(initialBank).forEach(([pubId, details]) => {
+          setDoc(doc(db, 'bank_details', pubId), details);
+        });
       } else {
+        const map: Record<string, BankDetails> = {};
+        snapshot.forEach((docSnap) => {
+          map[docSnap.id] = docSnap.data() as BankDetails;
+        });
+        setBankDetailsMap(map);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 4. Sync Earnings
+  useEffect(() => {
+    const q = collection(db, 'earnings');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialEarnings: EarningRecord[] = [
           { id: 'e1', publisherId: 'PUB1001', campaignId: 'camp-1', campaignName: 'PhonePe Demat Account', amount: 250, date: '2026-06-18', time: '14:25' },
           { id: 'e2', publisherId: 'PUB1001', campaignId: 'camp-2', campaignName: 'Angel One Demat & Trading', amount: 350, date: '2026-06-17', time: '11:05' },
@@ -201,15 +270,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           { id: 'e6', publisherId: 'PUB1003', campaignId: 'camp-2', campaignName: 'Angel One Demat & Trading', amount: 350, date: '2026-06-18', time: '12:00' },
           { id: 'e7', publisherId: 'PUB1003', campaignId: 'camp-4', campaignName: 'mStock Zero Brokerage Account', amount: 400, date: '2026-06-16', time: '15:10' }
         ];
-        setEarnings(initialEarnings);
-        localStorage.setItem('pai_earnings', JSON.stringify(initialEarnings));
-      }
-
-      // Load or initialize Submissions
-      const storedSubs = localStorage.getItem('pai_subs');
-      if (storedSubs) {
-        setSubmissions(JSON.parse(storedSubs));
+        initialEarnings.forEach((e) => {
+          setDoc(doc(db, 'earnings', e.id), e);
+        });
       } else {
+        const list: EarningRecord[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as EarningRecord);
+        });
+        setEarnings(list);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 5. Sync Submissions
+  useEffect(() => {
+    const q = collection(db, 'submissions');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialSubs: DataSubmission[] = [
           {
             id: 'sub-1',
@@ -221,7 +300,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             clientName: 'Rahul Verma',
             clientPhone: '9123456780',
             clientCode: 'PAV109',
-            screenshot: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&q=80&w=150', // generic capture
+            screenshot: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&q=80&w=150',
             submitDate: '2026-06-18 14:10',
             status: 'Payment Done'
           },
@@ -254,138 +333,137 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             status: 'Active'
           }
         ];
-        setSubmissions(initialSubs);
-        localStorage.setItem('pai_subs', JSON.stringify(initialSubs));
-      }
-
-      // Employees
-      const storedEmployees = localStorage.getItem('pai_employees');
-      if (storedEmployees) {
-        setEmployees(JSON.parse(storedEmployees));
+        initialSubs.forEach((s) => {
+          setDoc(doc(db, 'submissions', s.id), s);
+        });
       } else {
+        const list: DataSubmission[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as DataSubmission);
+        });
+        setSubmissions(list);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 6. Sync Employees
+  useEffect(() => {
+    const q = collection(db, 'employees');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialEmployees: Employee[] = [
           { id: 'emp-1', name: 'Karan Mehra', username: 'karan_pay', password: 'Emp@123', role: 'Payment' },
           { id: 'emp-2', name: 'Sneha Roy', username: 'sneha_mis', password: 'Emp@123', role: 'MIS' }
         ];
-        setEmployees(initialEmployees);
-        localStorage.setItem('pai_employees', JSON.stringify(initialEmployees));
-      }
-
-      // Partner Applications
-      const storedPartners = localStorage.getItem('pai_partners');
-      if (storedPartners) {
-        setPartnerApplications(JSON.parse(storedPartners));
+        initialEmployees.forEach((emp) => {
+          setDoc(doc(db, 'employees', emp.id), emp);
+        });
       } else {
+        const list: Employee[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as Employee);
+        });
+        setEmployees(list);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  // 7. Sync Partner Applications
+  useEffect(() => {
+    const q = collection(db, 'partners');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialPartners: PartnerApplication[] = [
           { id: 'part-1', name: 'Deepak Tyagi', phone: '9443210987', email: 'deepak@gmail.com', city: 'Delhi', age: 26, qualification: 'MBA', submitDate: '2026-06-16' }
         ];
-        setPartnerApplications(initialPartners);
-        localStorage.setItem('pai_partners', JSON.stringify(initialPartners));
-      }
-
-      // Popup Offers
-      const storedOffer = localStorage.getItem('pai_offer');
-      if (storedOffer) {
-        setOffer(JSON.parse(storedOffer));
+        initialPartners.forEach((part) => {
+          setDoc(doc(db, 'partners', part.id), part);
+        });
       } else {
-        const initialOffer = { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }; // elegant commercial banners
-        setOffer(initialOffer);
-        localStorage.setItem('pai_offer', JSON.stringify(initialOffer));
+        const list: PartnerApplication[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as PartnerApplication);
+        });
+        setPartnerApplications(list);
       }
+    });
+    return unsubscribe;
+  }, []);
 
-      // Support details
-      const storedSupportPhone = localStorage.getItem('pai_supp_phone');
-      if (storedSupportPhone) setSupportPhone(storedSupportPhone);
-
-      const storedSupportEmail = localStorage.getItem('pai_supp_email');
-      if (storedSupportEmail) setSupportEmail(storedSupportEmail);
-
-      const storedHiring = localStorage.getItem('pai_hiring_active');
-      if (storedHiring) setPartnerHiringActive(storedHiring === 'true');
-
-      // User Session
-      const storedUser = localStorage.getItem('pai_user_session');
-      if (storedUser) setCurrentUser(JSON.parse(storedUser));
-
-      // Logs
-      const storedLogs = localStorage.getItem('pai_logs');
-      if (storedLogs) {
-        setActivityLogs(JSON.parse(storedLogs));
-      } else {
+  // 8. Sync Activity Logs
+  useEffect(() => {
+    const q = collection(db, 'activity_logs');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
         const initialLogs: ActivityLog[] = [
           { id: 'l1', timestamp: '2026-06-18 10:15:20', userId: 'SYSTEM', userName: 'Server Core', action: 'BOOT', details: 'Public Ads India web console initialized successfully' },
           { id: 'l2', timestamp: '2026-06-18 12:40:11', userId: 'PUB1001', userName: 'Riya Sharma', action: 'LOGIN', details: 'Successful session establishment from client browser' }
         ];
-        setActivityLogs(initialLogs);
-        localStorage.setItem('pai_logs', JSON.stringify(initialLogs));
+        initialLogs.forEach((log) => {
+          setDoc(doc(db, 'activity_logs', log.id), log);
+        });
+      } else {
+        const list: ActivityLog[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as ActivityLog);
+        });
+        list.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+        setActivityLogs(list);
       }
-
-      // Backup Logs
-      const storedBLogs = localStorage.getItem('pai_backup_logs');
-      if (storedBLogs) setBackupLogs(JSON.parse(storedBLogs));
-
-    } catch (e) {
-      console.error('Error loading LocalStorage', e);
-    }
+    });
+    return unsubscribe;
   }, []);
 
-  // Listen for localstorage changes across tabs to sync state real-time
+  // 9. Sync Settings
   useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      try {
-        if (!e.key) return;
-        if (e.key === 'pai_pubs' && e.newValue) {
-          setPublishers(JSON.parse(e.newValue));
+    const docRef = doc(db, 'configs', 'settings');
+    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+      if (!docSnap.exists()) {
+        const initialSettings = {
+          supportPhone: '+91 9110022334',
+          supportEmail: 'support@publicadsindia.com',
+          partnerHiringActive: true,
+          offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
+        };
+        setDoc(docRef, initialSettings);
+      } else {
+        const data = docSnap.data();
+        if (data) {
+          if (data.supportPhone) setSupportPhone(data.supportPhone);
+          if (data.supportEmail) setSupportEmail(data.supportEmail);
+          if (data.partnerHiringActive !== undefined) setPartnerHiringActive(data.partnerHiringActive);
+          if (data.offer) setOffer(data.offer);
         }
-        if (e.key === 'pai_theme' && e.newValue) {
-          setThemeState(e.newValue as 'light' | 'dark');
-        }
-        if (e.key === 'pai_campaigns' && e.newValue) {
-          setCampaigns(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_bank' && e.newValue) {
-          setBankDetailsMap(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_earnings' && e.newValue) {
-          setEarnings(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_subs' && e.newValue) {
-          setSubmissions(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_employees' && e.newValue) {
-          setEmployees(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_partners' && e.newValue) {
-          setPartnerApplications(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_offer' && e.newValue) {
-          setOffer(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_supp_phone' && e.newValue) {
-          setSupportPhone(e.newValue);
-        }
-        if (e.key === 'pai_supp_email' && e.newValue) {
-          setSupportEmail(e.newValue);
-        }
-        if (e.key === 'pai_hiring_active' && e.newValue) {
-          setPartnerHiringActive(e.newValue === 'true');
-        }
-        if (e.key === 'pai_user_session') {
-          setCurrentUser(e.newValue ? JSON.parse(e.newValue) : null);
-        }
-        if (e.key === 'pai_logs' && e.newValue) {
-          setActivityLogs(JSON.parse(e.newValue));
-        }
-        if (e.key === 'pai_backup_logs' && e.newValue) {
-          setBackupLogs(JSON.parse(e.newValue));
-        }
-      } catch (err) {
-        console.error('Error syncing on storage event', err);
       }
-    };
+    });
+    return unsubscribe;
+  }, []);
 
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+  // 10. Sync Backup Logs
+  useEffect(() => {
+    const q = collection(db, 'backups');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        const initialBackups = [
+          { id: 'b-0', time: '2026-06-18 04:00:00', scope: 'Full Database Auto-Backup', size: '1.45 MB', status: 'Success' },
+          { id: 'b-1', time: '2026-06-17 04:00:00', scope: 'Full Database Auto-Backup', size: '1.42 MB', status: 'Success' },
+          { id: 'b-2', time: '2026-06-16 04:00:00', scope: 'Full Database Auto-Backup', size: '1.38 MB', status: 'Success' }
+        ];
+        initialBackups.forEach((b) => {
+          setDoc(doc(db, 'backups', b.id), b);
+        });
+      } else {
+        const list: any[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data());
+        });
+        list.sort((a, b) => b.time.localeCompare(a.time));
+        setBackupLogs(list);
+      }
+    });
+    return unsubscribe;
   }, []);
 
   const setTheme = (t: 'light' | 'dark') => {
@@ -395,79 +473,148 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Helper to log user activity
   const addLog = (userId: string, userName: string, action: string, details: string) => {
+    const logId = `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const newLog: ActivityLog = {
-      id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      id: logId,
       timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
       userId,
       userName,
       action,
       details
     };
-    const updated = [newLog, ...activityLogs].slice(0, 100); // keep recent 100 logs
-    setActivityLogs(updated);
-    localStorage.setItem('pai_logs', JSON.stringify(updated));
+    setDoc(doc(db, 'activity_logs', logId), newLog);
   };
 
   // Actions
-  const loginPublisher = (phoneOrEmail: string, password: string) => {
-    const pub = publishers.find(p => (p.email === phoneOrEmail || p.phone === phoneOrEmail) && p.password === password);
-    if (!pub) {
-      return { success: false, message: 'Invalid phone/email or password.' };
+  const loginPublisher = async (phoneOrEmail: string, password: string) => {
+    try {
+      // 1. Check local state (fast track)
+      let pub = publishers.find(p => (p.email === phoneOrEmail || p.phone === phoneOrEmail) && p.password === password);
+      
+      // 2. Query Firestore directly (eliminates race conditions, network latency issues on new devices)
+      if (!pub) {
+        const pubsRef = collection(db, 'publishers');
+        
+        // Try by email
+        const qEmail = query(pubsRef, where('email', '==', phoneOrEmail), where('password', '==', password));
+        const snapEmail = await getDocs(qEmail);
+        
+        if (!snapEmail.empty) {
+          pub = snapEmail.docs[0].data() as Publisher;
+        } else {
+          // Try by phone
+          const qPhone = query(pubsRef, where('phone', '==', phoneOrEmail), where('password', '==', password));
+          const snapPhone = await getDocs(qPhone);
+          if (!snapPhone.empty) {
+            pub = snapPhone.docs[0].data() as Publisher;
+          }
+        }
+      }
+
+      if (!pub) {
+        return { success: false, message: 'Invalid phone/email or password.' };
+      }
+      if (pub.blocked) {
+        return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
+      }
+      
+      const sess = { type: 'publisher' as const, id: pub.id, name: pub.name };
+      setCurrentUser(sess);
+      localStorage.setItem('pai_user_session', JSON.stringify(sess));
+      addLog(pub.id, pub.name, 'LOGIN', 'Publisher logged in successfully via credential verify');
+      return { success: true, message: 'Logged in successfully', publisher: pub };
+    } catch (error: any) {
+      console.error("Login Error:", error);
+      return { success: false, message: 'Login execution failed: ' + error.message };
     }
-    if (pub.blocked) {
-      return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
-    }
-    
-    const sess = { type: 'publisher' as const, id: pub.id, name: pub.name };
-    setCurrentUser(sess);
-    localStorage.setItem('pai_user_session', JSON.stringify(sess));
-    addLog(pub.id, pub.name, 'LOGIN', 'Publisher logged in successfully via credential verify');
-    return { success: true, message: 'Logged in successfully', publisher: pub };
   };
 
-  const signupPublisher = (name: string, email: string, phone: string, password: string) => {
-    const existing = publishers.find(p => p.email === email || p.phone === phone);
-    if (existing) {
-      return { success: false, message: 'An account with this Email or Phone number already exists.' };
+  const signupPublisher = async (name: string, email: string, phone: string, password: string) => {
+    try {
+      // 1. Check if email or phone is already registered in local state
+      let existing = publishers.find(p => p.email === email || p.phone === phone);
+      
+      // 2. Double check Firestore directly to prevent signup duplication across devices
+      if (!existing) {
+        const pubsRef = collection(db, 'publishers');
+        const qEmail = query(pubsRef, where('email', '==', email));
+        const snapEmail = await getDocs(qEmail);
+        if (!snapEmail.empty) {
+          existing = snapEmail.docs[0].data() as Publisher;
+        } else {
+          const qPhone = query(pubsRef, where('phone', '==', phone));
+          const snapPhone = await getDocs(qPhone);
+          if (!snapPhone.empty) {
+            existing = snapPhone.docs[0].data() as Publisher;
+          }
+        }
+      }
+
+      if (existing) {
+        return { success: false, message: 'An account with this Email or Phone number already exists.' };
+      }
+
+      // 3. Compute new ID
+      let nextNum = 1004;
+      publishers.forEach(p => {
+        const num = parseInt(p.id.replace('PUB', ''));
+        if (!isNaN(num) && num >= nextNum) {
+          nextNum = num + 1;
+        }
+      });
+      
+      // Also check Firestore collections to prevent ID collision across offline instances
+      const pubsRef = collection(db, 'publishers');
+      const snapAll = await getDocs(query(pubsRef));
+      snapAll.forEach(docSnap => {
+        const p = docSnap.data() as Publisher;
+        if (p.id) {
+          const num = parseInt(p.id.replace('PUB', ''));
+          if (!isNaN(num) && num >= nextNum) {
+            nextNum = num + 1;
+          }
+        }
+      });
+
+      const newId = `PUB${nextNum}`;
+
+      const newPub: Publisher = {
+        id: newId,
+        name,
+        email,
+        phone,
+        password,
+        avatar: '👤',
+        blocked: false,
+        joinedDate: new Date().toISOString().substring(0, 10)
+      };
+
+      // 4. Save to Firestore (await to ensure durable database write completes!)
+      await setDoc(doc(db, 'publishers', newId), newPub);
+
+      // Create matching bank details record
+      const emptyBank: BankDetails = {
+        publisherId: newId,
+        holderName: name,
+        phone,
+        email,
+        accountNumber: '',
+        ifsc: '',
+        upi: '',
+        qrCode: ''
+      };
+      await setDoc(doc(db, 'bank_details', newId), emptyBank);
+
+      const sess = { type: 'publisher' as const, id: newId, name };
+      setCurrentUser(sess);
+      localStorage.setItem('pai_user_session', JSON.stringify(sess));
+      
+      addLog(newId, name, 'SIGNUP', 'New publisher account created and verified');
+      return { success: true, message: 'Sign up successful!', publisher: newPub };
+    } catch (error: any) {
+      console.error("Signup Error:", error);
+      return { success: false, message: 'Signup execution failed: ' + error.message };
     }
-
-    const newId = `PUB${1000 + publishers.length + 1}`;
-    const newPub: Publisher = {
-      id: newId,
-      name,
-      email,
-      phone,
-      password,
-      avatar: '👤',
-      blocked: false,
-      joinedDate: new Date().toISOString().substring(0, 10)
-    };
-
-    const updatedPubs = [...publishers, newPub];
-    setPublishers(updatedPubs);
-    localStorage.setItem('pai_pubs', JSON.stringify(updatedPubs));
-
-    // Auto create basic empty bank details record
-    const emptyBank: BankDetails = {
-      publisherId: newId,
-      holderName: name,
-      phone,
-      email,
-      accountNumber: '',
-      ifsc: '',
-      upi: '',
-      qrCode: ''
-    };
-    const updatedBank = { ...bankDetailsMap, [newId]: emptyBank };
-    setBankDetailsMap(updatedBank);
-    localStorage.setItem('pai_bank', JSON.stringify(updatedBank));
-
-    const sess = { type: 'publisher' as const, id: newId, name };
-    setCurrentUser(sess);
-    localStorage.setItem('pai_user_session', JSON.stringify(sess));
-    
-    addLog(newId, name, 'SIGNUP', 'New publisher account created and verified');
-    return { success: true, message: 'Sign up successful!', publisher: newPub };
   };
 
   const logout = () => {
@@ -481,14 +628,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updatePublisherProfile = (name: string, avatar: string) => {
     if (!currentUser || currentUser.type !== 'publisher') return;
     const pubId = currentUser.id;
-    const updatedPubs = publishers.map(p => {
-      if (p.id === pubId) {
-        return { ...p, name, avatar };
-      }
-      return p;
-    });
-    setPublishers(updatedPubs);
-    localStorage.setItem('pai_pubs', JSON.stringify(updatedPubs));
+    
+    updateDoc(doc(db, 'publishers', pubId), { name, avatar });
     
     const upSess = { ...currentUser, name };
     setCurrentUser(upSess);
@@ -507,102 +648,81 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const resetUserPasswordByAdmin = (phone: string, email: string, newPass: string) => {
-    const index = publishers.findIndex(p => p.phone === phone && p.email === email);
-    if (index !== -1) {
-      const updated = [...publishers];
-      updated[index] = { ...updated[index], password: newPass };
-      setPublishers(updated);
-      localStorage.setItem('pai_pubs', JSON.stringify(updated));
-      addLog('ADMIN', 'Admin Manager', 'PASS_RESET', `Force changed credentials of ${updated[index].id}`);
-      return { success: true, message: `Successfully allocated new password 'Admin@123' for ${updated[index].name} (${updated[index].id}).` };
+    const pub = publishers.find(p => p.phone === phone && p.email === email);
+    if (pub) {
+      updateDoc(doc(db, 'publishers', pub.id), { password: newPass });
+      addLog('ADMIN', 'Admin Manager', 'PASS_RESET', `Force changed credentials of ${pub.id}`);
+      return { success: true, message: `Successfully allocated new password '${newPass}' for ${pub.name} (${pub.id}).` };
     }
     return { success: false, message: 'Matching details not found.' };
   };
 
   // Admin / Employee operations
   const addCampaign = (c: Omit<Campaign, 'id' | 'active'>) => {
+    const newId = `camp-${Date.now()}`;
     const newCamp: Campaign = {
       ...c,
-      id: `camp-${Date.now()}`,
+      id: newId,
       active: true
     };
-    const updated = [...campaigns, newCamp];
-    setCampaigns(updated);
-    localStorage.setItem('pai_campaigns', JSON.stringify(updated));
+    setDoc(doc(db, 'campaigns', newId), newCamp);
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_ADD', `Created campaign '${c.name}' with payout ₹${c.payout}`);
   };
 
   const toggleCampaignActive = (id: string) => {
-    const updated = campaigns.map(c => {
-      if (c.id === id) {
-        addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${!c.active}`);
-        return { ...c, active: !c.active };
-      }
-      return c;
-    });
-    setCampaigns(updated);
-    localStorage.setItem('pai_campaigns', JSON.stringify(updated));
+    const c = campaigns.find(item => item.id === id);
+    if (c) {
+      updateDoc(doc(db, 'campaigns', id), { active: !c.active });
+      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${!c.active}`);
+    }
   };
 
   const editCampaign = (id: string, updatedCamp: Partial<Campaign>) => {
-    const updated = campaigns.map(c => {
-      if (c.id === id) {
-        addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${c.name}' specs`);
-        return { ...c, ...updatedCamp };
-      }
-      return c;
-    });
-    setCampaigns(updated);
-    localStorage.setItem('pai_campaigns', JSON.stringify(updated));
+    const c = campaigns.find(item => item.id === id);
+    if (c) {
+      updateDoc(doc(db, 'campaigns', id), updatedCamp);
+      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${c.name}' specs`);
+    }
   };
 
   const deleteCampaign = (id: string) => {
     const target = campaigns.find(c => c.id === id);
-    const updated = campaigns.filter(c => c.id !== id);
-    setCampaigns(updated);
-    localStorage.setItem('pai_campaigns', JSON.stringify(updated));
-    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_DELETE', `Deleted campaign '${target?.name || id}' from active registry`);
+    if (target) {
+      deleteDoc(doc(db, 'campaigns', id));
+      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_DELETE', `Deleted campaign '${target.name}' from active registry`);
+    }
   };
 
   const updateOfferPopup = (image: string, active: boolean, title?: string, description?: string, buttonText?: string, link?: string, showButton?: boolean) => {
     const newOffer = { image, active, title, description, buttonText, link, showButton };
-    setOffer(newOffer);
-    localStorage.setItem('pai_offer', JSON.stringify(newOffer));
+    updateDoc(doc(db, 'configs', 'settings'), { offer: newOffer });
     addLog('ADMIN', 'Administrator', 'OFFER_UPDATE', `Admin modified promo banner popup (Activated: ${active})`);
   };
 
   const updateSupportDetails = (phone: string, email: string) => {
-    setSupportPhone(phone);
-    setSupportEmail(email);
-    localStorage.setItem('pai_supp_phone', phone);
-    localStorage.setItem('pai_supp_email', email);
+    updateDoc(doc(db, 'configs', 'settings'), { supportPhone: phone, supportEmail: email });
     addLog('ADMIN', 'Administrator', 'SUPPORT_EDIT', `Site-wide contacts updated. Phone: ${phone}, Email: ${email}`);
   };
 
   const togglePartnerHiring = (active: boolean) => {
-    setPartnerHiringActive(active);
-    localStorage.setItem('pai_hiring_active', active ? 'true' : 'false');
+    updateDoc(doc(db, 'configs', 'settings'), { partnerHiringActive: active });
     addLog('ADMIN', 'Administrator', 'HIRING_TOGGLE', `Hiring availability program toggled to ${active ? 'Active' : 'Paused'}`);
   };
 
   const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus) => {
-    const subIndex = submissions.findIndex(s => s.id === submissionId);
-    if (subIndex === -1) return;
-    const oldSub = submissions[subIndex];
+    const oldSub = submissions.find(s => s.id === submissionId);
+    if (!oldSub) return;
     if (oldSub.status === 'PaymentDone' && status !== 'Payment Done') return; // protect payouts from getting reverted simply
 
-    const updatedSubs = [...submissions];
-    updatedSubs[subIndex] = { ...oldSub, status };
-    setSubmissions(updatedSubs);
-    localStorage.setItem('pai_subs', JSON.stringify(updatedSubs));
-
+    updateDoc(doc(db, 'submissions', submissionId), { status });
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'MIS_STATUS_UPDATE', `Approved campaign status of [${oldSub.clientName}] to ${status}`);
 
     // Core specification requirement: "or isme jo Payment Done hai na mai jis bhi account ko payment done click kruga us campaing ka jo ammount hoga uske dashboard me add ho jye. jitna mene campaing create ke time amount rakha hu."
     if (status === 'Payment Done' && oldSub.status !== 'Payment Done') {
       // Allocate the campaign payout into earnings of sub's publisher now
+      const earningId = `earning-${Date.now()}`;
       const newEarning: EarningRecord = {
-        id: `earning-${Date.now()}`,
+        id: earningId,
         publisherId: oldSub.publisherId,
         campaignId: oldSub.campaignId,
         campaignName: oldSub.campaignName,
@@ -611,24 +731,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
       };
       
-      const newEarnings = [newEarning, ...earnings];
-      setEarnings(newEarnings);
-      localStorage.setItem('pai_earnings', JSON.stringify(newEarnings));
-      
+      setDoc(doc(db, 'earnings', earningId), newEarning);
       addLog('PAYMENT_SERVER', 'Automatic Ledger', 'EARNING_DISBURSE', `Disbursed ₹${oldSub.payout} campaign reward to ${oldSub.publisherId}`);
     }
   };
 
   const toggleBlockPublisher = (pubId: string) => {
-    const updated = publishers.map(p => {
-      if (p.id === pubId) {
-        addLog('ADMIN', 'Administrator', p.blocked ? 'UNBLOCK_USER' : 'BLOCK_USER', `Account access modify for ${p.name} (${p.id})`);
-        return { ...p, blocked: !p.blocked };
-      }
-      return p;
-    });
-    setPublishers(updated);
-    localStorage.setItem('pai_pubs', JSON.stringify(updated));
+    const p = publishers.find(item => item.id === pubId);
+    if (p) {
+      updateDoc(doc(db, 'publishers', pubId), { blocked: !p.blocked });
+      addLog('ADMIN', 'Administrator', p.blocked ? 'UNBLOCK_USER' : 'BLOCK_USER', `Account access modify for ${p.name} (${p.id})`);
+    }
   };
 
   const addEmployee = (name: string, u: string, p: string, role: 'Payment' | 'MIS') => {
@@ -636,16 +749,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (existing) {
       return { success: false, message: 'Username is already taken by another staff member.' };
     }
+    const empId = `emp-${Date.now()}`;
     const newEmp: Employee = {
-      id: `emp-${Date.now()}`,
+      id: empId,
       name,
       username: u,
       password: p,
       role
     };
-    const updated = [...employees, newEmp];
-    setEmployees(updated);
-    localStorage.setItem('pai_employees', JSON.stringify(updated));
+    setDoc(doc(db, 'employees', empId), newEmp);
     addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${name} (Role: ${role})`);
     return { success: true, message: 'Staff Employee account generated successfully!' };
   };
@@ -653,39 +765,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteEmployee = (id: string) => {
     const target = employees.find(e => e.id === id);
     if (!target) return;
-    const updated = employees.filter(e => e.id !== id);
-    setEmployees(updated);
-    localStorage.setItem('pai_employees', JSON.stringify(updated));
+    deleteDoc(doc(db, 'employees', id));
     addLog('ADMIN', 'Administrator', 'STAFF_REMOVED', `Revoked access tokens for staff: ${target.name}`);
   };
 
   const triggerBackup = () => {
-    const databaseSize = (JSON.stringify(localStorage).length / 1024).toFixed(2);
+    const bId = `b-${Date.now()}`;
     const newBackup = {
-      id: `b-${Date.now()}`,
+      id: bId,
       time: new Date().toISOString().replace('T', ' ').substring(0, 19),
       scope: 'Full Database Snapshot Backup',
-      size: `${databaseSize} KB`,
+      size: `2.4 MB`,
       status: 'Success'
     };
-    const updatedBackups = [newBackup, ...backupLogs];
-    setBackupLogs(updatedBackups);
-    localStorage.setItem('pai_backup_logs', JSON.stringify(updatedBackups));
-    addLog('SYSTEM', 'Core Database Manager', 'AUTO_BACKUP', `Database Snapshot exported successfully: size ${databaseSize} KB. Integrity check passes.`);
+    setDoc(doc(db, 'backups', bId), newBackup);
+    addLog('SYSTEM', 'Core Database Manager', 'AUTO_BACKUP', `Database Snapshot exported successfully`);
   };
 
   // Publisher actions
   const submitBankDetails = (details: BankDetails) => {
     if (!currentUser || currentUser.type !== 'publisher') return;
-    const updated = {
-      ...bankDetailsMap,
-      [currentUser.id]: {
-        ...details,
-        publisherId: currentUser.id
-      }
-    };
-    setBankDetailsMap(updated);
-    localStorage.setItem('pai_bank', JSON.stringify(updated));
+    setDoc(doc(db, 'bank_details', currentUser.id), {
+      ...details,
+      publisherId: currentUser.id
+    });
     addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
   };
 
@@ -696,8 +799,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const camp = campaigns.find(c => c.id === campaignId);
     if (!camp) return { success: false, message: 'Invalid Campaign selected' };
 
+    const subId = `sub-${Date.now()}`;
     const newSub: DataSubmission = {
-      id: `sub-${Date.now()}`,
+      id: subId,
       publisherId: currentUser.id,
       publisherName: currentUser.name,
       campaignId,
@@ -711,10 +815,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'Process'
     };
 
-    const updated = [newSub, ...submissions];
-    setSubmissions(updated);
-    localStorage.setItem('pai_subs', JSON.stringify(updated));
-
+    setDoc(doc(db, 'submissions', subId), newSub);
     addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
     return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
   };
@@ -723,8 +824,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!partnerHiringActive) {
       return { success: false, message: 'Hiring is currently closed or paused by management.' };
     }
+    const partnerId = `part-${Date.now()}`;
     const newApp: PartnerApplication = {
-      id: `part-${Date.now()}`,
+      id: partnerId,
       name,
       phone,
       email,
@@ -734,10 +836,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submitDate: new Date().toISOString().substring(0, 10)
     };
 
-    const updated = [newApp, ...partnerApplications];
-    setPartnerApplications(updated);
-    localStorage.setItem('pai_partners', JSON.stringify(updated));
-
+    setDoc(doc(db, 'partners', partnerId), newApp);
     addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
     return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
   };

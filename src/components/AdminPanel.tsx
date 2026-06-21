@@ -1191,7 +1191,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       type="button"
                       id="reveal-bank-details"
                       onClick={() => setIsBankDetailsRevealed(true)}
-                      className="px-4 py-2.5 bg-indigo-650 text-white font-extrabold text-xs rounded-xl"
+                      className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl transition-colors cursor-pointer shadow-sm"
                     >
                       Show Bank Details
                     </button>

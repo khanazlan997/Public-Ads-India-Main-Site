@@ -510,19 +510,19 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           
           <div className="space-y-2">
             <h2 className="text-2xl font-black text-rose-600 dark:text-rose-400 tracking-tight">
-              Aapka Account Blocked Hai!
+              Account Suspended / Blocked
             </h2>
             <p className="text-sm text-slate-600 dark:text-slate-350 font-medium">
-              Administrator ne aapka account temporary lock ya block kar diya hai. Aap dashboard access nahi kar sakte.
+              Your publisher account has been temporarily locked or blocked by the Administrator. You cannot access the network panel at this moment.
             </p>
             <p className="text-xs text-slate-400">
-              Kripya system administrator ya support team se contact karein.
+              Please contact our dedicated support division to request credentials reinstatement or system clearance.
             </p>
           </div>
 
           <div className="p-4 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-150 dark:border-slate-800 space-y-2">
             <div className="text-[10px] font-bold text-slate-450 uppercase tracking-widest">Support Helpline</div>
-            <div className="text-sm font-black text-slate-800 dark:text-white font-mono">{supportPhone || '+91 91199 00143'}</div>
+            <div className="text-sm font-black text-slate-800 dark:text-white font-mono">+91 8934932418</div>
           </div>
 
           <button
@@ -532,7 +532,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             }}
             className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md cursor-pointer"
           >
-            Logout From Network
+            Logout
           </button>
         </div>
       </div>

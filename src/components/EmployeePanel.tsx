@@ -13,7 +13,8 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
     loginEmployee, 
     logout, 
     submissions, 
-    updateSubmissionStatus 
+    updateSubmissionStatus,
+    bankDetailsMap
   } = useAppState();
 
   const [username, setUsername] = useState('');
@@ -226,7 +227,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                       <th className="p-4">Campaign Name</th>
                       <th className="p-3">Client details</th>
                       <th className="p-3">Payout</th>
-                      <th className="p-3">Proof Card</th>
+                      {isPaymentRole && <th className="p-3">Proof Card</th>}
                       <th className="p-3">Status</th>
                       <th className="p-4 rounded-r-xl text-right">Approve Actions</th>
                     </tr>
@@ -249,15 +250,21 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                         <td className="p-3">
                           <span className="font-extrabold text-slate-850 dark:text-amber-500 text-red-500 font-mono">₹{sub.payout}</span>
                         </td>
-                        <td className="p-3">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImage(sub.screenshot)}
-                            className="inline-flex items-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold border border-blue-100 dark:border-blue-900 cursor-pointer"
-                          >
-                            Screenshot <CheckCircle2 className="w-3 h-3" />
-                          </button>
-                        </td>
+                        {isPaymentRole && (
+                          <td className="p-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const clientBank = bankDetailsMap[sub.publisherId];
+                                setPreviewImage(clientBank?.qrCode || 'NO_QR');
+                              }}
+                              className="inline-flex items-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold border border-blue-100 dark:border-blue-900 cursor-pointer"
+                              title="Show Client UPI QR Card"
+                            >
+                              Proof Card <CheckCircle2 className="w-3 h-3" />
+                            </button>
+                          </td>
+                        )}
                         <td className="p-3">
                           <span className={`inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
                             sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
@@ -303,7 +310,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                                   onClick={() => handleStatusChange(sub.id, 'Ready To Trade')}
                                   className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-[9px] rounded uppercase uppercase tracking-wider"
                                 >
-                                  Trade Ready
+                                  Ready to Trade
                                 </button>
                                 <button
                                   onClick={() => handleStatusChange(sub.id, 'Active')}
@@ -340,15 +347,17 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
           >
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/40">
-              <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-wider">Candidate Verification Proof Preview</span>
+              <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[11px] uppercase tracking-wider">Client UPI QR / Proof Card Preview</span>
               <div className="flex gap-2">
-                <a 
-                  href={previewImage} 
-                  download={`proof-${Date.now()}.png`}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase rounded-xl transition-colors cursor-pointer flex items-center gap-1"
-                >
-                  <Download className="w-3 h-3" /> Download
-                </a>
+                {previewImage !== 'NO_QR' && (
+                  <a 
+                    href={previewImage} 
+                    download={`proof-${Date.now()}.png`}
+                    className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-[10px] uppercase rounded-xl transition-colors cursor-pointer flex items-center gap-1"
+                  >
+                    <Download className="w-3 h-3" /> Download
+                  </a>
+                )}
                 <button 
                   onClick={() => setPreviewImage(null)}
                   className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl font-black text-slate-750 dark:text-slate-250 cursor-pointer text-[10px]"
@@ -359,11 +368,21 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
             </div>
             {/* Image Box */}
             <div className="p-4 bg-slate-950 flex items-center justify-center max-h-[72vh] min-h-[250px] overflow-auto">
-              <img 
-                src={previewImage} 
-                alt="Verification Proof" 
-                className="max-w-full max-h-[66vh] object-contain rounded-lg shadow-md border border-slate-700" 
-              />
+              {previewImage === 'NO_QR' ? (
+                <div className="text-center p-12 text-slate-400 space-y-3">
+                  <span className="text-3xl">⚠️</span>
+                  <p className="font-black text-sm text-rose-500">No UPI QR Code Found!</p>
+                  <p className="text-xs text-slate-400 max-w-sm mx-auto leading-relaxed">
+                    This client has not uploaded their UPI QR scanner image in the "Bank Update" section. Please ask them to upload it.
+                  </p>
+                </div>
+              ) : (
+                <img 
+                  src={previewImage} 
+                  alt="Client Bank QR Code" 
+                  className="max-w-full max-h-[66vh] object-contain rounded-lg shadow-md border border-slate-700" 
+                />
+              )}
             </div>
           </div>
         </div>

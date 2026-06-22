@@ -4,7 +4,7 @@ import {
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
-  Clock, Filter, ShieldCheck, RefreshCcw
+  Clock, Filter, ShieldCheck, RefreshCcw, Star
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -12,7 +12,7 @@ interface AdminPanelProps {
   onNavigate: (route: string) => void;
 }
 
-type AdminTab = 'overview' | 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs';
+type AdminTab = 'overview' | 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs' | 'testimonials_edit';
 
 export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const { 
@@ -44,7 +44,11 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     backupLogs, 
     triggerBackup, 
     activityLogs,
-    purgeAllSystemData 
+    purgeAllSystemData,
+    testimonials,
+    addTestimonial,
+    editTestimonial,
+    deleteTestimonial
   } = useAppState();
 
   // Admin login states
@@ -56,6 +60,15 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   // Active Admin Tab
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [adminTabDropdownOpen, setAdminTabDropdownOpen] = useState(false);
+
+  // Testimonial editing forms state
+  const [testiFormOpen, setTestiFormOpen] = useState(false);
+  const [editingTestiId, setEditingTestiId] = useState<string | null>(null);
+  const [testiName, setTestiName] = useState('');
+  const [testiProfession, setTestiProfession] = useState('');
+  const [testiImage, setTestiImage] = useState('');
+  const [testiMessage, setTestiMessage] = useState('');
+  const [testiMsg, setTestiMsg] = useState('');
 
   // Campaign create form states
   const [campName, setCampName] = useState('');
@@ -468,6 +481,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
                     { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
                     { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
+                    { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
                     { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
                     { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
                     { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
@@ -501,6 +515,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
                     { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
                     { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
+                    { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
                     { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
                     { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
                     { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
@@ -539,6 +554,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
               { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
               { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
+              { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
               { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
               { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
               { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
@@ -2202,6 +2218,293 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         <tr>
                           <td colSpan={4} className="p-8 text-center text-slate-400 font-medium font-mono text-xs">
                             No auditable trails found matching selection parameters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+          )}
+
+          {/* TAB 9: Testimonials / Feedback Reviews Editor */}
+          {activeTab === 'testimonials_edit' && (
+            <div id="tabContent-testimonials" className="space-y-6 animate-fade-up">
+              
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-4 border-b border-slate-200 gap-4">
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2 font-sans">
+                    <MessageSquare className="w-5 h-5 text-rose-500" />
+                    Client Review & Feedback Manager
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-1">
+                    Manage the customer testimonials displayed dynamically on your public homepage. Add, edit, or remove reviews.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingTestiId(null);
+                      setTestiName('');
+                      setTestiProfession('');
+                      setTestiImage('');
+                      setTestiMessage('');
+                      setTestiMsg('');
+                      setTestiFormOpen(!testiFormOpen);
+                    }}
+                    className="px-3.5 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl cursor-pointer flex items-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" />
+                    {testiFormOpen ? 'Close Editor Form' : 'Add New Review'}
+                  </button>
+                </div>
+              </div>
+
+              {testiMsg && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-xs rounded-xl flex items-center justify-between">
+                  <span>{testiMsg}</span>
+                  <button onClick={() => setTestiMsg('')} className="bg-transparent border-0 text-[10px] text-emerald-800 hover:text-emerald-950 font-bold">✕ Dismiss</button>
+                </div>
+              )}
+
+              {/* Collapsible create/edit form */}
+              {testiFormOpen && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!testiName || !testiProfession || !testiMessage) {
+                      setTestiMsg('Warning: Plase fully fill all required review fields (Name, Profession, Message).');
+                      return;
+                    }
+                    const payload = {
+                      name: testiName,
+                      profession: testiProfession,
+                      image: testiImage || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150', // Default modern face avatar
+                      message: testiMessage
+                    };
+
+                    if (editingTestiId) {
+                      editTestimonial(editingTestiId, payload);
+                      setTestiMsg(`Review from '${testiName}' updated successfully!`);
+                    } else {
+                      addTestimonial(payload);
+                      setTestiMsg(`Review from '${testiName}' added to home carousel!`);
+                    }
+
+                    // Reset form
+                    setEditingTestiId(null);
+                    setTestiName('');
+                    setTestiProfession('');
+                    setTestiImage('');
+                    setTestiMessage('');
+                    setTestiFormOpen(false);
+                  }}
+                  className="bg-slate-50 border border-slate-200 p-5 rounded-2xl space-y-4 shadow-sm"
+                >
+                  <h4 className="text-sm font-black text-slate-800 font-sans">
+                    {editingTestiId ? 'Edit Review Record' : 'Configure Custom Testimonial Card'}
+                  </h4>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-sans">Client Name</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Evelyn H."
+                        value={testiName}
+                        onChange={(e) => setTestiName(e.target.value)}
+                        className="w-full text-xs p-3 border border-slate-200 bg-white text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Job & Subtitle Text</label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Founder, Studio-X / Designer"
+                        value={testiProfession}
+                        onChange={(e) => setTestiProfession(e.target.value)}
+                        className="w-full text-xs p-3 border border-slate-200 bg-white text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="flex flex-col gap-1.5 md:col-span-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Profile Image URL (External link)</label>
+                      <input
+                        type="url"
+                        placeholder="Paste image URL (https://...)"
+                        value={testiImage}
+                        onChange={(e) => setTestiImage(e.target.value)}
+                        className="w-full text-xs p-3 border border-slate-200 bg-white text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono">Upload Local Photo link</label>
+                      <div className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            if (file.size > 800 * 1024) {
+                              alert('Photo exceeds safety guidelines (800 KB limit).');
+                              return;
+                            }
+                            const r = new FileReader();
+                            r.onloadend = () => setTestiImage(r.result as string);
+                            r.readAsDataURL(file);
+                          }}
+                          className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"
+                        />
+                        <div className="w-full text-center border border-dashed border-slate-300 p-2.5 rounded-xl bg-white text-xs font-bold text-slate-600 hover:bg-slate-50 flex items-center justify-center gap-1.5">
+                          <Upload className="w-4 h-4 text-slate-400" />
+                          Upload Photo File
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 font-sans">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Feedback Review Message</label>
+                    <textarea
+                      required
+                      rows={3}
+                      placeholder="e.g. Exceptional UI precision and speed. The custom integrations make this platform excellent..."
+                      value={testiMessage}
+                      onChange={(e) => setTestiMessage(e.target.value)}
+                      className="w-full text-xs p-3 border border-slate-200 bg-white text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium leading-relaxed resize-none"
+                    />
+                  </div>
+
+                  <div className="flex justify-end gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingTestiId(null);
+                        setTestiName('');
+                        setTestiProfession('');
+                        setTestiImage('');
+                        setTestiMessage('');
+                        setTestiFormOpen(false);
+                      }}
+                      className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4.5 py-2 bg-[#2d1b18] hover:bg-black text-white font-black text-xs rounded-xl shadow cursor-pointer"
+                    >
+                      {editingTestiId ? 'Save Review Updates' : 'Add Testimonial'}
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Informative alert explaining reviews defaults */}
+              <div className="p-4 bg-rose-50/50 border border-rose-200/50 rounded-2xl flex gap-3 text-xs font-semibold text-slate-800">
+                <CheckCircle2 className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+                <div>
+                  <span className="block font-black text-xs text-rose-950 font-sans">Testimonial Parameters Info</span>
+                  <p className="text-[11px] text-slate-700 mt-0.5 leading-relaxed font-semibold">
+                    By default, all dynamic testimonials will render ⭐⭐⭐⭐⭐ (5 Star reviews) on the landing page carousel to uphold top agency ratings automatically. You can manage their image avatars, complete customer profiles, and specific message bodies down here in real-time.
+                  </p>
+                </div>
+              </div>
+
+              {/* Testimonials List Grid / Table */}
+              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-sm">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="sticky top-0 bg-slate-50 border-b border-slate-200 z-10 text-[9px] text-slate-400 font-black uppercase tracking-wider font-mono">
+                      <tr>
+                        <th className="p-4">Profile Avatar</th>
+                        <th className="p-4">Customer Name</th>
+                        <th className="p-4">Designation / Profession</th>
+                        <th className="p-4">Rating Star Check</th>
+                        <th className="p-4">Review Message Message</th>
+                        <th className="p-4 text-right">Interactive Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {testimonials.map(item => (
+                        <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4">
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              referrerPolicy="no-referrer"
+                              className="w-10 h-10 rounded-full border border-slate-200 object-cover"
+                              onError={(e) => {
+                                // Default modern safe face placeholder on error
+                                (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=150';
+                              }}
+                            />
+                          </td>
+                          <td className="p-4 font-black text-slate-800 font-sans">{item.name}</td>
+                          <td className="p-4 font-bold text-slate-500 font-sans">{item.profession}</td>
+                          <td className="p-4 text-amber-500">
+                            <span className="flex gap-0.5">
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                              <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                            </span>
+                          </td>
+                          <td className="p-4 font-medium text-slate-650 max-w-sm font-sans text-[11.5px] leading-relaxed break-words">{item.message}</td>
+                          <td className="p-4 text-right whitespace-nowrap">
+                            <div className="flex items-center justify-end gap-2 text-xs">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingTestiId(item.id);
+                                  setTestiName(item.name);
+                                  setTestiProfession(item.profession);
+                                  setTestiImage(item.image);
+                                  setTestiMessage(item.message);
+                                  setTestiFormOpen(true);
+                                  // Smooth scroll to top of panel workspace
+                                  const workBlock = document.getElementById('admin-workspace') || document.getElementById('tabContent-testimonials');
+                                  if (workBlock) {
+                                    workBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-50 border border-indigo-200 rounded-lg font-black transition-colors cursor-pointer"
+                              >
+                                Edit Review
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (confirm(`Are you absolutely sure you want to delete the testimonial of "${item.name}"?`)) {
+                                    deleteTestimonial(item.id);
+                                    setTestiMsg(`Review from '${item.name}' permanently deleted.`);
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 text-rose-650 hover:bg-rose-50 border border-rose-200 rounded-lg font-black transition-colors cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+
+                      {testimonials.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-slate-400 font-medium font-mono text-xs">
+                            No active reviews shown. Add a custom feedback to feed the dynamic homepage carousel!
                           </td>
                         </tr>
                       )}

@@ -21,7 +21,8 @@ import {
   BankDetails, 
   ActivityLog, 
   ActiveOffer,
-  SubmissionStatus
+  SubmissionStatus,
+  Testimonial
 } from '../types';
 
 interface AppContextType {
@@ -40,6 +41,7 @@ interface AppContextType {
   supportEmail: string;
   partnerHiringActive: boolean;
   currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
+  testimonials: Testimonial[];
   
   // Actions
   loginPublisher: (phoneOrEmail: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
@@ -65,6 +67,9 @@ interface AppContextType {
   triggerBackup: () => void;
   backupLogs: Array<{ id: string; time: string; scope: string; size: string; status: string }>;
   purgeAllSystemData: () => Promise<{ success: boolean; message: string }>;
+  addTestimonial: (t: Omit<Testimonial, 'id'>) => void;
+  editTestimonial: (id: string, updated: Partial<Testimonial>) => void;
+  deleteTestimonial: (id: string) => void;
   
   // Publisher Actions
   submitBankDetails: (details: BankDetails) => void;
@@ -137,9 +142,55 @@ const defaultCampaigns: Campaign[] = [
   }
 ];
 
+const defaultTestimonials: Testimonial[] = [
+  {
+    id: "testi-1",
+    name: "Evelyn H.",
+    profession: "Designer",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300",
+    message: "The web design team transformed our platform into a masterpiece! The attention to detail, spacing, and modern typography completely elevated our traffic and conversion rates."
+  },
+  {
+    id: "testi-2",
+    name: "Clara M.",
+    profession: "App Developer",
+    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300",
+    message: "Incredible UX capability! They delivered a stunning and smart UI layout with clean modern interactions that work effortlessly across any mobile device or device scale. Absolutely elite."
+  },
+  {
+    id: "testi-3",
+    name: "Sarah K.",
+    profession: "Marketing Lead",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
+    message: "Our conversion rate skyrocketed by 45% after applying this new clean interface. The design feels trustworthy, professional, and visually spectacular. Client feedback has been stellar!"
+  },
+  {
+    id: "testi-4",
+    name: "Michelle P.",
+    profession: "Creative Director",
+    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=300",
+    message: "The team is exceptionally skilled in premium UI aesthetics. They took our vague feedback and engineered a highly optimized, state-of-the-art layout that exceeded our digital standards."
+  },
+  {
+    id: "testi-5",
+    name: "Natasha R.",
+    profession: "Founder, Studio-X",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
+    message: "Exceptional UI precision and speed. The custom integrations, interactive widgets, and seamless responsiveness on both phone and PC make this platform an absolute treasure to use daily."
+  },
+  {
+    id: "testi-6",
+    name: "Jessica L.",
+    profession: "Project Manager",
+    image: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&q=80&w=300",
+    message: "Flawless communication and aesthetic execution! They designed a highly intuitive website layout with perfect accessibility and polished animations. It feels incredibly premium."
+  }
+];
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
   const [publishers, setPublishers] = useState<Publisher[]>([]);
   const [earnings, setEarnings] = useState<EarningRecord[]>([]);
   const [submissions, setSubmissions] = useState<DataSubmission[]>([]);
@@ -243,6 +294,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           list.push(docSnap.data() as Campaign);
         });
         setCampaigns(list);
+      }
+    });
+    return unsubscribe;
+  }, [initDoneState]);
+
+  // 1b. Sync Testimonials
+  useEffect(() => {
+    if (initDoneState === null) return;
+    const q = collection(db, 'testimonials');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        if (initDoneState === false) {
+          defaultTestimonials.forEach((t) => {
+            setDoc(doc(db, 'testimonials', t.id), t);
+          });
+          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
+        } else {
+          setTestimonials([]);
+        }
+      } else {
+        const list: Testimonial[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as Testimonial);
+        });
+        // Sort testimonials so they maintain consistent orders e.g., by matching order in array
+        const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6"];
+        list.sort((a, b) => {
+          const idxA = defaultOrder.indexOf(a.id);
+          const idxB = defaultOrder.indexOf(b.id);
+          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+          if (idxA !== -1) return -1;
+          if (idxB !== -1) return 1;
+          return a.id.localeCompare(b.id);
+        });
+        setTestimonials(list);
       }
     });
     return unsubscribe;
@@ -900,6 +986,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addLog('ADMIN', 'Administrator', 'STAFF_REMOVED', `Revoked access tokens for staff: ${target.name}`);
   };
 
+  const addTestimonial = (t: Omit<Testimonial, 'id'>) => {
+    const newId = `testi-${Date.now()}`;
+    const newTestimonial: Testimonial = {
+      ...t,
+      id: newId
+    };
+    setDoc(doc(db, 'testimonials', newId), newTestimonial);
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_ADD', `Added testimonial/feedback from '${t.name}'`);
+  };
+
+  const editTestimonial = (id: string, updated: Partial<Testimonial>) => {
+    updateDoc(doc(db, 'testimonials', id), updated);
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_EDIT', `Modified testimonial/feedback from '${updated.name || id}'`);
+  };
+
+  const deleteTestimonial = (id: string) => {
+    deleteDoc(doc(db, 'testimonials', id));
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_DELETE', `Deleted testimonial with ID '${id}'`);
+  };
+
   const triggerBackup = () => {
     const bId = `b-${Date.now()}`;
     const newBackup = {
@@ -1035,6 +1141,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supportEmail,
       partnerHiringActive,
       currentUser,
+      testimonials,
       
       loginPublisher,
       signupPublisher,
@@ -1057,6 +1164,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       triggerBackup,
       backupLogs,
       purgeAllSystemData,
+      addTestimonial,
+      editTestimonial,
+      deleteTestimonial,
       submitBankDetails,
       submitLead,
       applyForPartner,

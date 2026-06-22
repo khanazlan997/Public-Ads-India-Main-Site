@@ -142,3 +142,18 @@ html, body, #root {
   overflow-x: hidden;
   position: relative;
 }
+
+/* Smooth Carousel Auto-Sliding Loop */
+@keyframes slide-left {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-carousel-slide {
+  animation: slide-left 28s linear infinite;
+  display: flex;
+}
+
+.animate-carousel-slide:hover {
+  animation-play-state: paused !important;
+}

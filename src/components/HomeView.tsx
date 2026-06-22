@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, Newspaper, Megaphone, Users, Award, Flame, HeartHandshake, CheckCircle2,
-  ShieldAlert, ShieldCheck, IndianRupee, ArrowRight, Eye, Mail, Phone, ExternalLink, Search 
+  ShieldAlert, ShieldCheck, IndianRupee, ArrowRight, Eye, Mail, Phone, ExternalLink, Search,
+  ChevronLeft, ChevronRight, Star, Quote, MessageSquare
 } from 'lucide-react';
 import { useAppState } from '../context/AppContext';
 import GeometricBackground from './GeometricBackground';
@@ -12,8 +13,11 @@ interface HomeViewProps {
 }
 
 export default function HomeView({ onNavigate }: HomeViewProps) {
-  const { supportPhone, supportEmail, partnerHiringActive, publishers } = useAppState();
-  
+  const { supportPhone, supportEmail, partnerHiringActive, publishers, testimonials } = useAppState();
+
+  // Testimonials compact toggling state
+  const [showAllTestimonials, setShowAllTestimonials] = useState(false);
+
   // Public registry search states
   const [registrySearchId, setRegistrySearchId] = useState('');
   const [registrySearchResult, setRegistrySearchResult] = useState<any>(null);
@@ -526,101 +530,99 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         </div>
       </section>
 
-      {/* Public Registry Verification Desk */}
-      <section id="public-registry-desk" className="py-16 max-w-7xl mx-auto px-4 border-t border-slate-200/50 dark:border-slate-800/60">
-        <div className="bg-slate-50 dark:bg-[#0a1122]/40 rounded-3xl p-6 sm:p-10 md:p-14 border border-slate-200/80 dark:border-slate-800/80">
-          <div className="max-w-2xl mx-auto text-center space-y-6">
-            <span className="text-[10px] font-mono font-bold text-amber-500 uppercase tracking-widest leading-none">Public Licensing Registry</span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              Official UID Registry Verification Desk
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-lg mx-auto">
-              Verify any registered remote publisher ID across India here. Newly created publisher accounts are immediately saved in our dynamic system registry.
-            </p>
+      {/* Public Testimonials Section with Light Lavender and White Background */}
+      <section id="public-registry-desk" className="py-16 bg-gradient-to-b from-[#f6f4ff] via-white to-white dark:from-[#0d091e] dark:via-[#090515] dark:to-[#020108] border-t border-purple-100/50 dark:border-slate-800/80 relative overflow-hidden select-none">
+        
+        {/* Subtle decorative glowing background light */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-80 bg-purple-200/15 dark:bg-purple-950/15 rounded-full blur-[100px] pointer-events-none" />
+        
+        <div className="max-w-7xl mx-auto px-4 text-center space-y-3 mb-10 relative z-10">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider text-purple-600 dark:text-amber-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200/30 dark:border-amber-400/20 shadow-sm">
+            <MessageSquare className="w-3.5 h-3.5" />
+            Verified Feedback
+          </span>
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
+            Loved By Over <span className="text-purple-600 dark:text-amber-400">2,000+ Publishers</span>
+          </h2>
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-lg mx-auto">
+            Real success stories from our elite remote publishers and campaign performance partners earning consistently with zero investment.
+          </p>
+        </div>
 
-            <form onSubmit={handleRegistryVerify} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto items-stretch mt-8">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-3.5 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Enter Publisher ID (e.g. PUB1001)"
-                  value={registrySearchId}
-                  onChange={(e) => {
-                    setRegistrySearchId(e.target.value);
-                    setHasRegistrySearched(false);
-                  }}
-                  className="w-full text-xs p-3.5 pl-10 border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#070d19] rounded-xl outline-none focus:border-brand-primary dark:focus:border-amber-400 font-mono font-bold text-slate-850 dark:text-white"
-                />
-              </div>
-              <button
-                type="submit"
-                className="px-6 py-3.5 bg-blue-600 hover:bg-blue-750 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md cursor-pointer whitespace-nowrap"
+        {/* INFINITE SMOOTH SLIDING MARQUEE TRACK */}
+        <div className="w-full relative py-4 overflow-hidden z-10">
+          
+          {/* Subtle light/dark fading mask layers */}
+          <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-56 bg-gradient-to-r from-[#f6f4ff] via-[#f6f4ff]/50 to-transparent dark:from-[#0d091e] dark:via-[#0d091e]/50 dark:to-transparent z-20 pointer-events-none" />
+          <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-56 bg-gradient-to-l from-white via-white/50 to-transparent dark:from-[#020108] dark:via-[#020108]/50 dark:to-transparent z-20 pointer-events-none" />
+
+          {/* Sliding container with 3 repetitions of the testimonials list to prevent gaps */}
+          <div className="flex gap-4 animate-carousel-slide w-max px-4">
+            {[...testimonials, ...testimonials, ...testimonials].map((testimonial, idx) => (
+              <div
+                key={`${testimonial.id}-${idx}`}
+                className="group relative w-[280px] sm:w-[325px] shrink-0 p-[1px] rounded-2xl bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10 dark:from-purple-500/10 dark:via-transparent dark:to-amber-500/10 hover:from-purple-500/35 hover:to-blue-500/35 dark:hover:from-purple-500/25 dark:hover:to-amber-500/25 transition-all duration-300"
               >
-                Query Database
-              </button>
-            </form>
-
-            <AnimatePresence mode="wait">
-              {hasRegistrySearched && (
-                <div className="mt-8 max-w-md mx-auto">
-                  {registrySearchResult ? (
-                    <div className="bg-white dark:bg-[#0d1628] rounded-2xl p-6 border-2 border-emerald-500/35 relative overflow-hidden text-left shadow-lg">
-                      {/* Decorative stamp element */}
-                      <div className="absolute right-[-20px] bottom-[-20px] w-32 h-32 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-full border-4 border-dashed border-emerald-500/20 flex items-center justify-center rotate-12 select-none pointer-events-none">
-                        <span className="text-[10px] font-black text-emerald-500/30 uppercase tracking-widest">VERIFIED</span>
+                {/* Glassmorphic main panel background */}
+                <div className="bg-white/90 dark:bg-[#0c0a1e]/90 backdrop-blur-md rounded-2xl p-4 flex flex-col justify-between h-full shadow-[0_4px_16px_-4px_rgba(150,130,250,0.05)]">
+                  <div>
+                    {/* Top Quote & Star Rating */}
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="flex gap-0.5">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
+                        ))}
                       </div>
-
-                      <div className="flex items-start gap-4">
-                        <div className="w-12 h-12 rounded-full bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200/50 flex items-center justify-center text-emerald-500 text-xl font-bold shrink-0">
-                          {registrySearchResult.blocked ? '⚠️' : (registrySearchResult.avatar || '👤')}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-mono font-extrabold text-indigo-600 dark:text-amber-400">{registrySearchResult.id}</span>
-                            {registrySearchResult.blocked ? (
-                              <span className="text-[9px] px-2 py-0.5 bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-400 rounded-sm font-extrabold uppercase">LOCKED</span>
-                            ) : (
-                              <span className="text-[9px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 rounded-sm font-extrabold uppercase">ACTIVE REGISTERED</span>
-                            )}
-                          </div>
-                          <h4 className="text-sm font-black text-slate-800 dark:text-white mt-1.5 truncate">{registrySearchResult.name}</h4>
-                          <span className="text-[10px] text-slate-400 block font-semibold mt-1">Registry Date: {registrySearchResult.joinedDate}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 pt-4 border-t border-slate-105 dark:border-slate-800 flex justify-between items-center text-[10px] font-mono font-bold text-slate-400">
-                        <span>SECURITY CHECK: SECURED NODE</span>
-                        <span className="text-emerald-500 flex items-center gap-0.5">
-                          <ShieldCheck className="w-3.5 h-3.5" /> PASSED
-                        </span>
-                      </div>
+                      <Quote className="w-5 h-5 text-purple-200/50 dark:text-slate-800/40" />
                     </div>
-                  ) : (
-                    <div className="bg-white dark:bg-[#0d1628] rounded-2xl p-6 border-2 border-rose-500/35 text-center shadow-lg">
-                      <div className="w-12 h-12 rounded-full bg-rose-50 dark:bg-rose-950/40 border border-rose-200/50 flex items-center justify-center text-rose-500 text-xl font-bold mx-auto mb-3">
-                        ❌
-                      </div>
-                      <h4 className="text-sm font-black text-slate-800 dark:text-white uppercase tracking-wide">ID Not Found</h4>
-                      <p className="text-xs text-slate-400 mt-1.5 leading-relaxed max-w-xs mx-auto">
-                        No publisher account matches "<span className="font-mono font-bold text-rose-600">{registrySearchId}</span>" in our active database nodes.
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onNavigate('/Dashboard');
-                        }}
-                        className="mt-4 text-xs font-bold text-blue-600 dark:text-amber-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                      >
-                        Create a Free ID Now <ArrowRight className="w-3 h-3" />
-                      </button>
+
+                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold italic mb-4">
+                      "{testimonial.message}"
+                    </p>
+                  </div>
+
+                  {/* Profile & Verified Info */}
+                  <div className="flex items-center gap-2.5 pt-3 border-t border-purple-50/50 dark:border-slate-800/40">
+                    <img 
+                      src={testimonial.image} 
+                      alt={testimonial.name} 
+                      className="w-9 h-9 rounded-full object-cover border border-purple-100/60 dark:border-slate-800/60 shadow-sm"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div>
+                      <h4 className="text-[11px] sm:text-xs font-black text-slate-800 dark:text-white leading-tight">
+                        {testimonial.name}
+                      </h4>
+                      <span className="text-[9px] text-purple-600 dark:text-amber-400 font-bold uppercase tracking-wider block">
+                        {testimonial.profession}
+                      </span>
                     </div>
-                  )}
+                    <div className="ml-auto bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider flex items-center gap-0.5">
+                      <CheckCircle2 className="w-2.5 h-2.5" />
+                      <span>Verified</span>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </AnimatePresence>
+              </div>
+            ))}
           </div>
+
+        </div>
+
+        {/* FEEDBACK SUBMISSION LINK */}
+        <div className="text-center relative z-10 mt-8 max-w-md mx-auto space-y-2 px-4">
+          <a
+            href="#" // PASTE_YOUR_SURVEY_HEART_LINK_HERE
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-200 shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer group"
+          >
+            <MessageSquare className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:rotate-12" />
+            <span>Add Your Feedback</span>
+          </a>
         </div>
       </section>
+
 
       {/* 6. Bottom 3 Action Links & Trigger Boxes */}
       <section className="py-12 bg-slate-100/40 dark:bg-[#070d19] border-t border-slate-200/40 dark:border-slate-800/40">

@@ -99,3 +99,12 @@ export interface ActiveOffer {
   link?: string;
   showButton?: boolean;
 }
+
+export interface Testimonial {
+  id: string;
+  name: string;
+  profession: string;
+  image: string;
+  message: string;
+}
+

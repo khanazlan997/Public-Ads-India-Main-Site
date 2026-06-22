@@ -1,0 +1,82 @@
+{
+  "entities": {
+    "Testimonial": {
+      "title": "Testimonial",
+      "description": "Review testimonial or feedback item",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Testimonial identifier"
+        },
+        "name": {
+          "type": "string",
+          "description": "Person offering the testimonial"
+        },
+        "profession": {
+          "type": "string",
+          "description": "Job or role of the reviewer"
+        },
+        "image": {
+          "type": "string",
+          "description": "URL of the profile photo"
+        },
+        "message": {
+          "type": "string",
+          "description": "The testimonial content message"
+        }
+      },
+      "required": ["id", "name", "profession", "image", "message"]
+    },
+    "Campaign": {
+      "title": "Campaign",
+      "description": "Advertising campaign offer details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "vertical": { "type": "string" },
+        "model": { "type": "string" },
+        "platform": { "type": "string", "enum": ["web", "app", "both"] },
+        "kpi": { "type": "string" },
+        "geo": { "type": "string" },
+        "payout": { "type": "number" },
+        "terms": { "type": "string" },
+        "link": { "type": "string" },
+        "image": { "type": "string" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "name", "vertical", "model", "platform", "kpi", "geo", "payout", "terms", "link", "image", "active"]
+    },
+    "Publisher": {
+      "title": "Publisher",
+      "description": "Registered publisher details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "password": { "type": "string" },
+        "avatar": { "type": "string" },
+        "blocked": { "type": "boolean" },
+        "joinedDate": { "type": "string" }
+      },
+      "required": ["id", "name", "email", "phone", "password", "avatar", "blocked", "joinedDate"]
+    }
+  },
+  "firestore": {
+    "testimonials/{testimonialId}": {
+      "schema": "Testimonial",
+      "description": "Collection of sliding home reviews"
+    },
+    "campaigns/{campaignId}": {
+      "schema": "Campaign",
+      "description": "Active CPA opportunities"
+    },
+    "publishers/{publisherId}": {
+      "schema": "Publisher",
+      "description": "Standard app user roster"
+    }
+  }
+}

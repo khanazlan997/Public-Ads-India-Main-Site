@@ -128,3 +128,17 @@
   background-color: rgba(13, 22, 40, 0.85);
   border: 1px solid rgba(30, 41, 59, 0.6);
 }
+
+/* Fix mobile Safari / Chrome auto-zoom on input focus */
+@media (max-width: 767px) {
+  input, select, text-area, textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Global overflow protection to prevent side hiding and layout clip */
+html, body, #root {
+  max-width: 100%;
+  overflow-x: hidden;
+  position: relative;
+}

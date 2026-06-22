@@ -759,7 +759,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         </div>
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-          
           {/* Card 1: User Profile Glass card */}
           <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col sm:flex-row items-center sm:items-center gap-6 text-center sm:text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
             {/* Glowing backdrop ambient layers */}
@@ -835,8 +834,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                           const file = e.target.files?.[0];
                           if (file) {
                             if (file.size > 1.5 * 1024 * 1024) {
-                              alert("Photo too large! (Limit 1.5MB)");
-                              return;
+                               alert("Photo too large! (Limit 1.5MB)");
+                               return;
                             }
                             const reader = new FileReader();
                             reader.onloadend = () => {
@@ -889,7 +888,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           </div>
 
           {/* Card 2: Micro-Statistics Glass card */}
-          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex items-center justify-around gap-4 text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
+          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-around gap-6 sm:gap-4 text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
             <div className="absolute -top-10 -right-10 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
             
             <div className="flex items-center gap-3">
@@ -905,7 +904,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
             </div>
 
-            <div className="h-10 w-[1px] bg-slate-200 dark:bg-slate-800/80" />
+            <div className="hidden sm:block h-10 w-[1px] bg-slate-200 dark:bg-slate-800/80" />
 
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-555 dark:text-amber-400 flex items-center justify-center shrink-0 animate-pulse">

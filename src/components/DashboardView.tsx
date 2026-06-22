@@ -11,6 +11,195 @@ import { Publisher, BankDetails } from '../types';
 // Constant for ₹99 Payment QR Code URL - Paste your image link inside the quotes below:
 const PAYMENT_QR_IMAGE_URL = ""; 
 
+// Custom Animated Premium Finance + Geometric canvas mesh for background
+function PremiumFinanceGeometricCanvas() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const container = containerRef.current;
+    if (!canvas || !container) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let isDarkMode = document.documentElement.classList.contains('dark');
+    const observer = new MutationObserver(() => {
+      isDarkMode = document.documentElement.classList.contains('dark');
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    let animationFrameId: number;
+    let width = 0;
+    let height = 0;
+
+    interface FloatingItem {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+      type: 'circle' | 'hexagon' | 'rupee' | 'dollar' | 'percent' | 'arrow' | 'line';
+      angle: number;
+      spinSpeed: number;
+      opacity: number;
+    }
+
+    let items: FloatingItem[] = [];
+
+    const initItems = (w: number, h: number) => {
+      items = [];
+      const types: FloatingItem['type'][] = ['circle', 'hexagon', 'rupee', 'dollar', 'percent', 'arrow', 'line'];
+      // Elegant minimalist count to remain perfectly responsive and non-distracting
+      const count = Math.min(22, Math.floor((w * h) / 16000) + 6);
+      for (let i = 0; i < count; i++) {
+        const type = types[Math.floor(Math.random() * types.length)];
+        const size = type === 'rupee' || type === 'dollar' || type === 'percent' || type === 'arrow'
+          ? Math.random() * 8 + 10 
+          : Math.random() * 6 + 3;
+        items.push({
+          x: Math.random() * w,
+          y: Math.random() * h,
+          vx: (Math.random() - 0.5) * 0.3,
+          vy: (Math.random() - 0.5) * 0.3,
+          size,
+          type,
+          angle: Math.random() * Math.PI * 2,
+          spinSpeed: (Math.random() - 0.5) * 0.006,
+          opacity: Math.random() * 0.25 + 0.08,
+        });
+      }
+    };
+
+    const handleResize = () => {
+      const rect = container.getBoundingClientRect();
+      width = rect.width;
+      height = rect.height;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      ctx.scale(dpr, dpr);
+      initItems(width, height);
+    };
+
+    const resizeObserver = new ResizeObserver(() => {
+      handleResize();
+    });
+    resizeObserver.observe(container);
+    handleResize();
+
+    const drawItem = (item: FloatingItem) => {
+      ctx.save();
+      ctx.translate(item.x, item.y);
+      ctx.rotate(item.angle);
+      
+      const themeColor = isDarkMode 
+        ? `rgba(99, 102, 241, ${item.opacity})` // indigo
+        : `rgba(79, 70, 229, ${item.opacity * 0.75})`; // indigo light
+      
+      const financeColor = isDarkMode
+        ? `rgba(52, 211, 153, ${item.opacity})` // emerald
+        : `rgba(5, 150, 105, ${item.opacity * 0.75})`; // emerald light
+
+      ctx.fillStyle = (item.type === 'rupee' || item.type === 'dollar' || item.type === 'percent' || item.type === 'arrow') 
+        ? financeColor 
+        : themeColor;
+      
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.lineWidth = 1;
+
+      if (item.type === 'circle') {
+        ctx.beginPath();
+        ctx.arc(0, 0, item.size, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (item.type === 'hexagon') {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const angle = (i * Math.PI) / 3;
+          ctx.lineTo(item.size * Math.cos(angle), item.size * Math.sin(angle));
+        }
+        ctx.closePath();
+        ctx.stroke();
+      } else if (item.type === 'rupee') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('₹', -item.size / 2, item.size / 3);
+      } else if (item.type === 'dollar') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('$', -item.size / 2, item.size / 3);
+      } else if (item.type === 'percent') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('%', -item.size / 2, item.size / 3);
+      } else if (item.type === 'arrow') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('↗', -item.size / 2, item.size / 3);
+      } else if (item.type === 'line') {
+        ctx.beginPath();
+        ctx.moveTo(-item.size, 0);
+        ctx.lineTo(item.size, 0);
+        ctx.stroke();
+      }
+
+      ctx.restore();
+    };
+
+    const render = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // Delicate web connections
+      ctx.strokeStyle = isDarkMode ? 'rgba(99, 102, 241, 0.04)' : 'rgba(79, 70, 229, 0.05)';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < items.length; i++) {
+        for (let j = i + 1; j < items.length; j++) {
+          const dx = items[i].x - items[j].x;
+          const dy = items[i].y - items[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 110) {
+            ctx.beginPath();
+            ctx.moveTo(items[i].x, items[i].y);
+            ctx.lineTo(items[j].x, items[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+
+      items.forEach((item) => {
+        item.x += item.vx;
+        item.y += item.vy;
+        item.angle += item.spinSpeed;
+
+        if (item.x < -25) item.x = width + 25;
+        if (item.x > width + 25) item.x = -25;
+        if (item.y < -25) item.y = height + 25;
+        if (item.y > height + 25) item.y = -25;
+
+        drawItem(item);
+      });
+
+      animationFrameId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+      resizeObserver.disconnect();
+      observer.disconnect();
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="absolute inset-0 w-full h-full z-0 overflow-hidden pointer-events-none select-none rounded-3xl">
+      <canvas ref={canvasRef} className="block w-full h-full pointer-events-none" />
+    </div>
+  );
+}
+
 interface DashboardViewProps {
   onNavigate: (route: string) => void;
 }
@@ -563,134 +752,203 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* 2. Top Profile Element bar - Redesigned to be ultra-premium */}
-      <div className="flex flex-col lg:flex-row justify-between items-center lg:items-center gap-6 bg-gradient-to-r from-white via-slate-50/50 to-indigo-50/10 dark:from-[#0d1628] dark:via-[#0d1628]/90 dark:to-indigo-950/15 rounded-3xl p-6 sm:p-7 border border-slate-200 dark:border-slate-800 mb-8 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden text-center lg:text-left">
-        
-        {/* Glowing backdrop ambient layers */}
-        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-44 h-44 bg-indigo-500/8 dark:bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-36 h-36 bg-emerald-500/5 dark:bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-        <div className="flex flex-col sm:flex-row items-center sm:items-center gap-6 w-full lg:w-auto text-center sm:text-left">
-          {/* Avatar Ring */}
-          <div className="relative group shrink-0 self-center">
-            <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-550 to-brand-accent rounded-full blur-xs opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse" style={{ animationDuration: '6s' }}></div>
-            <div className="relative w-24 h-24 sm:w-28 sm:h-28 bg-white dark:bg-[#090f1d] border border-slate-200 dark:border-slate-850 rounded-full flex items-center justify-center overflow-hidden select-none">
-              {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
-                <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="text-5xl sm:text-6xl">{profileAvatar || '😎'}</span>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col items-center sm:items-start">
-            <div className="flex items-center gap-2">
-              <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-                Hello, {profileName}!
-              </span>
-              <button
-                id="edit-profile-trigger"
-                onClick={() => setIsEditingProfile(!isEditingProfile)}
-                className="p-1 px-2 text-slate-400 hover:text-indigo-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-                title="Edit profile name & avatar"
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Edit</span>
-              </button>
-            </div>
-            
-            <p className="text-xs text-slate-450 dark:text-slate-400 mt-1.5 font-bold flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1">
-              <span className="bg-slate-100 dark:bg-slate-900 px-2 py-0.5 rounded text-[10px] text-slate-500 dark:text-slate-450 border border-slate-200 dark:border-slate-800 font-mono">
-                ID: <span className="text-indigo-505 dark:text-indigo-400">{currentUser.id}</span>
-              </span>
-              <span className="text-slate-300 dark:text-slate-700 hidden sm:inline">•</span>
-              <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 dark:bg-emerald-500/5 px-2 py-0.5 rounded text-[10px]" title="Account Verified">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-555 animate-ping"></span>
-                <span>Verified Publisher</span>
-              </span>
-            </p>
-          </div>
+      <div className="relative mb-8 select-none">
+        {/* Dynamic canvas animating in the background of the entire row block */}
+        <div className="absolute inset-0 bg-slate-50/25 dark:bg-[#070b13]/40 rounded-3xl border border-slate-200/50 dark:border-slate-800/60 pointer-events-none overflow-hidden h-full w-full">
+          <PremiumFinanceGeometricCanvas />
         </div>
 
-        {/* Dynamic Edit Profile Drawer */}
-        {isEditingProfile && (
-          <form onSubmit={handleProfileSave} className="absolute lg:top-8 left-6 right-6 lg:left-auto lg:right-40 bg-white dark:bg-[#0c1322] border border-slate-200 dark:border-slate-800 p-4 rounded-2xl shadow-xl z-20 flex flex-col md:flex-row items-start md:items-center gap-4 max-w-sm w-full animate-fade-up">
-            <div className="flex flex-col gap-1 w-full md:w-auto">
-              <span className="text-[10px] font-bold text-slate-400 uppercase">Select Avatar / Photo</span>
-              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                {['😎', '👩', '👨', '🦁', '🦊', '🐨', '🐼'].map(av => (
-                  <button
-                    key={av}
-                    type="button"
-                    onClick={() => setProfileAvatar(av)}
-                    className={`text-xl p-1 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-800 transition-all ${profileAvatar === av ? 'bg-blue-100 dark:bg-blue-900 border border-blue-500/80' : 'border border-transparent'}`}
-                  >
-                    {av}
-                  </button>
-                ))}
-                
-                {/* Upload Image Button */}
-                <label className="cursor-pointer flex items-center justify-center p-1 px-2 rounded-lg border border-dashed border-blue-500/60 hover:bg-blue-50 dark:hover:bg-blue-950/20 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all" title="Upload custom image">
-                  <span className="flex items-center gap-1">
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>Upload</span>
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        if (file.size > 1.5 * 1024 * 1024) {
-                          alert("Photo is too large! Maximum allowed is 1.5MB to maintain smooth operations.");
-                          return;
-                        }
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setProfileAvatar(reader.result as string);
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-
-                {/* Custom Base64 Preview */}
-                {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) && (
-                  <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-blue-500 shadow-xs flex-shrink-0">
-                    <img src={profileAvatar} className="w-full h-full object-cover" alt="Custom Preview" referrerPolicy="no-referrer" />
-                  </div>
+        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+          
+          {/* Card 1: User Profile Glass card */}
+          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col sm:flex-row items-center sm:items-center gap-6 text-center sm:text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
+            {/* Glowing backdrop ambient layers */}
+            <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+            
+            {/* Avatar Ring */}
+            <div className="relative group shrink-0 self-center z-10">
+              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-550 to-brand-accent rounded-full blur-xs opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse" style={{ animationDuration: '6s' }}></div>
+              <div className="relative w-20 h-20 bg-white dark:bg-[#090f1d] border border-slate-250 dark:border-slate-855 rounded-full flex items-center justify-center overflow-hidden select-none">
+                {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
+                  <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="text-4xl">{profileAvatar || '😎'}</span>
                 )}
               </div>
             </div>
-            
-            <div className="flex-1 w-full relative">
-              <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Display Name</span>
-              <div 
-                onClick={() => setShowLockPopup(true)}
-                className="relative cursor-pointer group"
-              >
-                <input
-                  type="text"
-                  required
-                  readOnly
-                  value={profileName}
-                  className="w-full text-xs p-2 pr-8 bg-slate-100/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-500 dark:text-slate-400 selection:bg-transparent"
-                />
-                <div className="absolute inset-y-0 right-2.5 flex items-center text-slate-400 group-hover:text-amber-500 transition-colors">
-                  <Lock className="w-3.5 h-3.5" />
+
+            <div className="flex flex-col items-center sm:items-start z-10">
+              <div className="flex items-center gap-2">
+                <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                  Hello, {profileName}!
+                </span>
+                <button
+                  id="edit-profile-trigger"
+                  type="button"
+                  onClick={() => setIsEditingProfile(!isEditingProfile)}
+                  className="p-1 px-2 text-slate-405 hover:text-indigo-550 hover:bg-slate-100 dark:hover:bg-slate-855 rounded-lg transition-all flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                  title="Edit profile name & avatar"
+                >
+                  <Edit3 className="w-3 h-3" />
+                  <span>Edit</span>
+                </button>
+              </div>
+              
+              <p className="text-xs text-slate-450 dark:text-slate-400 mt-1.5 font-bold flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1">
+                <span className="bg-slate-100/90 dark:bg-slate-900/90 px-2 py-0.5 rounded text-[10px] text-slate-500 dark:text-slate-450 border border-slate-200 dark:border-slate-800 font-mono">
+                  ID: <span className="text-indigo-505 dark:text-indigo-400 font-extrabold">{currentUser.id}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 dark:bg-emerald-555/5 px-2 py-0.5 rounded text-[10px]" title="Account Verified">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-555 animate-ping"></span>
+                  <span>Verified Publisher</span>
+                </span>
+              </p>
+            </div>
+
+            {/* Dynamic Edit Profile Drawer inline within Card 1 */}
+            {isEditingProfile && (
+              <form onSubmit={handleProfileSave} className="absolute inset-x-4 top-4 bg-white dark:bg-[#0c1322] border border-indigo-500/40 p-4 rounded-2xl shadow-xl z-20 flex flex-col gap-3 animate-fade-up">
+                <div className="flex flex-col gap-1 w-full">
+                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Select Avatar / Photo</span>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                    {['😎', '👩', '👨', '🦁', '🦊', '🐨', '🐼'].map(av => (
+                      <button
+                        key={av}
+                        type="button"
+                        onClick={() => setProfileAvatar(av)}
+                        className={`text-lg p-1.5 rounded-lg hover:bg-slate-150 dark:hover:bg-slate-850 transition-all ${profileAvatar === av ? 'bg-indigo-100/80 dark:bg-indigo-950/60 border border-indigo-500' : 'border border-transparent'}`}
+                      >
+                        {av}
+                      </button>
+                    ))}
+                    
+                    <label className="cursor-pointer flex items-center justify-center p-1.5 px-2.5 rounded-lg border border-dashed border-indigo-555/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all" title="Upload custom image">
+                      <span className="flex items-center gap-1 text-[10px]">
+                        <Camera className="w-3 h-3" />
+                        <span>Upload</span>
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 1.5 * 1024 * 1024) {
+                              alert("Photo too large! (Limit 1.5MB)");
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setProfileAvatar(reader.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
                 </div>
+                
+                <div className="w-full relative">
+                  <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Display Name</span>
+                  <div 
+                    onClick={() => setShowLockPopup(true)}
+                    className="relative cursor-pointer group"
+                  >
+                    <input
+                      type="text"
+                      required
+                      readOnly
+                      value={profileName}
+                      className="w-full text-xs p-2 pr-8 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-505 dark:text-slate-400"
+                    />
+                    <div className="absolute inset-y-0 right-2 flex items-center text-slate-405 group-hover:text-amber-500 transition-colors">
+                      <Lock className="w-3 h-3" />
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                     type="submit"
+                     className="flex-1 py-1.5 bg-indigo-600 text-white font-extrabold text-[10px] uppercase rounded-lg hover:bg-indigo-700 transition"
+                  >
+                    Save
+                  </button>
+                  <button
+                     type="button"
+                     onClick={() => setIsEditingProfile(false)}
+                     className="px-2.5 py-1.5 bg-slate-105 dark:bg-slate-805 text-slate-600 dark:text-slate-300 font-extrabold text-[10px] uppercase rounded-lg hover:bg-slate-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Card 2: Micro-Statistics Glass card */}
+          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex items-center justify-around gap-4 text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
+            <div className="absolute -top-10 -right-10 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
+            
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-505 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-450 dark:text-slate-500 uppercase font-bold tracking-widest leading-none">Total Work</span>
+                <span className="text-base font-black text-slate-850 dark:text-slate-100 mt-1 font-mono">
+                  {pubSubmissions.length} Leads
+                </span>
+                <span className="text-[8px] text-indigo-550 dark:text-indigo-455 font-bold uppercase tracking-wider mt-0.5">Submitted Logs</span>
               </div>
             </div>
+
+            <div className="h-10 w-[1px] bg-slate-200 dark:bg-slate-800/80" />
+
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-555 dark:text-amber-400 flex items-center justify-center shrink-0 animate-pulse">
+                <Trophy className="w-5 h-5 fill-amber-500/10" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-[10px] text-slate-455 dark:text-slate-500 uppercase font-bold tracking-widest leading-none">Partner Rank</span>
+                <span className="text-base font-black text-amber-550 dark:text-amber-400 mt-1">
+                  Gold Club
+                </span>
+                <span className="text-[8px] text-amber-550 dark:text-amber-450 font-bold uppercase tracking-wider mt-0.5">Bonus Rate Enable</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Right Dynamic Income Desk Card */}
+          <div className="relative bg-gradient-to-b from-white/75 to-emerald-50/20 dark:from-[#0d1628]/65 dark:to-emerald-950/5 backdrop-blur-md border border-slate-200/85 dark:border-emerald-500/15 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-emerald-500/35 group overflow-hidden">
+            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />
             
-            <button
-               type="submit"
-               className="w-full md:w-auto px-4 py-2 mt-2 md:mt-4 bg-brand-primary text-white font-bold text-xs rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Save
-            </button>
-          </form>
-        )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
+                <Coins className="w-4 h-4 text-emerald-555 animate-spin" style={{ animationDuration: '8s' }} />
+                <span>My Income Desk</span>
+              </div>
+              <span className="text-[8px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 font-black rounded-full uppercase tracking-wider">
+                Instant Disbursal
+              </span>
+            </div>
+
+            <div className="my-3 flex items-baseline gap-1">
+              <span className="text-sm font-black text-slate-400 dark:text-slate-500">₹</span>
+              <span className="text-3xl font-black text-emerald-600 dark:text-emerald-450 font-mono tracking-tight">
+                {publisherEarningStats.total}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>Database synced & locked in</span>
+            </div>
+          </div>
+
+        </div>
 
         {/* Locked Display Name Premium Modal */}
         {showLockPopup && (
@@ -701,7 +959,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <button
                 type="button"
                 onClick={() => setShowLockPopup(false)}
-                className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/65 transition-all"
+                className="absolute top-4 right-4 p-1.5 rounded-xl text-slate-405 hover:text-slate-600 dark:hover:text-slate-250 hover:bg-slate-100 dark:hover:bg-slate-800/65 transition-all"
                 title="Close"
               >
                 <X className="w-4 h-4" />
@@ -779,7 +1037,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     <p className="text-[9px] font-mono text-amber-550 font-extrabold bg-amber-500/10 px-2 py-1 rounded inline-block mb-2">
                       QR IMAGE PLACEHOLDER
                     </p>
-                    <p className="text-[10px] text-slate-450 dark:text-slate-500 font-medium leading-normal">
+                    <p className="text-[10px] text-slate-455 dark:text-slate-500 font-medium leading-normal">
                       Please replace the empty string of <code className="text-blue-500 font-mono text-[9px]">PAYMENT_QR_IMAGE_URL</code> at line 12 of <code className="text-slate-500 dark:text-slate-400 font-mono text-[9px]">src/components/DashboardView.tsx</code> with your image link.
                     </p>
                   </div>
@@ -797,39 +1055,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
           </div>
         )}
-
-        {/* Middle micro-statistics metrics */}
-        <div className="hidden lg:flex items-center gap-8 border-l border-slate-200 dark:border-slate-800/80 px-6">
-          <div className="flex flex-col">
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Leads Submitted</span>
-            <span className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5 mt-1 font-mono">
-              <FileText className="w-4 h-4 text-indigo-500" />
-              <span>{pubSubmissions.length} Campaigns</span>
-            </span>
-          </div>
-
-          <div className="flex flex-col border-l border-slate-200 dark:border-slate-800/80 pl-6">
-            <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Partner Level</span>
-            <span className="text-sm font-black text-amber-500 dark:text-amber-400 flex items-center gap-1 mt-1 animate-pulse" style={{ animationDuration: '4s' }}>
-              <Trophy className="w-4 h-4 text-amber-500 fill-amber-500/10" />
-              <span>Gold Member</span>
-            </span>
-          </div>
-        </div>
-
-        {/* Right Dynamic Income Desk Box */}
-        <div className="flex flex-col items-end shrink-0 bg-emerald-500/5 dark:bg-emerald-500/5 border border-emerald-500/15 dark:border-emerald-500/10 p-4 rounded-2xl min-w-[210px] w-full sm:w-auto hover:bg-emerald-500/10 dark:hover:bg-emerald-500/8 transition-all duration-300 shadow-xs relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-400/10 rounded-full blur-xl pointer-events-none group-hover:scale-125 transition-transform" />
-          <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 self-start sm:self-auto font-bold text-[10px] uppercase tracking-wider">
-            <Coins className="w-4 h-4 text-emerald-555 animate-spin" style={{ animationDuration: '8s' }} />
-            <span>My Income Desk</span>
-          </div>
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-450 font-mono tracking-tight mt-1.5">
-            ₹{publisherEarningStats.total}
-          </span>
-          <span className="text-[9px] text-slate-400 dark:text-slate-500 mt-1 uppercase font-semibold">Automatic Disbursal active</span>
-        </div>
-
       </div>
 
       {/* 3. Segmented Navigation Bar Menu - Responsive Mobile Dropdown and Luxury Desktop List */}

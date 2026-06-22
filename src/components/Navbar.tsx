@@ -18,11 +18,11 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
   };
 
   const certificates = [
-    { name: "MSME Certificate", slug: "MEMS", url: "https://drive.google.com/file/d/1msme-registration-verification/view" },
-    { name: "Central Vigilance Commission (CVC)", slug: "CVC", url: "https://drive.google.com/file/d/1cvc-honesty-pledge-verified/view" },
-    { name: "Girls Safety Pledge", slug: "Girls Safety", url: "https://drive.google.com/file/d/1girls-safety-compliancy/view" },
-    { name: "ISO Certified 9001:2015", slug: "ISO Certificate", url: "https://drive.google.com/file/d/1iso-certified-quality-assurance/view" },
-    { name: "Cyber Security Registered", slug: "Cyber Security", url: "https://drive.google.com/file/d/1cyber-security-framework-compliance/view" }
+    { name: "MSME Certificate", slug: "MEMS", url: "https://drive.google.com/file/d/1K8hSQXDodA03uSR0Jyn4gJ0q8IIdjeyp/view" },
+    { name: "Central Vigilance Commission (CVC)", slug: "CVC", url: "https://drive.google.com/file/d/1xfMkIg2X9lJXSLe_vSJ7C4aVq-3F2jTX/view" },
+    { name: "Girls Safety Pledge", slug: "Girls Safety", url: "https://drive.google.com/file/d/1DDtQwwdA6CNEg1O5q7sQSkHm9Brhuheq/view" },
+    { name: "ISO Certified 9001:2015", slug: "ISO Certificate", url: "https://drive.google.com/file/d/1U4QMzB6kM6UeaS4DidUnhaFexE9qbyqy/view" },
+    { name: "Cyber Security Registered", slug: "Cyber Security", url: "https://drive.google.com/file/d/1RKj5aQsf3vc8YqUj5HV0XeBssRa2hJ0Q/view" }
   ];
 
   const handleCertClick = (url: string) => {
@@ -135,6 +135,18 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                       </div>
                     </button>
                   ))}
+                  <div className="border-t border-slate-100 dark:border-slate-800/80 mt-1.5 pt-1.5 px-1">
+                    <button
+                      onClick={() => window.open('https://old.publicadsindia.com', '_blank', 'noopener,noreferrer')}
+                      className="w-full text-left px-2.5 py-2 rounded-xl bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 transition-colors flex items-center justify-between gap-2.5 text-xs font-bold text-blue-600 dark:text-blue-400"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ExternalLink className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <span>Visit Old Website</span>
+                      </div>
+                      <span className="text-[8px] px-1 py-0.5 bg-blue-100 dark:bg-blue-900/60 rounded text-blue-600 dark:text-blue-300 font-mono tracking-wider font-extrabold uppercase animate-pulse">Legacy</span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -274,6 +286,13 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                 {cert.name}
               </button>
             ))}
+            <button
+              onClick={() => { window.open('https://old.publicadsindia.com', '_blank', 'noopener,noreferrer'); setMobileMenuOpen(false); }}
+              className="text-left ml-3 mr-1 py-2 px-2.5 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2 font-bold bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 rounded-xl border border-blue-100/40 dark:border-blue-900/30 transition-all font-sans"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+              <span>Visit Old Website</span>
+            </button>
           </div>
 
           <button 

@@ -87,11 +87,11 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
   };
 
   const certificates = [
-    { name: "MSME Certificate", slug: "MEMS", url: "https://drive.google.com/file/d/1msme-registration-verification/view", desc: "Govt of India MSME verified enterprise" },
-    { name: "Central Vigilance", slug: "CVC", url: "https://drive.google.com/file/d/1cvc-honesty-pledge-verified/view", desc: "CVC certified anti-corruption pledge" },
-    { name: "Girls Safety Pledge", slug: "Girls Safety", url: "https://drive.google.com/file/d/1girls-safety-compliancy/view", desc: "Equal opportunity, safe remote environment" },
-    { name: "ISO Certified 9001", slug: "ISO Certificate", url: "https://drive.google.com/file/d/1iso-certified-quality-assurance/view", desc: "International standardization for quality" },
-    { name: "Cyber Security Registered", slug: "Cyber Security", url: "https://drive.google.com/file/d/1cyber-security-framework-compliance/view", desc: "Data encryption and secure storage layers" }
+    { name: "MSME Certificate", slug: "MEMS", url: "https://drive.google.com/file/d/1K8hSQXDodA03uSR0Jyn4gJ0q8IIdjeyp/view", desc: "Govt of India MSME verified enterprise" },
+    { name: "Central Vigilance", slug: "CVC", url: "https://drive.google.com/file/d/1xfMkIg2X9lJXSLe_vSJ7C4aVq-3F2jTX/view", desc: "CVC certified anti-corruption pledge" },
+    { name: "Girls Safety Pledge", slug: "Girls Safety", url: "https://drive.google.com/file/d/1DDtQwwdA6CNEg1O5q7sQSkHm9Brhuheq/view", desc: "Equal opportunity, safe remote environment" },
+    { name: "ISO Certified 9001", slug: "ISO Certificate", url: "https://drive.google.com/file/d/1U4QMzB6kM6UeaS4DidUnhaFexE9qbyqy/view", desc: "International standardization for quality" },
+    { name: "Cyber Security Registered", slug: "Cyber Security", url: "https://drive.google.com/file/d/1RKj5aQsf3vc8YqUj5HV0XeBssRa2hJ0Q/view", desc: "Data encryption and secure storage layers" }
   ];
 
   return (
@@ -466,16 +466,18 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       {/* 5. Contact Section */}
       <section id="contact-us-section" className="py-16 max-w-7xl mx-auto px-4">
         <div className="bg-gradient-to-br from-brand-primary/10 via-brand-accent/5 to-transparent dark:from-blue-950/20 dark:via-blue-900/10 dark:to-transparent rounded-3xl p-5 sm:p-8 md:p-14 border border-blue-100/60 dark:border-blue-900/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-10 items-stretch">
             
-            <div>
-              <span className="text-[10px] font-mono font-bold text-brand-accent uppercase tracking-widest leading-none">Support Desk Desk</span>
-              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-2.5">
-                Have Any Queries? Talk With Us Directly
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-350 font-medium leading-relaxed mt-4">
-                Our support division and chat team answers account set up requirements, bulk commission triggers, and employer queries programmatically.
-              </p>
+            <div className="flex flex-col justify-between">
+              <div>
+                <span className="text-[10px] font-mono font-bold text-brand-accent uppercase tracking-widest leading-none">Support Desk</span>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-2.5">
+                  Have Any Queries? Talk With Us Directly
+                </h2>
+                <p className="text-sm text-slate-600 dark:text-slate-350 font-medium leading-relaxed mt-4">
+                  Our support division and chat team answers account set up requirements, bulk commission triggers, and employer queries programmatically.
+                </p>
+              </div>
               
               <div className="mt-8 space-y-4">
                 {/* Email Panel */}
@@ -526,6 +528,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                 WhatsApp Instant Assistant
               </a>
             </div>
+
           </div>
         </div>
       </section>
@@ -612,7 +615,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         {/* FEEDBACK SUBMISSION LINK */}
         <div className="text-center relative z-10 mt-8 max-w-md mx-auto space-y-2 px-4">
           <a
-            href="#" // PASTE_YOUR_SURVEY_HEART_LINK_HERE
+            href="https://form.svhrt.com/6689209124bae747d62ea087"
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-200 shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer group"
@@ -622,6 +625,9 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           </a>
         </div>
       </section>
+
+
+
 
 
       {/* 6. Bottom 3 Action Links & Trigger Boxes */}

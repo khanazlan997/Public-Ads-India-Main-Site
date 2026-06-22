@@ -87,7 +87,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
               <input
                 type="text"
                 required
-                placeholder="e.g. karan_pay"
+                placeholder="Enter your employee username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-900 dark:text-white font-medium"
@@ -118,7 +118,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
             <button
               type="submit"
               id="employee-login-sub-btn"
-              className="w-full py-3.5 bg-emerald-650 hover:bg-emerald-700 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md mt-6 cursor-pointer"
+              className="w-full py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white hover:bg-emerald-600 hover:text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md mt-6 cursor-pointer"
             >
               Verify Employee Session
             </button>

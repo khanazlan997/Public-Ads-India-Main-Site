@@ -384,7 +384,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               <input
                 type="email"
                 required
-                placeholder="khanazlan997@gmail.com"
+                placeholder="Enter your administrative email"
                 value={adminEmail}
                 onChange={(e) => setAdminEmail(e.target.value)}
                 className="w-full text-xs p-3 border border-slate-200 bg-slate-50 text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"
@@ -396,7 +396,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               <input
                 type="password"
                 required
-                placeholder="Admin@123"
+                placeholder="••••••••"
                 value={adminPassword}
                 onChange={(e) => setAdminPassword(e.target.value)}
                 className="w-full text-xs p-3 border border-slate-200 bg-slate-50 text-slate-900 rounded-xl outline-none focus:border-indigo-500 font-medium"

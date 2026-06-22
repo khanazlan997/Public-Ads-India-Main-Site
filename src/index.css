@@ -149,6 +149,35 @@ html, body, #root {
   100% { transform: translateX(-50%); }
 }
 
+@keyframes flow {
+  0% { background-position: 0%; }
+  100% { background-position: 300%; }
+}
+
+.rupee-loader {
+  font-size: 72px;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-weight: 600;
+  background: linear-gradient(
+    90deg,
+    #FF9933,
+    #FFFFFF,
+    #138808,
+    #FF9933
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  -webkit-text-stroke: 1.5px #0a0f1d;
+  animation: flow 2s linear infinite;
+  display: inline-block;
+  line-height: 1.2;
+}
+
+.dark .rupee-loader {
+  -webkit-text-stroke: 1.5px #ffffff;
+}
+
 .animate-carousel-slide {
   animation: slide-left 28s linear infinite;
   display: flex;

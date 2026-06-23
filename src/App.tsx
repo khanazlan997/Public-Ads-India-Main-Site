@@ -8,6 +8,7 @@ import DashboardView from './components/DashboardView';
 import PartnerPanel from './components/PartnerPanel';
 import EmployeePanel from './components/EmployeePanel';
 import AdminPanel from './components/AdminPanel';
+import NotFoundView from './components/NotFoundView';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Sub App content receiver that utilizes state context
@@ -24,11 +25,13 @@ function AppContent() {
       const hash = window.location.hash;
       let path = '/Home';
 
-      if (hash) {
+      if (hash && hash !== '#') {
         // Support both '#/Dashboard' and '#Dashboard' styles
         const cleanHash = hash.replace(/^#\/?/, '/');
         if (['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(cleanHash)) {
           path = cleanHash;
+        } else {
+          path = '/404';
         }
       } else {
         // Fallback or migration: if user is on a clean pathname, translate it to hash so refresh is saved
@@ -37,6 +40,8 @@ function AppContent() {
           path = pathname;
           window.location.hash = `#${pathname}`;
           window.history.replaceState(null, '', '/');
+        } else if (pathname !== '/' && pathname !== '') {
+          path = '/404';
         }
       }
       setRoute(path);
@@ -110,6 +115,9 @@ function AppContent() {
             {route === '/Admin' && <AdminPanel onNavigate={navigateTo} />}
             {route === '/Partner' && <PartnerPanel onNavigate={navigateTo} />}
             {route === '/Employee' && <EmployeePanel onNavigate={navigateTo} />}
+            {!['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(route) && (
+              <NotFoundView onNavigate={navigateTo} />
+            )}
           </motion.div>
         </AnimatePresence>
       </main>

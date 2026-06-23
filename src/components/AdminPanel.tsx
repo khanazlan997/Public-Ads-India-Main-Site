@@ -699,7 +699,18 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         .map(pub => (
                           <div key={pub.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-indigo-50/40 border border-slate-100 transition-colors">
                             <div className="flex items-center gap-3 min-w-0">
-                              <span className="text-xl shrink-0 select-none">{pub.avatar || '👤'}</span>
+                              <span className="shrink-0 select-none flex items-center justify-center">
+                                {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http')) ? (
+                                  <img 
+                                    src={pub.avatar} 
+                                    alt="Avatar" 
+                                    className="w-8 h-8 rounded-full object-cover" 
+                                    referrerPolicy="no-referrer" 
+                                  />
+                                ) : (
+                                  <span className="text-xl">{pub.avatar || '👤'}</span>
+                                )}
+                              </span>
                               <div className="truncate">
                                 <p className="text-xs font-black text-slate-800 truncate">{pub.name}</p>
                                 <p className="text-[10px] text-slate-400 truncate">Mobile: {pub.phone} | Email: {pub.email}</p>
@@ -1303,7 +1314,20 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         .filter(p => !pubSearchQuery || p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()))
                         .map(pub => (
                         <tr key={pub.id} className="hover:bg-slate-50/50">
-                          <td className="p-3 text-lg select-none">{pub.avatar || '😎'}</td>
+                          <td className="p-3 text-lg select-none">
+                            {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http')) ? (
+                              <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-slate-100">
+                                <img 
+                                  src={pub.avatar} 
+                                  alt="Avatar" 
+                                  className="w-full h-full object-cover" 
+                                  referrerPolicy="no-referrer" 
+                                />
+                              </div>
+                            ) : (
+                              pub.avatar || '😎'
+                            )}
+                          </td>
                           <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
                           <td className="p-3 font-extrabold text-slate-800">{pub.name}</td>
                           <td className="p-3 font-medium text-slate-650">{pub.phone}</td>

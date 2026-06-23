@@ -4,7 +4,7 @@ import {
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
   Camera, UploadCloud, Edit3, Sparkles, LogOut, Check, ChevronDown, ChevronRight,
-  Lock, X, Download
+  Lock, X, Download, ExternalLink
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
 
@@ -1369,28 +1369,40 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                       <span className="text-xl font-extrabold text-[#10b981] font-mono">₹{camp.payout}</span>
                     </div>
 
-                    {/* Unified Copy button */}
-                    <button
-                      id={`copy-btn-${camp.id}`}
-                      onClick={() => copyCampLink(camp.link, camp.id)}
-                      className={`px-3 py-2 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all ${
-                        copiedCampId === camp.id 
-                          ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-200' 
-                          : 'bg-brand-primary text-white border-transparent hover:bg-blue-700'
-                      }`}
-                    >
-                      {copiedCampId === camp.id ? (
-                        <>
-                          <Check className="w-3.5 h-3.5" />
-                          Link Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          Copy Link
-                        </>
-                      )}
-                    </button>
+                    {camp.directOpen ? (
+                      <a
+                        href={camp.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-2 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
+                        Open Link
+                      </a>
+                    ) : (
+                      /* Unified Copy button */
+                      <button
+                        id={`copy-btn-${camp.id}`}
+                        onClick={() => copyCampLink(camp.link, camp.id)}
+                        className={`px-3 py-2 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all ${
+                          copiedCampId === camp.id 
+                            ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-200' 
+                            : 'bg-brand-primary text-white border-transparent hover:bg-blue-700'
+                        }`}
+                      >
+                        {copiedCampId === camp.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            Link Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy Link
+                          </>
+                        )}
+                      </button>
+                    )}
                   </div>
 
                 </div>

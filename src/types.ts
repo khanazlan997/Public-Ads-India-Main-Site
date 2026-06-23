@@ -13,6 +13,7 @@ export interface Campaign {
   link: string;
   image: string; // Base64 or standard asset URL/placeholder icon
   active: boolean;
+  directOpen?: boolean;
 }
 
 export interface Publisher {

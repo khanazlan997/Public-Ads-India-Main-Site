@@ -80,6 +80,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [campPayout, setCampPayout] = useState('');
   const [campTerms, setCampTerms] = useState('');
   const [campLink, setCampLink] = useState('');
+  const [campDirectOpen, setCampDirectOpen] = useState(false);
   const [campImage, setCampImage] = useState('');
   const [campFormOpen, setCampFormOpen] = useState(false);
   const [editingCampId, setEditingCampId] = useState<string | null>(null);
@@ -182,6 +183,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     setCampTerms('');
     setCampLink('');
     setCampImage('');
+    setCampDirectOpen(false);
     setCampFormOpen(false);
   };
 
@@ -198,6 +200,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     setCampTerms(c.terms || '');
     setCampLink(c.link || '');
     setCampImage(c.image || '');
+    setCampDirectOpen(!!c.directOpen);
     setCampFormOpen(true);
     // Smooth scroll to work container
     const workBlock = document.getElementById('admin-workspace') || document.getElementById('tabContent-campaigns');
@@ -221,7 +224,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       payout: parseFloat(campPayout) || 0,
       terms: campTerms,
       link: campLink,
-      image: campImage || 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?auto=format&fit=crop&q=80&w=200'
+      image: campImage || 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?auto=format&fit=crop&q=80&w=200',
+      directOpen: campDirectOpen
     };
 
     if (editingCampId) {
@@ -883,6 +887,17 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         type="text" required placeholder="https://tracking.link..." value={campLink} onChange={(e) => setCampLink(e.target.value)}
                         className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono"
                       />
+                      <label className="inline-flex items-center gap-2 mt-1.5 px-1 select-none cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={campDirectOpen}
+                          onChange={(e) => setCampDirectOpen(e.target.checked)}
+                          className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                        />
+                        <span className="text-[10.5px] font-bold text-slate-650">
+                          Direct Open Link (Client will get direct open button instead of copy option)
+                        </span>
+                      </label>
                     </div>
                   </div>
 
@@ -963,6 +978,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         <td className="p-4">
                           <span className="font-extrabold text-slate-900 block">{camp.name}</span>
                           <span className="text-[10px] text-slate-400 block font-mono mt-0.5">{camp.id} • {camp.vertical} ({camp.platform})</span>
+                          <span className="inline-block text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 mt-1">
+                            {camp.directOpen ? '🌐 Direct Open' : '📋 Copy Link'}
+                          </span>
                         </td>
                         <td className="p-3 font-semibold text-emerald-600 font-mono">
                           ₹{camp.payout} ({camp.model})

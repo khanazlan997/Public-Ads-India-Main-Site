@@ -1369,7 +1369,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                       <span className="text-xl font-extrabold text-[#10b981] font-mono">₹{camp.payout}</span>
                     </div>
 
-                    {(camp.directOpen === true || (camp.directOpen as any) === 'true') ? (
+                    {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') ? (
                       <a
                         href={camp.link}
                         target="_blank"

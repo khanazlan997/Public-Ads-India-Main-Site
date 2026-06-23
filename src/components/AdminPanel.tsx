@@ -80,7 +80,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [campPayout, setCampPayout] = useState('');
   const [campTerms, setCampTerms] = useState('');
   const [campLink, setCampLink] = useState('');
-  const [campDirectOpen, setCampDirectOpen] = useState(false);
+  const [campDirectOpen, setCampDirectOpen] = useState(true);
   const [campImage, setCampImage] = useState('');
   const [campFormOpen, setCampFormOpen] = useState(false);
   const [editingCampId, setEditingCampId] = useState<string | null>(null);
@@ -183,7 +183,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     setCampTerms('');
     setCampLink('');
     setCampImage('');
-    setCampDirectOpen(false);
+    setCampDirectOpen(true);
     setCampFormOpen(false);
   };
 
@@ -979,7 +979,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           <span className="font-extrabold text-slate-900 block">{camp.name}</span>
                           <span className="text-[10px] text-slate-400 block font-mono mt-0.5">{camp.id} • {camp.vertical} ({camp.platform})</span>
                           <span className="inline-block text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 mt-1">
-                            {(camp.directOpen === true || (camp.directOpen as any) === 'true') ? '🌐 Direct Open' : '📋 Copy Link'}
+                            {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') ? '🌐 Direct Open' : '📋 Copy Link'}
                           </span>
                         </td>
                         <td className="p-3 font-semibold text-emerald-600 font-mono">

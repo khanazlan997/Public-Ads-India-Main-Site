@@ -225,7 +225,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       terms: campTerms,
       link: campLink,
       image: campImage || 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?auto=format&fit=crop&q=80&w=200',
-      directOpen: campDirectOpen
+      directOpen: !!campDirectOpen
     };
 
     if (editingCampId) {
@@ -979,7 +979,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           <span className="font-extrabold text-slate-900 block">{camp.name}</span>
                           <span className="text-[10px] text-slate-400 block font-mono mt-0.5">{camp.id} • {camp.vertical} ({camp.platform})</span>
                           <span className="inline-block text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 mt-1">
-                            {camp.directOpen ? '🌐 Direct Open' : '📋 Copy Link'}
+                            {(camp.directOpen === true || (camp.directOpen as any) === 'true') ? '🌐 Direct Open' : '📋 Copy Link'}
                           </span>
                         </td>
                         <td className="p-3 font-semibold text-emerald-600 font-mono">

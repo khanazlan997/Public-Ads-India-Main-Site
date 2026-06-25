@@ -42,6 +42,7 @@ interface AppContextType {
   partnerHiringActive: boolean;
   currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
   testimonials: Testimonial[];
+  quotaError: string | null;
   
   // Actions
   loginPublisher: (phoneOrEmail: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
@@ -198,13 +199,11 @@ const sanitizeError = (error: any): string => {
     lowerMsg.includes('billing') ||
     lowerMsg.includes('firestore') ||
     lowerMsg.includes('free tier') ||
-    lowerMsg.includes('project_number') ||
-    lowerMsg.includes('381615250882') ||
     lowerMsg.includes('resource_exhausted') ||
     lowerMsg.includes('quota exceeded') ||
     lowerMsg.includes('service_unavailable')
   ) {
-    return 'Server is busy or executing background data collection & payment verification cycles. Please try again after 2 hours.';
+    return 'Database daily limits reached or server busy. Please upgrade your Firebase plan or try again later.';
   }
   return msg;
 };
@@ -227,6 +226,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const [initDoneState, setInitDoneState] = useState<boolean | null>(null);
   const [activePath, setActivePath] = useState<string>('/Home');
+  const [quotaError, setQuotaError] = useState<string | null>(null);
 
   // Dynamically track the active location hash/route to prevent loading the entire database on public home page
   useEffect(() => {
@@ -252,6 +252,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setInitDoneState(true);
       } else {
         setInitDoneState(false);
+      }
+    }, (error) => {
+      console.error("onSnapshot system_metadata error:", error);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource") || lower.includes("project_number")) {
+        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
       }
     });
     return unsubscribe;
@@ -317,6 +323,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setCampaigns(list);
       }
+    }, (error) => {
+      console.error("onSnapshot campaigns error:", error);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource") || lower.includes("project_number")) {
+        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+      }
     });
     return unsubscribe;
   }, [initDoneState]);
@@ -324,50 +336,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 1b. Sync Testimonials
   useEffect(() => {
     if (initDoneState === null) return;
-    const q = collection(db, 'testimonials');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        if (initDoneState === false) {
-          defaultTestimonials.forEach((t) => {
-            setDoc(doc(db, 'testimonials', t.id), t);
-          });
-          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
+    const fetchTestimonials = async () => {
+      try {
+        const q = collection(db, 'testimonials');
+        const snapshot = await getDocs(q);
+        if (snapshot.empty) {
+          if (initDoneState === false) {
+            defaultTestimonials.forEach((t) => {
+              setDoc(doc(db, 'testimonials', t.id), t);
+            });
+            setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
+          } else {
+            setTestimonials([]);
+          }
         } else {
-          setTestimonials([]);
+          const list: Testimonial[] = [];
+          snapshot.forEach((docSnap) => {
+            list.push(docSnap.data() as Testimonial);
+          });
+          // Sort testimonials so they maintain consistent orders e.g., by matching order in array
+          const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6"];
+          list.sort((a, b) => {
+            const idxA = defaultOrder.indexOf(a.id);
+            const idxB = defaultOrder.indexOf(b.id);
+            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+            if (idxA !== -1) return -1;
+            if (idxB !== -1) return 1;
+            return a.id.localeCompare(b.id);
+          });
+          setTestimonials(list);
         }
-      } else {
-        const list: Testimonial[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as Testimonial);
-        });
-        // Sort testimonials so they maintain consistent orders e.g., by matching order in array
-        const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6"];
-        list.sort((a, b) => {
-          const idxA = defaultOrder.indexOf(a.id);
-          const idxB = defaultOrder.indexOf(b.id);
-          if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-          if (idxA !== -1) return -1;
-          if (idxB !== -1) return 1;
-          return a.id.localeCompare(b.id);
-        });
-        setTestimonials(list);
+      } catch (err) {
+        console.error("Error loading testimonials:", err);
       }
-    });
-    return unsubscribe;
+    };
+    fetchTestimonials();
   }, [initDoneState]);
 
   // 2. Sync Publishers
   useEffect(() => {
     if (initDoneState === null) return;
-    const deservesPublishers = ['/Admin', '/Employee', '/Dashboard', '/Partner'].includes(activePath) || currentUser !== null;
-    if (!deservesPublishers) {
+    
+    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
+    const isPublisher = currentUser?.type === 'publisher';
+    
+    if (!currentUser) {
       setPublishers([]);
       return;
     }
-    const q = collection(db, 'publishers');
+
+    let q;
+    if (isAdminOrEmployee) {
+      q = collection(db, 'publishers');
+    } else if (isPublisher) {
+      q = query(collection(db, 'publishers'), where('id', '==', currentUser.id));
+    } else {
+      setPublishers([]);
+      return;
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
+        if (initDoneState === false && isAdminOrEmployee) {
           const initialPubs: Publisher[] = [
             { id: 'PUB1001', name: 'Riya Sharma', email: 'riya@gmail.com', phone: '9876543210', password: 'password123', avatar: '👩', blocked: false, joinedDate: '2025-01-10' },
             { id: 'PUB1002', name: 'Amit Patel', email: 'amit@gmail.com', phone: '8765432109', password: 'password123', avatar: '👨', blocked: false, joinedDate: '2025-02-15' },
@@ -387,22 +417,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setPublishers(list);
       }
+    }, (error) => {
+      console.error("onSnapshot publishers error:", error);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
+        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+      }
     });
     return unsubscribe;
-  }, [initDoneState, activePath, currentUser]);
+  }, [initDoneState, currentUser]);
 
   // 3. Sync Bank Details Map
   useEffect(() => {
     if (initDoneState === null) return;
-    const deservesBank = ['/Admin', '/Dashboard'].includes(activePath) || currentUser !== null;
-    if (!deservesBank) {
+    
+    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
+    const isPublisher = currentUser?.type === 'publisher';
+    
+    if (!currentUser) {
       setBankDetailsMap({});
       return;
     }
-    const q = collection(db, 'bank_details');
+
+    let q;
+    if (isAdminOrEmployee) {
+      q = collection(db, 'bank_details');
+    } else if (isPublisher) {
+      q = query(collection(db, 'bank_details'), where('publisherId', '==', currentUser.id));
+    } else {
+      setBankDetailsMap({});
+      return;
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
+        if (initDoneState === false && isAdminOrEmployee) {
           const initialBank: Record<string, BankDetails> = {
             'PUB1001': { publisherId: 'PUB1001', holderName: 'Riya Sharma', phone: '9876543210', email: 'riya@gmail.com', accountNumber: '5010024921092', ifsc: 'HDFC0000213', upi: 'riyasharma@okhdfc', qrCode: '' },
             'PUB1002': { publisherId: 'PUB1002', holderName: 'Amit Patel', phone: '8765432109', email: 'amit@gmail.com', accountNumber: '3029108391039', ifsc: 'SBIN0001092', upi: 'amitpatel@okaxis', qrCode: '' }
@@ -421,22 +470,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setBankDetailsMap(map);
       }
+    }, (error) => {
+      console.error("onSnapshot bank_details error:", error);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
+        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+      }
     });
     return unsubscribe;
-  }, [initDoneState, activePath, currentUser]);
+  }, [initDoneState, currentUser]);
 
   // 4. Sync Earnings
   useEffect(() => {
     if (initDoneState === null) return;
-    const deservesEarnings = ['/Admin', '/Dashboard', '/Employee'].includes(activePath) || currentUser !== null;
-    if (!deservesEarnings) {
+    
+    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
+    const isPublisher = currentUser?.type === 'publisher';
+    
+    if (!currentUser) {
       setEarnings([]);
       return;
     }
-    const q = collection(db, 'earnings');
+
+    let q;
+    if (isAdminOrEmployee) {
+      q = collection(db, 'earnings');
+    } else if (isPublisher) {
+      q = query(collection(db, 'earnings'), where('publisherId', '==', currentUser.id));
+    } else {
+      setEarnings([]);
+      return;
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
+        if (initDoneState === false && isAdminOrEmployee) {
           const initialEarnings: EarningRecord[] = [
             { id: 'e1', publisherId: 'PUB1001', campaignId: 'camp-1', campaignName: 'PhonePe Demat Account', amount: 250, date: '2026-06-18', time: '14:25' },
             { id: 'e2', publisherId: 'PUB1001', campaignId: 'camp-2', campaignName: 'Angel One Demat & Trading', amount: 350, date: '2026-06-17', time: '11:05' },
@@ -460,22 +528,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setEarnings(list);
       }
+    }, (error) => {
+      console.error("onSnapshot earnings error:", error);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
+        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+      }
     });
     return unsubscribe;
-  }, [initDoneState, activePath, currentUser]);
+  }, [initDoneState, currentUser]);
 
   // 5. Sync Submissions
   useEffect(() => {
     if (initDoneState === null) return;
-    const deservesSubmissions = ['/Admin', '/Employee', '/Dashboard'].includes(activePath) || currentUser !== null;
-    if (!deservesSubmissions) {
+    
+    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
+    const isPublisher = currentUser?.type === 'publisher';
+    
+    if (!currentUser) {
       setSubmissions([]);
       return;
     }
-    const q = collection(db, 'submissions');
+
+    let q;
+    if (isAdminOrEmployee) {
+      q = collection(db, 'submissions');
+    } else if (isPublisher) {
+      q = query(collection(db, 'submissions'), where('publisherId', '==', currentUser.id));
+    } else {
+      setSubmissions([]);
+      return;
+    }
+
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
+        if (initDoneState === false && isAdminOrEmployee) {
           const initialSubs: DataSubmission[] = [
             {
               id: 'sub-1',
@@ -534,9 +621,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setSubmissions(list);
       }
+    }, (error) => {
+      console.error("onSnapshot submissions error:", error);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
+        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+      }
     });
     return unsubscribe;
-  }, [initDoneState, activePath, currentUser]);
+  }, [initDoneState, currentUser]);
 
   // 6. Sync Employees
   useEffect(() => {
@@ -1180,6 +1273,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       partnerHiringActive,
       currentUser,
       testimonials,
+      quotaError,
       
       loginPublisher,
       signupPublisher,

@@ -220,7 +220,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     bankDetailsMap, 
     submitBankDetails, 
     updatePublisherProfile,
-    supportPhone 
+    supportPhone,
+    quotaError 
   } = useAppState();
 
   // Active Tab representation
@@ -1390,11 +1391,32 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     </div>
 
                     {/* Terms */}
-                    <div className="mb-6 space-y-1">
+                    <div className="mb-4 space-y-1">
                       <span className="text-[9px] text-slate-400 font-bold uppercase block">Terms & Rules</span>
                       <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans block h-10 overflow-hidden line-clamp-2">
                         {camp.terms}
                       </p>
+                    </div>
+
+                    {/* Visible Campaign Link Box (100% Copy Fallback) */}
+                    <div className="mb-5 bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2 border border-slate-200/50 dark:border-slate-800/80 flex items-center justify-between gap-2 select-all">
+                      <input
+                        type="text"
+                        readOnly
+                        value={camp.link}
+                        onClick={(e) => {
+                          (e.target as HTMLInputElement).select();
+                          copyCampLink(camp.link, camp.id);
+                        }}
+                        className="text-[9px] font-mono text-slate-500 dark:text-slate-400 bg-transparent border-none outline-none w-full cursor-pointer"
+                        title="Click to select all and copy"
+                      />
+                      <button
+                        onClick={() => copyCampLink(camp.link, camp.id)}
+                        className="text-[9px] text-brand-primary dark:text-blue-400 font-black hover:underline shrink-0 px-1 uppercase tracking-wider"
+                      >
+                        {copiedCampId === camp.id ? "Copied" : "Copy"}
+                      </button>
                     </div>
 
                   </div>

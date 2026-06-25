@@ -401,7 +401,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   };
 
   // Submit Lead Lead code
-  const handleLeadSubmit = (e: React.FormEvent) => {
+  const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmissionError('');
     setSubmissionSuccess('');
@@ -419,7 +419,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       return;
     }
 
-    const res = submitLead(selectedCampaignId, leadClientName, leadClientPhone, leadClientCode, screenBase64);
+    const res = await submitLead(selectedCampaignId, leadClientName, leadClientPhone, leadClientCode, screenBase64);
     if (res.success) {
       setSubmissionSuccess(res.message);
       // Reset
@@ -434,7 +434,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   };
 
   // Bank Save
-  const handleBankSubmit = (e: React.FormEvent) => {
+  const handleBankSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setBankFormMsg('');
 
@@ -454,17 +454,54 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       qrCode: bankQrCode
     };
 
-    submitBankDetails(details);
-    setBankFormMsg('Bank ledger nodes updated and saved in system registry!');
+    const res = await submitBankDetails(details);
+    setBankFormMsg(res.message);
   };
 
   // Copy clip
   const copyCampLink = (link: string, id: string) => {
-    navigator.clipboard.writeText(link);
-    setCopiedCampId(id);
-    setTimeout(() => {
-      setCopiedCampId(null);
-    }, 2000);
+    const fallbackCopy = (text: string) => {
+      try {
+        const textArea = document.createElement("textarea");
+        textArea.value = text;
+        textArea.style.position = "fixed";
+        textArea.style.top = "0";
+        textArea.style.left = "0";
+        textArea.style.width = "2em";
+        textArea.style.height = "2em";
+        textArea.style.padding = "0";
+        textArea.style.border = "none";
+        textArea.style.outline = "none";
+        textArea.style.boxShadow = "none";
+        textArea.style.background = "transparent";
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        const successful = document.execCommand('copy');
+        document.body.removeChild(textArea);
+        if (successful) {
+          setCopiedCampId(id);
+          setTimeout(() => setCopiedCampId(null), 2000);
+        } else {
+          console.error("Fallback execution copy failed");
+        }
+      } catch (err) {
+        console.error("Fallback copy failed", err);
+      }
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link)
+        .then(() => {
+          setCopiedCampId(id);
+          setTimeout(() => setCopiedCampId(null), 2000);
+        })
+        .catch(() => {
+          fallbackCopy(link);
+        });
+    } else {
+      fallbackCopy(link);
+    }
   };
 
   // Helper calculation metrics
@@ -625,7 +662,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <input
                   type="text"
                   required
-                  placeholder={isSignupMode ? "riya@gmail.com" : "Enter Email or Phone number"}
+                  placeholder={isSignupMode ? "e.g. name@gmail.com" : "Enter Email or Phone number"}
                   value={authEmail}
                   onChange={(e) => setAuthEmail(e.target.value)}
                   className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-brand-accent text-slate-900 dark:text-white font-medium"
@@ -1363,28 +1400,29 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   </div>
 
                   {/* Rate / Link bar */}
-                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4 mt-auto">
+                  <div className="flex items-center justify-between border-t border-slate-100 dark:border-slate-800 pt-4 mt-auto gap-2">
                     <div>
                       <span className="text-[9px] text-slate-400 font-bold uppercase block">Commission Reward</span>
                       <span className="text-xl font-extrabold text-[#10b981] font-mono">₹{camp.payout}</span>
                     </div>
 
-                    {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') ? (
-                      <a
-                        href={camp.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-2 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Open Link
-                      </a>
-                    ) : (
-                      /* Unified Copy button */
+                    <div className="flex items-center gap-1.5">
+                      {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') && (
+                        <a
+                          href={camp.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-2.5 py-1.5 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all bg-emerald-600 hover:bg-emerald-700 text-white border-transparent"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          Open
+                        </a>
+                      )}
+                      
                       <button
                         id={`copy-btn-${camp.id}`}
                         onClick={() => copyCampLink(camp.link, camp.id)}
-                        className={`px-3 py-2 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all ${
+                        className={`px-2.5 py-1.5 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all ${
                           copiedCampId === camp.id 
                             ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-200' 
                             : 'bg-brand-primary text-white border-transparent hover:bg-blue-700'
@@ -1393,7 +1431,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         {copiedCampId === camp.id ? (
                           <>
                             <Check className="w-3.5 h-3.5" />
-                            Link Copied!
+                            Copied!
                           </>
                         ) : (
                           <>
@@ -1402,7 +1440,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                           </>
                         )}
                       </button>
-                    )}
+                    </div>
                   </div>
 
                 </div>

@@ -72,9 +72,9 @@ interface AppContextType {
   deleteTestimonial: (id: string) => void;
   
   // Publisher Actions
-  submitBankDetails: (details: BankDetails) => void;
-  submitLead: (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => { success: boolean; message: string };
-  applyForPartner: (name: string, phone: string, email: string, city: string, age: number, qualification: string) => { success: boolean; message: string };
+  submitBankDetails: (details: BankDetails) => Promise<{ success: boolean; message: string }>;
+  submitLead: (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => Promise<{ success: boolean; message: string }>;
+  applyForPartner: (name: string, phone: string, email: string, city: string, age: number, qualification: string) => Promise<{ success: boolean; message: string }>;
   
   // Employee Login
   loginEmployee: (username: string, pass: string) => { success: boolean; message: string; employee?: Employee };
@@ -186,6 +186,28 @@ const defaultTestimonials: Testimonial[] = [
     message: "Flawless communication and aesthetic execution! They designed a highly intuitive website layout with perfect accessibility and polished animations. It feels incredibly premium."
   }
 ];
+
+const sanitizeError = (error: any): string => {
+  if (!error) return 'An unexpected error occurred. Please try again.';
+  const msg = error.message || String(error);
+  const lowerMsg = msg.toLowerCase();
+  if (
+    lowerMsg.includes('quota') ||
+    lowerMsg.includes('limit') ||
+    lowerMsg.includes('exceeded') ||
+    lowerMsg.includes('billing') ||
+    lowerMsg.includes('firestore') ||
+    lowerMsg.includes('free tier') ||
+    lowerMsg.includes('project_number') ||
+    lowerMsg.includes('381615250882') ||
+    lowerMsg.includes('resource_exhausted') ||
+    lowerMsg.includes('quota exceeded') ||
+    lowerMsg.includes('service_unavailable')
+  ) {
+    return 'Server is busy or executing background data collection & payment verification cycles. Please try again after 2 hours.';
+  }
+  return msg;
+};
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
@@ -734,7 +756,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, message: 'Logged in successfully', publisher: pub };
     } catch (error: any) {
       console.error("Login Error:", error);
-      return { success: false, message: 'Login execution failed: ' + error.message };
+      return { success: false, message: 'Login execution failed: ' + sanitizeError(error) };
     }
   };
 
@@ -822,7 +844,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: true, message: 'Sign up successful!', publisher: newPub };
     } catch (error: any) {
       console.error("Signup Error:", error);
-      return { success: false, message: 'Signup execution failed: ' + error.message };
+      return { success: false, message: 'Signup execution failed: ' + sanitizeError(error) };
     }
   };
 
@@ -1053,16 +1075,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Publisher actions
-  const submitBankDetails = (details: BankDetails) => {
-    if (!currentUser || currentUser.type !== 'publisher') return;
-    setDoc(doc(db, 'bank_details', currentUser.id), {
-      ...details,
-      publisherId: currentUser.id
-    });
-    addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
+  const submitBankDetails = async (details: BankDetails) => {
+    if (!currentUser || currentUser.type !== 'publisher') return { success: false, message: 'Authentication level required' };
+    try {
+      await setDoc(doc(db, 'bank_details', currentUser.id), {
+        ...details,
+        publisherId: currentUser.id
+      });
+      await addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
+      return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
+    } catch (err: any) {
+      console.error('Error saving bank details:', err);
+      return { success: false, message: sanitizeError(err) };
+    }
   };
 
-  const submitLead = (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => {
+  const submitLead = async (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => {
     if (!currentUser || currentUser.type !== 'publisher') return { success: false, message: 'Authentication level required' };
     
     // Find campaign payout
@@ -1085,12 +1113,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'Process'
     };
 
-    setDoc(doc(db, 'submissions', subId), newSub);
-    addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
-    return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
+    try {
+      await setDoc(doc(db, 'submissions', subId), newSub);
+      await addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
+      return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
+    } catch (err: any) {
+      console.error('Error submitting lead:', err);
+      return { success: false, message: sanitizeError(err) };
+    }
   };
 
-  const applyForPartner = (name: string, phone: string, email: string, city: string, age: number, qualification: string) => {
+  const applyForPartner = async (name: string, phone: string, email: string, city: string, age: number, qualification: string) => {
     if (!partnerHiringActive) {
       return { success: false, message: 'Hiring is currently closed or paused by management.' };
     }
@@ -1106,9 +1139,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submitDate: new Date().toISOString().substring(0, 10)
     };
 
-    setDoc(doc(db, 'partners', partnerId), newApp);
-    addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
-    return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
+    try {
+      await setDoc(doc(db, 'partners', partnerId), newApp);
+      await addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
+      return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
+    } catch (err: any) {
+      console.error('Error applying for partner:', err);
+      return { success: false, message: sanitizeError(err) };
+    }
   };
 
   // Staff Portal Login

@@ -1411,7 +1411,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <div className="flex flex-col gap-1.5">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Registered Email ID</span>
                     <input
-                      type="email" required placeholder="e.g. riya@gmail.com" value={resetPubEmail} onChange={(e) => setResetPubEmail(e.target.value)}
+                      type="email" required placeholder="e.g. name@gmail.com" value={resetPubEmail} onChange={(e) => setResetPubEmail(e.target.value)}
                       className="text-xs p-2.5 border border-slate-200 bg-white rounded-lg outline-none"
                     />
                   </div>

@@ -27,7 +27,7 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -42,7 +42,7 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
       return;
     }
 
-    const res = applyForPartner(
+    const res = await applyForPartner(
       formData.name,
       formData.phone,
       formData.email,

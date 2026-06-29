@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 
 // Configuration from firebase-applet-config.json Code
 const firebaseConfig = {
@@ -14,7 +14,11 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore utilizing the specific database ID from settings
-const db = getFirestore(app, "ai-studio-1d3c5653-93f4-411f-bd71-32fe9be35e38");
+// Initialize Firestore utilizing the specific database ID from settings with persistent caching enabled
+const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+}, "ai-studio-1d3c5653-93f4-411f-bd71-32fe9be35e38");
 
 export { db };

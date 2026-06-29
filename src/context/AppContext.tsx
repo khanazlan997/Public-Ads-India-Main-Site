@@ -8,7 +8,10 @@ import {
   deleteDoc,
   query,
   where,
-  getDocs
+  getDocs,
+  limit,
+  getDoc,
+  orderBy
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { 
@@ -43,6 +46,15 @@ interface AppContextType {
   currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
   testimonials: Testimonial[];
   quotaError: string | null;
+  
+  hasMoreSubmissions: boolean;
+  loadMoreSubmissions: () => void;
+  hasMoreEarnings: boolean;
+  loadMoreEarnings: () => void;
+  hasMorePublishers: boolean;
+  loadMorePublishers: () => void;
+  hasMorePartners: boolean;
+  loadMorePartners: () => void;
   
   // Actions
   loginPublisher: (phoneOrEmail: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
@@ -214,7 +226,17 @@ const sanitizeError = (error: any): string => {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [testimonials, setTestimonials] = useState<Testimonial[]>([]);
+  
+  // Testimonials optimized with localStorage cache to avoid redundant database reads
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
+    try {
+      const stored = localStorage.getItem('pai_cached_testimonials');
+      return stored ? JSON.parse(stored) : defaultTestimonials;
+    } catch {
+      return defaultTestimonials;
+    }
+  });
+
   const [publishers, setPublishers] = useState<Publisher[]>([]);
   const [earnings, setEarnings] = useState<EarningRecord[]>([]);
   const [submissions, setSubmissions] = useState<DataSubmission[]>([]);
@@ -222,13 +244,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>([]);
   const [bankDetailsMap, setBankDetailsMap] = useState<Record<string, BankDetails>>({});
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
-  const [offer, setOffer] = useState<ActiveOffer>({ image: '', active: false });
-  const [supportPhone, setSupportPhone] = useState('+91 9110022334');
-  const [supportEmail = 'support@publicadsindia.com', setSupportEmail] = useState('support@publicadsindia.com');
-  const [partnerHiringActive, setPartnerHiringActive] = useState(true);
+  
+  // Settings optimized with localStorage cache to avoid unnecessary Firestore snapshot loads
+  const [offer, setOffer] = useState<ActiveOffer>(() => {
+    try {
+      const stored = localStorage.getItem('pai_offer');
+      return stored ? JSON.parse(stored) : { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true };
+    } catch {
+      return { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true };
+    }
+  });
+  const [supportPhone, setSupportPhone] = useState(() => localStorage.getItem('pai_support_phone') || '+91 9110022334');
+  const [supportEmail, setSupportEmail] = useState(() => localStorage.getItem('pai_support_email') || 'support@publicadsindia.com');
+  const [partnerHiringActive, setPartnerHiringActive] = useState(() => {
+    const stored = localStorage.getItem('pai_hiring_active');
+    return stored === null ? true : stored === 'true';
+  });
+  
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const [activePath, setActivePath] = useState<string>('/Home');
   const [quotaError, setQuotaError] = useState<string | null>(null);
+
+  // Pagination states for lazy loading and O(1) reads
+  const [submissionsLimit, setSubmissionsLimit] = useState(50);
+  const [hasMoreSubmissions, setHasMoreSubmissions] = useState(true);
+  const loadMoreSubmissions = () => setSubmissionsLimit(prev => prev + 50);
+
+  const [earningsLimit, setEarningsLimit] = useState(50);
+  const [hasMoreEarnings, setHasMoreEarnings] = useState(true);
+  const loadMoreEarnings = () => setEarningsLimit(prev => prev + 50);
+
+  const [publishersLimit, setPublishersLimit] = useState(50);
+  const [hasMorePublishers, setHasMorePublishers] = useState(true);
+  const loadMorePublishers = () => setPublishersLimit(prev => prev + 50);
+
+  const [partnersLimit, setPartnersLimit] = useState(30);
+  const [hasMorePartners, setHasMorePartners] = useState(true);
+  const loadMorePartners = () => setPartnersLimit(prev => prev + 30);
 
   // Dynamically track the active location hash/route to prevent loading the entire database on public home page
   useEffect(() => {
@@ -309,20 +361,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, []);
 
-  // 1b. Sync Testimonials
+  // 1b. Sync Testimonials (Optimized with Local Cache Check to prevent redundant reads)
   useEffect(() => {
     const fetchTestimonials = async () => {
       try {
+        const stored = localStorage.getItem('pai_cached_testimonials');
+        if (stored) {
+          // Skip reading from Firestore since we already have valid testimonials in cache!
+          return;
+        }
+
         const q = collection(db, 'testimonials');
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
-          setTestimonials([]);
+          setTestimonials(defaultTestimonials);
+          localStorage.setItem('pai_cached_testimonials', JSON.stringify(defaultTestimonials));
         } else {
           const list: Testimonial[] = [];
           snapshot.forEach((docSnap) => {
             list.push(docSnap.data() as Testimonial);
           });
-          // Sort testimonials so they maintain consistent orders e.g., by matching order in array
+          // Sort testimonials so they maintain consistent orders
           const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6"];
           list.sort((a, b) => {
             const idxA = defaultOrder.indexOf(a.id);
@@ -333,6 +392,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return a.id.localeCompare(b.id);
           });
           setTestimonials(list);
+          localStorage.setItem('pai_cached_testimonials', JSON.stringify(list));
         }
       } catch (err) {
         console.error("Error loading testimonials:", err);
@@ -341,35 +401,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchTestimonials();
   }, []);
 
-  // 2. Sync Publishers
+  // 2. Sync Publishers (Optimized with Role & Path Guards, and limit-based Pagination)
   useEffect(() => {
-    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
-    const isPublisher = currentUser?.type === 'publisher';
-    
     if (!currentUser) {
       setPublishers([]);
+      return;
+    }
+    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
+    const isPublisher = currentUser.type === 'publisher';
+    
+    // Guard: Only fetch publishers if viewing the Admin/Employee workspace or the Publisher Dashboard
+    const deservesPublishers = 
+      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
+      (isPublisher && activePath === '/Dashboard');
+
+    if (!deservesPublishers) {
       return;
     }
 
     let q;
     if (isAdminOrEmployee) {
-      q = collection(db, 'publishers');
-    } else if (isPublisher) {
-      q = query(collection(db, 'publishers'), where('id', '==', currentUser.id));
+      q = query(collection(db, 'publishers'), limit(publishersLimit));
     } else {
-      setPublishers([]);
-      return;
+      q = query(collection(db, 'publishers'), where('id', '==', currentUser.id), limit(1));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
         setPublishers([]);
+        setHasMorePublishers(false);
       } else {
         const list: Publisher[] = [];
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as Publisher);
         });
         setPublishers(list);
+        
+        // Expose pagination indicators
+        if (isAdminOrEmployee) {
+          setHasMorePublishers(snapshot.docs.length >= publishersLimit);
+        } else {
+          setHasMorePublishers(false);
+        }
       }
     }, (error) => {
       console.error("onSnapshot publishers error:", error);
@@ -379,26 +452,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser]);
+  }, [currentUser, activePath, publishersLimit]);
 
-  // 3. Sync Bank Details Map
+  // 3. Sync Bank Details Map (Optimized with Path & Role Guards, and bound to Publishers limit to prevent orphan reads)
   useEffect(() => {
-    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
-    const isPublisher = currentUser?.type === 'publisher';
-    
     if (!currentUser) {
       setBankDetailsMap({});
+      return;
+    }
+    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
+    const isPublisher = currentUser.type === 'publisher';
+    
+    const deservesBankDetails = 
+      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
+      (isPublisher && activePath === '/Dashboard');
+
+    if (!deservesBankDetails) {
       return;
     }
 
     let q;
     if (isAdminOrEmployee) {
-      q = collection(db, 'bank_details');
-    } else if (isPublisher) {
-      q = query(collection(db, 'bank_details'), where('publisherId', '==', currentUser.id));
+      q = query(collection(db, 'bank_details'), limit(publishersLimit));
     } else {
-      setBankDetailsMap({});
-      return;
+      q = query(collection(db, 'bank_details'), where('publisherId', '==', currentUser.id), limit(1));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -419,37 +496,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser]);
+  }, [currentUser, activePath, publishersLimit]);
 
-  // 4. Sync Earnings
+  // 4. Sync Earnings (Optimized with Path/Role Guards, and limit-based Pagination)
   useEffect(() => {
-    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
-    const isPublisher = currentUser?.type === 'publisher';
-    
     if (!currentUser) {
       setEarnings([]);
+      return;
+    }
+    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
+    const isPublisher = currentUser.type === 'publisher';
+    
+    const deservesEarnings = 
+      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
+      (isPublisher && activePath === '/Dashboard');
+
+    if (!deservesEarnings) {
       return;
     }
 
     let q;
     if (isAdminOrEmployee) {
-      q = collection(db, 'earnings');
-    } else if (isPublisher) {
-      q = query(collection(db, 'earnings'), where('publisherId', '==', currentUser.id));
+      q = query(collection(db, 'earnings'), limit(earningsLimit));
     } else {
-      setEarnings([]);
-      return;
+      q = query(collection(db, 'earnings'), where('publisherId', '==', currentUser.id), limit(earningsLimit));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
         setEarnings([]);
+        setHasMoreEarnings(false);
       } else {
         const list: EarningRecord[] = [];
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as EarningRecord);
         });
         setEarnings(list);
+        setHasMoreEarnings(snapshot.docs.length >= earningsLimit);
       }
     }, (error) => {
       console.error("onSnapshot earnings error:", error);
@@ -459,37 +542,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser]);
+  }, [currentUser, activePath, earningsLimit]);
 
-  // 5. Sync Submissions
+  // 5. Sync Submissions (Optimized with Path/Role Guards, and limit-based Pagination)
   useEffect(() => {
-    const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
-    const isPublisher = currentUser?.type === 'publisher';
-    
     if (!currentUser) {
       setSubmissions([]);
+      return;
+    }
+    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
+    const isPublisher = currentUser.type === 'publisher';
+    
+    const deservesSubmissions = 
+      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
+      (isPublisher && activePath === '/Dashboard');
+
+    if (!deservesSubmissions) {
       return;
     }
 
     let q;
     if (isAdminOrEmployee) {
-      q = collection(db, 'submissions');
-    } else if (isPublisher) {
-      q = query(collection(db, 'submissions'), where('publisherId', '==', currentUser.id));
+      q = query(collection(db, 'submissions'), limit(submissionsLimit));
     } else {
-      setSubmissions([]);
-      return;
+      q = query(collection(db, 'submissions'), where('publisherId', '==', currentUser.id), limit(submissionsLimit));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
         setSubmissions([]);
+        setHasMoreSubmissions(false);
       } else {
         const list: DataSubmission[] = [];
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as DataSubmission);
         });
         setSubmissions(list);
+        setHasMoreSubmissions(snapshot.docs.length >= submissionsLimit);
       }
     }, (error) => {
       console.error("onSnapshot submissions error:", error);
@@ -499,16 +588,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser]);
+  }, [currentUser, activePath, submissionsLimit]);
 
-  // 6. Sync Employees
+  // 6. Sync Employees (Optimized with Path Guard & limit check)
   useEffect(() => {
     const deservesEmployees = ['/Admin', '/Employee'].includes(activePath);
     if (!deservesEmployees) {
       setEmployees([]);
       return;
     }
-    const q = collection(db, 'employees');
+    const q = query(collection(db, 'employees'), limit(30));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
         setEmployees([]);
@@ -523,27 +612,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [activePath]);
 
-  // 7. Sync Partner Applications
+  // 7. Sync Partner Applications (Optimized with Path Guard & limit-based Pagination)
   useEffect(() => {
     const deservesPartners = ['/Admin', '/Partner'].includes(activePath);
     if (!deservesPartners) {
       setPartnerApplications([]);
       return;
     }
-    const q = collection(db, 'partners');
+    const q = query(collection(db, 'partners'), limit(partnersLimit));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
         setPartnerApplications([]);
+        setHasMorePartners(false);
       } else {
         const list: PartnerApplication[] = [];
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as PartnerApplication);
         });
         setPartnerApplications(list);
+        setHasMorePartners(snapshot.docs.length >= partnersLimit);
       }
     });
     return unsubscribe;
-  }, [activePath]);
+  }, [activePath, partnersLimit]);
 
   // 8. Sync Activity Logs (Bypassed to protect Firestore quota limits)
   useEffect(() => {
@@ -552,29 +643,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ]);
   }, [activePath]);
 
-  // 9. Sync Settings
+  // 9. Sync Settings (Optimized from onSnapshot real-time listener to a fast one-time startup getDoc fetch with localStorage cache)
   useEffect(() => {
-    const docRef = doc(db, 'configs', 'settings');
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
-      if (!docSnap.exists()) {
-        const initialSettings = {
-          supportPhone: '+91 9110022334',
-          supportEmail: 'support@publicadsindia.com',
-          partnerHiringActive: true,
-          offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
-        };
-        setDoc(docRef, initialSettings);
-      } else {
-        const data = docSnap.data();
-        if (data) {
-          if (data.supportPhone) setSupportPhone(data.supportPhone);
-          if (data.supportEmail) setSupportEmail(data.supportEmail);
-          if (data.partnerHiringActive !== undefined) setPartnerHiringActive(data.partnerHiringActive);
-          if (data.offer) setOffer(data.offer);
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'configs', 'settings');
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+          const initialSettings = {
+            supportPhone: '+91 9110022334',
+            supportEmail: 'support@publicadsindia.com',
+            partnerHiringActive: true,
+            offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
+          };
+          await setDoc(docRef, initialSettings);
+          localStorage.setItem('pai_support_phone', initialSettings.supportPhone);
+          localStorage.setItem('pai_support_email', initialSettings.supportEmail);
+          localStorage.setItem('pai_hiring_active', String(initialSettings.partnerHiringActive));
+          localStorage.setItem('pai_offer', JSON.stringify(initialSettings.offer));
+        } else {
+          const data = docSnap.data();
+          if (data) {
+            if (data.supportPhone) {
+              setSupportPhone(data.supportPhone);
+              localStorage.setItem('pai_support_phone', data.supportPhone);
+            }
+            if (data.supportEmail) {
+              setSupportEmail(data.supportEmail);
+              localStorage.setItem('pai_support_email', data.supportEmail);
+            }
+            if (data.partnerHiringActive !== undefined) {
+              setPartnerHiringActive(data.partnerHiringActive);
+              localStorage.setItem('pai_hiring_active', String(data.partnerHiringActive));
+            }
+            if (data.offer) {
+              setOffer(data.offer);
+              localStorage.setItem('pai_offer', JSON.stringify(data.offer));
+            }
+          }
         }
+      } catch (err) {
+        console.error("Error loading settings config:", err);
       }
-    });
-    return unsubscribe;
+    };
+    fetchSettings();
   }, []);
 
   // 10. Sync Backup Logs (Disabled to protect Firestore quota limits)
@@ -611,15 +723,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!pub) {
         const pubsRef = collection(db, 'publishers');
         
-        // Try by email
-        const qEmail = query(pubsRef, where('email', '==', phoneOrEmail), where('password', '==', password));
+        // Try by email (optimized with limit(1))
+        const qEmail = query(pubsRef, where('email', '==', phoneOrEmail), where('password', '==', password), limit(1));
         const snapEmail = await getDocs(qEmail);
         
         if (!snapEmail.empty) {
           pub = snapEmail.docs[0].data() as Publisher;
         } else {
-          // Try by phone
-          const qPhone = query(pubsRef, where('phone', '==', phoneOrEmail), where('password', '==', password));
+          // Try by phone (optimized with limit(1))
+          const qPhone = query(pubsRef, where('phone', '==', phoneOrEmail), where('password', '==', password), limit(1));
           const snapPhone = await getDocs(qPhone);
           if (!snapPhone.empty) {
             pub = snapPhone.docs[0].data() as Publisher;
@@ -650,15 +762,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // 1. Check if email or phone is already registered in local state
       let existing = publishers.find(p => p.email === email || p.phone === phone);
       
-      // 2. Double check Firestore directly to prevent signup duplication across devices
+      // 2. Double check Firestore directly to prevent signup duplication across devices (optimized with limit(1))
       if (!existing) {
         const pubsRef = collection(db, 'publishers');
-        const qEmail = query(pubsRef, where('email', '==', email));
+        const qEmail = query(pubsRef, where('email', '==', email), limit(1));
         const snapEmail = await getDocs(qEmail);
         if (!snapEmail.empty) {
           existing = snapEmail.docs[0].data() as Publisher;
         } else {
-          const qPhone = query(pubsRef, where('phone', '==', phone));
+          const qPhone = query(pubsRef, where('phone', '==', phone), limit(1));
           const snapPhone = await getDocs(qPhone);
           if (!snapPhone.empty) {
             existing = snapPhone.docs[0].data() as Publisher;
@@ -679,18 +791,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       });
       
-      // Also check Firestore collections to prevent ID collision across offline instances
+      // Instead of reading ALL publishers, query ONLY the single highest ID document!
       const pubsRef = collection(db, 'publishers');
-      const snapAll = await getDocs(query(pubsRef));
-      snapAll.forEach(docSnap => {
-        const p = docSnap.data() as Publisher;
-        if (p.id) {
-          const num = parseInt(p.id.replace('PUB', ''));
-          if (!isNaN(num) && num >= nextNum) {
-            nextNum = num + 1;
+      const qMax = query(pubsRef, orderBy('id', 'desc'), limit(1));
+      try {
+        const snapMax = await getDocs(qMax);
+        if (!snapMax.empty) {
+          const p = snapMax.docs[0].data() as Publisher;
+          if (p.id) {
+            const num = parseInt(p.id.replace('PUB', ''));
+            if (!isNaN(num) && num >= nextNum) {
+              nextNum = num + 1;
+            }
           }
         }
-      });
+      } catch (err) {
+        console.warn("Could not query max publisher ID, falling back to random numeric suffix", err);
+        nextNum = Math.floor(100000 + Math.random() * 900000);
+      }
 
       const newId = `PUB${nextNum}`;
 
@@ -1081,6 +1199,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentUser,
       testimonials,
       quotaError,
+      
+      hasMoreSubmissions,
+      loadMoreSubmissions,
+      hasMoreEarnings,
+      loadMoreEarnings,
+      hasMorePublishers,
+      loadMorePublishers,
+      hasMorePartners,
+      loadMorePartners,
       
       loginPublisher,
       signupPublisher,

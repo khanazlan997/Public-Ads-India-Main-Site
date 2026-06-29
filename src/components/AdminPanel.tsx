@@ -33,6 +33,14 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     publishers, 
     toggleBlockPublisher, 
     deletePublisher, 
+    hasMoreSubmissions,
+    loadMoreSubmissions,
+    hasMoreEarnings,
+    loadMoreEarnings,
+    hasMorePublishers,
+    loadMorePublishers,
+    hasMorePartners,
+    loadMorePartners,
     resetUserPasswordByAdmin, 
     bankDetailsMap, 
     supportPhone, 
@@ -1224,6 +1232,17 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       </tbody>
                     </table>
                   </div>
+                  {hasMoreSubmissions && (
+                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-center">
+                      <button
+                        type="button"
+                        onClick={loadMoreSubmissions}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs tracking-wider uppercase transition-all shadow-sm cursor-pointer"
+                      >
+                        Load More Submissions
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1444,6 +1463,17 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     </tbody>
                   </table>
                 </div>
+                {hasMorePublishers && (
+                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-center rounded-b-2xl">
+                    <button
+                      type="button"
+                      onClick={loadMorePublishers}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs tracking-wider uppercase transition-all shadow-sm cursor-pointer"
+                    >
+                      Load More Publishers
+                    </button>
+                  </div>
+                )}
               </div>
               </div>
 

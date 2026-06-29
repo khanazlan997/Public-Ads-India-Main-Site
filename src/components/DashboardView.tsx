@@ -221,7 +221,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     submitBankDetails, 
     updatePublisherProfile,
     supportPhone,
-    quotaError 
+    quotaError,
+    hasMoreSubmissions,
+    loadMoreSubmissions,
+    hasMoreEarnings,
+    loadMoreEarnings
   } = useAppState();
 
   // Active Tab representation
@@ -1640,59 +1644,72 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 No campaign submissions located for your publisher account. Submit conversions in Data Submission first.
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">
-                      <th className="p-3 rounded-l-xl">Campaign Name</th>
-                      <th className="p-3">Client Coordinates</th>
-                      <th className="p-3">Client Code</th>
-                      <th className="p-3">Submission Date</th>
-                      <th className="p-3">Verified screenshot</th>
-                      <th className="p-3 rounded-r-xl text-right">Status Verified</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pubSubmissions.map((sub) => (
-                      <tr key={sub.id} className="border-b border-slate-50 dark:border-slate-850/20">
-                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
-                          {sub.campaignName}
-                        </td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                          <span className="block font-bold">{sub.clientName}</span>
-                          <span className="block text-[10px] text-slate-400 mt-0.5">{sub.clientPhone}</span>
-                        </td>
-                        <td className="p-3 font-mono text-slate-500">
-                          {sub.clientCode || 'None'}
-                        </td>
-                        <td className="p-3 text-slate-405">
-                          {sub.submitDate}
-                        </td>
-                        <td className="p-3">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewImage(sub.screenshot)}
-                            className="text-brand-accent underline hover:text-blue-500 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
-                          >
-                            View ↗
-                          </button>
-                        </td>
-                        <td className="p-3 text-right">
-                          <span className={`inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
-                            sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
-                            sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400' :
-                            sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 animate-pulse' :
-                            sub.status === 'Reject' ? 'bg-red-105 dark:bg-red-950/40 text-rose-700 dark:text-rose-400' :
-                            'bg-blue-105 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350'
-                          }`}>
-                            {sub.status}
-                          </span>
-                        </td>
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">
+                        <th className="p-3 rounded-l-xl">Campaign Name</th>
+                        <th className="p-3">Client Coordinates</th>
+                        <th className="p-3">Client Code</th>
+                        <th className="p-3">Submission Date</th>
+                        <th className="p-3">Verified screenshot</th>
+                        <th className="p-3 rounded-r-xl text-right">Status Verified</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {pubSubmissions.map((sub) => (
+                        <tr key={sub.id} className="border-b border-slate-50 dark:border-slate-850/20">
+                          <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
+                            {sub.campaignName}
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                            <span className="block font-bold">{sub.clientName}</span>
+                            <span className="block text-[10px] text-slate-400 mt-0.5">{sub.clientPhone}</span>
+                          </td>
+                          <td className="p-3 font-mono text-slate-500">
+                            {sub.clientCode || 'None'}
+                          </td>
+                          <td className="p-3 text-slate-405">
+                            {sub.submitDate}
+                          </td>
+                          <td className="p-3">
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(sub.screenshot)}
+                              className="text-brand-accent underline hover:text-blue-500 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
+                            >
+                              View ↗
+                            </button>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
+                              sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
+                              sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400' :
+                              sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 animate-pulse' :
+                              sub.status === 'Reject' ? 'bg-red-105 dark:bg-red-950/40 text-rose-700 dark:text-rose-400' :
+                              'bg-blue-105 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350'
+                            }`}>
+                              {sub.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {hasMoreSubmissions && (
+                  <div className="mt-4 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={loadMoreSubmissions}
+                      className="px-4 py-2 bg-brand-primary hover:bg-blue-700 text-white rounded-xl font-bold text-xs tracking-wider uppercase transition-all shadow-sm cursor-pointer"
+                    >
+                      Load More Submissions
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -26,6 +26,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     toggleCampaignActive, 
     submissions, 
     updateSubmissionStatus, 
+    deleteSubmission,
     publishers, 
     toggleBlockPublisher, 
     deletePublisher, 
@@ -1196,6 +1197,18 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                     }`}
                                   >
                                     Payment Done
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      if (window.confirm('Are you sure you want to permanently delete this submission?')) {
+                                        deleteSubmission(sub.id);
+                                      }
+                                    }}
+                                    className="px-2 py-1 text-[9px] font-extrabold uppercase rounded tracking-wider cursor-pointer bg-red-50 hover:bg-red-100 text-red-650 flex items-center gap-1 border border-red-200 transition-all"
+                                    title="Delete Submission"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-red-500" />
+                                    Delete
                                   </button>
                                 </div>
                               </td>

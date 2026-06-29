@@ -798,53 +798,55 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
           {/* Card 1: User Profile Glass card */}
-          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col sm:flex-row items-center sm:items-center gap-6 text-center sm:text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
+          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col justify-center transition-all duration-300 hover:shadow-md hover:border-indigo-500/35 min-h-[140px]">
             {/* Glowing backdrop ambient layers */}
             <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
             
-            {/* Avatar Ring */}
-            <div className="relative group shrink-0 self-center z-10">
-              <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-550 to-brand-accent rounded-full blur-xs opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse" style={{ animationDuration: '6s' }}></div>
-              <div className="relative w-20 h-20 bg-white dark:bg-[#090f1d] border border-slate-250 dark:border-slate-855 rounded-full flex items-center justify-center overflow-hidden select-none">
-                {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
-                  <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <span className="text-4xl">{profileAvatar || '😎'}</span>
-                )}
-              </div>
-            </div>
+            {!isEditingProfile ? (
+              <div className="flex flex-col sm:flex-row items-center sm:items-center gap-6 text-center sm:text-left z-10 w-full h-full">
+                {/* Avatar Ring */}
+                <div className="relative group shrink-0 self-center">
+                  <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-550 to-brand-accent rounded-full blur-xs opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse" style={{ animationDuration: '6s' }}></div>
+                  <div className="relative w-20 h-20 bg-white dark:bg-[#090f1d] border border-slate-250 dark:border-slate-855 rounded-full flex items-center justify-center overflow-hidden select-none">
+                    {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
+                      <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <span className="text-4xl">{profileAvatar || '😎'}</span>
+                    )}
+                  </div>
+                </div>
 
-            <div className="flex flex-col items-center sm:items-start z-10">
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                  Hello, {profileName}!
-                </span>
-                <button
-                  id="edit-profile-trigger"
-                  type="button"
-                  onClick={() => setIsEditingProfile(!isEditingProfile)}
-                  className="p-1 px-2 text-slate-405 hover:text-indigo-550 hover:bg-slate-100 dark:hover:bg-slate-855 rounded-lg transition-all flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-                  title="Edit profile name & avatar"
-                >
-                  <Edit3 className="w-3 h-3" />
-                  <span>Edit</span>
-                </button>
+                <div className="flex flex-col items-center sm:items-start">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
+                      Hello, {profileName}!
+                    </span>
+                    <button
+                      id="edit-profile-trigger"
+                      type="button"
+                      onClick={() => setIsEditingProfile(true)}
+                      className="p-1 px-2 text-slate-405 hover:text-indigo-550 hover:bg-slate-100 dark:hover:bg-slate-855 rounded-lg transition-all flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
+                      title="Edit profile name & avatar"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+                  
+                  <p className="text-xs text-slate-450 dark:text-slate-400 mt-1.5 font-bold flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1">
+                    <span className="bg-slate-100/90 dark:bg-slate-900/90 px-2 py-0.5 rounded text-[10px] text-slate-500 dark:text-slate-450 border border-slate-200 dark:border-slate-800 font-mono">
+                      ID: <span className="text-indigo-505 dark:text-indigo-400 font-extrabold">{currentUser.id}</span>
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 dark:bg-emerald-555/5 px-2 py-0.5 rounded text-[10px]" title="Account Verified">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-555 animate-ping"></span>
+                      <span>Verified Publisher</span>
+                    </span>
+                  </p>
+                </div>
               </div>
-              
-              <p className="text-xs text-slate-450 dark:text-slate-400 mt-1.5 font-bold flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1">
-                <span className="bg-slate-100/90 dark:bg-slate-900/90 px-2 py-0.5 rounded text-[10px] text-slate-500 dark:text-slate-450 border border-slate-200 dark:border-slate-800 font-mono">
-                  ID: <span className="text-indigo-505 dark:text-indigo-400 font-extrabold">{currentUser.id}</span>
-                </span>
-                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 dark:bg-emerald-555/5 px-2 py-0.5 rounded text-[10px]" title="Account Verified">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-555 animate-ping"></span>
-                  <span>Verified Publisher</span>
-                </span>
-              </p>
-            </div>
-
-            {/* Dynamic Edit Profile Drawer inline within Card 1 */}
-            {isEditingProfile && (
-              <form onSubmit={handleProfileSave} className="absolute inset-x-4 top-4 bg-white dark:bg-[#0c1322] border border-indigo-500/40 p-4 rounded-2xl shadow-xl z-20 flex flex-col gap-3 animate-fade-up">
+            ) : (
+              /* Inline Edit Profile Form inside the Card flow, so height is automatically adjusted and no button is hidden! */
+              <form onSubmit={handleProfileSave} className="relative z-10 flex flex-col gap-3 animate-fade-up w-full">
                 <div className="flex flex-col gap-1 w-full">
                   <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Select Avatar / Photo</span>
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
@@ -853,7 +855,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         key={av}
                         type="button"
                         onClick={() => setProfileAvatar(av)}
-                        className={`text-lg p-1.5 rounded-lg hover:bg-slate-150 dark:hover:bg-slate-850 transition-all ${profileAvatar === av ? 'bg-indigo-100/80 dark:bg-indigo-950/60 border border-indigo-500' : 'border border-transparent'}`}
+                        className={`text-lg p-1.5 rounded-lg hover:bg-slate-150 dark:hover:bg-slate-855 transition-all ${profileAvatar === av ? 'bg-indigo-100/80 dark:bg-indigo-950/60 border border-indigo-500' : 'border border-transparent'}`}
                       >
                         {av}
                       </button>
@@ -898,10 +900,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                       required
                       readOnly
                       value={profileName}
-                      className="w-full text-xs p-2 pr-8 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-505 dark:text-slate-400"
+                      className="w-full text-xs p-2 pr-8 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-505 dark:text-slate-400 font-semibold"
                     />
                     <div className="absolute inset-y-0 right-2 flex items-center text-slate-405 group-hover:text-amber-500 transition-colors">
-                      <Lock className="w-3 h-3" />
+                      <Lock className="w-3.5 h-3.5" />
                     </div>
                   </div>
                 </div>
@@ -909,16 +911,16 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <div className="flex gap-2">
                   <button
                      type="submit"
-                     className="flex-1 py-1.5 bg-indigo-600 text-white font-extrabold text-[10px] uppercase rounded-lg hover:bg-indigo-700 transition"
+                     className="flex-1 py-1.5 bg-indigo-600 text-white font-extrabold text-[10px] uppercase rounded-lg hover:bg-indigo-700 transition cursor-pointer"
                   >
-                    Save
+                     Save
                   </button>
                   <button
                      type="button"
                      onClick={() => setIsEditingProfile(false)}
-                     className="px-2.5 py-1.5 bg-slate-105 dark:bg-slate-805 text-slate-600 dark:text-slate-300 font-extrabold text-[10px] uppercase rounded-lg hover:bg-slate-200"
+                     className="px-2.5 py-1.5 bg-slate-105 dark:bg-slate-805 text-slate-600 dark:text-slate-300 font-extrabold text-[10px] uppercase rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
                   >
-                    Cancel
+                     Cancel
                   </button>
                 </div>
               </form>

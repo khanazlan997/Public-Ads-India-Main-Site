@@ -61,6 +61,7 @@ interface AppContextType {
   updateSupportDetails: (phone: string, email: string) => void;
   togglePartnerHiring: (active: boolean) => void;
   updateSubmissionStatus: (submissionId: string, status: SubmissionStatus) => void;
+  deleteSubmission: (id: string) => void;
   toggleBlockPublisher: (pubId: string) => void;
   deletePublisher: (pubId: string) => void;
   addEmployee: (name: string, u: string, p: string, role: 'Payment' | 'MIS') => { success: boolean; message: string };
@@ -849,6 +850,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deleteSubmission = (id: string) => {
+    deleteDoc(doc(db, 'submissions', id));
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'DELETE_SUBMISSION', `Lead submission deleted for reference ID: ${id}`);
+  };
+
   const toggleBlockPublisher = (pubId: string) => {
     const p = publishers.find(item => item.id === pubId);
     if (p) {
@@ -1078,6 +1084,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updateSupportDetails,
       togglePartnerHiring,
       updateSubmissionStatus,
+      deleteSubmission,
       toggleBlockPublisher,
       deletePublisher,
       addEmployee,

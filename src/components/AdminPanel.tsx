@@ -27,6 +27,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     submissions, 
     updateSubmissionStatus, 
     deleteSubmission,
+    earnings,
+    updateEarningAmount,
+    deleteEarningRecord,
     publishers, 
     toggleBlockPublisher, 
     deletePublisher, 
@@ -122,6 +125,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [resetPubEmail, setResetPubEmail] = useState('');
   const [resetNewPass, setResetNewPass] = useState('');
   const [resetMsg, setResetMsg] = useState('');
+
+  // Earnings Editor Dialog states
+  const [editingEarningsPubId, setEditingEarningsPubId] = useState<string | null>(null);
+  const [editingEarningItemValues, setEditingEarningItemValues] = useState<{ [earningId: string]: string }>({});
 
   // Staff creation states
   const [staffName, setStaffName] = useState('');
@@ -1348,8 +1355,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         <th className="p-3">Publisher ID</th>
                         <th className="p-3">Publisher Name</th>
                         <th className="p-3">Registered Mobile</th>
+                        <th className="p-3">Total Earned</th>
                         <th className="p-3">Registry date</th>
-                        <th className="p-3 text-right">Access Block Control</th>
+                        <th className="p-3 text-right">Access & Earnings Control</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -1365,6 +1373,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                   alt="Avatar" 
                                   className="w-full h-full object-cover" 
                                   referrerPolicy="no-referrer" 
+                                  id={`pub-avatar-img-${pub.id}`}
                                 />
                               </div>
                             ) : (
@@ -1374,9 +1383,36 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
                           <td className="p-3 font-extrabold text-slate-800">{pub.name}</td>
                           <td className="p-3 font-medium text-slate-650">{pub.phone}</td>
+                          <td className="p-3">
+                            {(() => {
+                              const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
+                              const totalSum = pubEarnings.reduce((acc, e) => acc + (e.amount || 0), 0);
+                              return (
+                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-450 font-black text-xs border border-indigo-100/50">
+                                  ₹{totalSum}
+                                </span>
+                              );
+                            })()}
+                          </td>
                           <td className="p-3 text-slate-405">{pub.joinedDate}</td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-2 items-center">
+                              <button
+                                id={`edit-earnings-${pub.id}`}
+                                onClick={() => {
+                                  setEditingEarningsPubId(pub.id);
+                                  const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
+                                  const values: { [key: string]: string } = {};
+                                  pubEarnings.forEach(e => {
+                                    values[e.id] = String(e.amount);
+                                  });
+                                  setEditingEarningItemValues(values);
+                                }}
+                                className="px-2.5 py-1 text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-800 rounded-lg border border-indigo-150 transition-colors cursor-pointer flex items-center gap-1"
+                                title="Edit earning amounts or delete last 5 transactions"
+                              >
+                                💰 Edit Amount
+                              </button>
                               <button
                                 id={`block-unblock-${pub.id}`}
                                 onClick={() => toggleBlockPublisher(pub.id)}
@@ -2623,6 +2659,172 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 alt="Verification Proof" 
                 className="max-w-full max-h-[66vh] object-contain rounded-lg shadow-md border border-slate-700" 
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Earnings Editor Modal */}
+      {editingEarningsPubId && (
+        <div 
+          id="publisher-earnings-editor-modal" 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setEditingEarningsPubId(null)}
+        >
+          <div 
+            className="relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden max-w-xl w-full border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-100 dark:bg-slate-950/40">
+              <div>
+                <span className="font-extrabold text-slate-800 dark:text-slate-100 text-[12px] uppercase tracking-wider block">
+                  Manage Earnings: {publishers.find(p => p.id === editingEarningsPubId)?.name || 'Publisher'}
+                </span>
+                <span className="font-mono text-[10px] text-indigo-650 dark:text-indigo-400 font-bold block mt-0.5">
+                  ID: {editingEarningsPubId}
+                </span>
+              </div>
+              <button 
+                onClick={() => setEditingEarningsPubId(null)}
+                className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl font-black text-slate-750 dark:text-slate-250 cursor-pointer text-[10px]"
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Stats Bar */}
+              <div className="p-4 bg-indigo-50/50 dark:bg-indigo-950/25 border border-indigo-100 dark:border-indigo-900/50 rounded-xl flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Total Accumulated Earnings</span>
+                  <div className="text-xl font-black text-slate-800 dark:text-white mt-0.5">
+                    ₹{(earnings || []).filter(e => e.publisherId === editingEarningsPubId).reduce((sum, e) => sum + (e.amount || 0), 0)}
+                  </div>
+                </div>
+                <div className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-450 p-2 rounded-lg">
+                  <Coins className="w-6 h-6" />
+                </div>
+              </div>
+
+              {/* Transactions Title */}
+              <div>
+                <h4 className="text-xs font-black text-slate-750 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <span>Recent 5 Earning Transactions</span>
+                  <span className="bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-500 px-1.5 py-0.5 rounded-full font-mono">
+                    {Math.min(5, (earnings || []).filter(e => e.publisherId === editingEarningsPubId).length)} shown
+                  </span>
+                </h4>
+                <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-1">
+                  You can edit the disbursed campaign payout amounts directly or permanently remove transactional records to adjust the ledger balance.
+                </p>
+              </div>
+
+              {/* Earning Logs List */}
+              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                {(() => {
+                  const pubEarnings = (earnings || []).filter(e => e.publisherId === editingEarningsPubId);
+                  const last5Earnings = [...pubEarnings].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
+
+                  if (last5Earnings.length === 0) {
+                    return (
+                      <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 font-mono text-xs">
+                        No earning disburse records found for this user.
+                      </div>
+                    );
+                  }
+
+                  return last5Earnings.map((earning) => {
+                    const currentInputValue = editingEarningItemValues[earning.id] !== undefined 
+                      ? editingEarningItemValues[earning.id] 
+                      : String(earning.amount);
+
+                    return (
+                      <div 
+                        key={earning.id} 
+                        className="p-3 bg-slate-50 dark:bg-slate-900/50 border border-slate-150 dark:border-slate-800 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-fade-in"
+                      >
+                        {/* Record Info */}
+                        <div className="space-y-1">
+                          <div className="font-extrabold text-slate-750 dark:text-slate-300 text-xs line-clamp-1">
+                            {earning.campaignName || 'Campaign Reward'}
+                          </div>
+                          <div className="flex items-center gap-2 text-[9px] text-slate-400 dark:text-slate-500 font-mono font-bold">
+                            <span>📅 {earning.date}</span>
+                            <span>⏱️ {earning.time}</span>
+                            <span className="bg-slate-100 dark:bg-slate-800 px-1 rounded text-indigo-550 dark:text-indigo-400">
+                              ID: {earning.id}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Record Edit Controls */}
+                        <div className="flex items-center gap-2">
+                          <div className="relative">
+                            <span className="absolute left-2 inset-y-0 flex items-center text-[10px] font-black text-slate-400">₹</span>
+                            <input
+                              type="number"
+                              value={currentInputValue}
+                              onChange={(e) => {
+                                setEditingEarningItemValues(prev => ({
+                                  ...prev,
+                                  [earning.id]: e.target.value
+                                }));
+                              }}
+                              className="w-20 pl-4 pr-1 text-center font-extrabold font-mono text-xs p-1.5 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-slate-800 dark:text-slate-100 rounded-lg outline-none focus:border-indigo-550 focus:ring-1 focus:ring-indigo-550/30"
+                              placeholder="0"
+                            />
+                          </div>
+
+                          {/* Save Edit Button */}
+                          <button
+                            onClick={() => {
+                              const newAmt = Number(currentInputValue);
+                              if (isNaN(newAmt) || newAmt < 0) {
+                                alert('Please enter a valid positive number for amount.');
+                                return;
+                              }
+                              updateEarningAmount(earning.id, newAmt);
+                              alert('Earning record successfully updated!');
+                            }}
+                            className="p-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 hover:text-emerald-700 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/60 dark:text-emerald-450 border border-emerald-100 dark:border-emerald-900 rounded-lg transition-all cursor-pointer text-[10px] font-extrabold uppercase tracking-wider"
+                            title="Save new amount"
+                          >
+                            Save
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Are you sure you want to permanently remove this ₹${earning.amount} earning record? This will reduce the user's total balance immediately.`)) {
+                                deleteEarningRecord(earning.id);
+                                // Remove from local value tracking as well
+                                setEditingEarningItemValues(prev => {
+                                  const updated = { ...prev };
+                                  delete updated[earning.id];
+                                  return updated;
+                                });
+                              }
+                            }}
+                            className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-650 hover:text-rose-750 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 dark:text-rose-400 border border-rose-100 dark:border-rose-900 rounded-lg transition-all cursor-pointer"
+                            title="Delete this transaction log"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-slate-50 dark:bg-slate-950/40 p-4 border-t border-slate-150 dark:border-slate-800 text-center">
+              <p className="text-[10px] text-slate-400 font-medium">
+                Changes persist to the server in real-time. Closing this modal updates the registry calculations instantly.
+              </p>
             </div>
           </div>
         </div>

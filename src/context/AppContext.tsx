@@ -62,6 +62,8 @@ interface AppContextType {
   togglePartnerHiring: (active: boolean) => void;
   updateSubmissionStatus: (submissionId: string, status: SubmissionStatus) => void;
   deleteSubmission: (id: string) => void;
+  updateEarningAmount: (earningId: string, amount: number) => void;
+  deleteEarningRecord: (earningId: string) => void;
   toggleBlockPublisher: (pubId: string) => void;
   deletePublisher: (pubId: string) => void;
   addEmployee: (name: string, u: string, p: string, role: 'Payment' | 'MIS') => { success: boolean; message: string };
@@ -855,6 +857,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'DELETE_SUBMISSION', `Lead submission deleted for reference ID: ${id}`);
   };
 
+  const updateEarningAmount = (earningId: string, amount: number) => {
+    updateDoc(doc(db, 'earnings', earningId), { amount });
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'UPDATE_EARNING_AMOUNT', `Updated earning ID ${earningId} amount to ₹${amount}`);
+  };
+
+  const deleteEarningRecord = (earningId: string) => {
+    deleteDoc(doc(db, 'earnings', earningId));
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'DELETE_EARNING_RECORD', `Deleted earning ID ${earningId}`);
+  };
+
   const toggleBlockPublisher = (pubId: string) => {
     const p = publishers.find(item => item.id === pubId);
     if (p) {
@@ -1085,6 +1097,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       togglePartnerHiring,
       updateSubmissionStatus,
       deleteSubmission,
+      updateEarningAmount,
+      deleteEarningRecord,
       toggleBlockPublisher,
       deletePublisher,
       addEmployee,

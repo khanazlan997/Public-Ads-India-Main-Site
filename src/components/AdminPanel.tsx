@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppState } from '../context/AppContext';
 import { 
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
@@ -128,6 +128,24 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [staffPass, setStaffPass] = useState('');
   const [staffRole, setStaffRole] = useState<'Payment' | 'MIS'>('MIS');
   const [staffMsg, setStaffMsg] = useState('');
+
+  // Synchronize local edit states when database values load or update
+  useEffect(() => {
+    if (offer) {
+      setOfferUrl(offer.image || '');
+      setOfferActive(offer.active);
+      setOfferTitle(offer.title || '');
+      setOfferDescription(offer.description || '');
+      setOfferButtonText(offer.buttonText || '');
+      setOfferLink(offer.link || '');
+      setOfferShowButton(offer.showButton !== false);
+    }
+  }, [offer]);
+
+  useEffect(() => {
+    setSuppPhoneInput(supportPhone || '');
+    setSuppEmailInput(supportEmail || '');
+  }, [supportPhone, supportEmail]);
 
   // Handle Admin login verify
   const handleAdminAuth = (e: React.FormEvent) => {
@@ -487,8 +505,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
                     { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
                     { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
-                    { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
-                    { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
                   ].find(item => item.tab === activeTab);
                   return current ? (
                     <>
@@ -521,8 +537,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
                     { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
                     { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
-                    { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
-                    { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
                   ].map(btn => (
                     <button
                       key={btn.tab}
@@ -560,8 +574,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
               { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
               { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
-              { tab: 'backups', label: 'Systems Backups logs', icon: <Database className="w-4.5 h-4.5 text-cyan-600" /> },
-              { tab: 'activity_logs', label: 'User Activity Logs', icon: <Activity className="w-4.5 h-4.5 text-slate-600" /> },
             ].map(btn => (
               <button
                 key={btn.tab}

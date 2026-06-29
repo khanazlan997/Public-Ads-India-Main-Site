@@ -224,7 +224,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [supportEmail = 'support@publicadsindia.com', setSupportEmail] = useState('support@publicadsindia.com');
   const [partnerHiringActive, setPartnerHiringActive] = useState(true);
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
-  const [initDoneState, setInitDoneState] = useState<boolean | null>(null);
   const [activePath, setActivePath] = useState<string>('/Home');
   const [quotaError, setQuotaError] = useState<string | null>(null);
 
@@ -243,24 +242,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener('hashchange', handleHashChange);
       window.removeEventListener('popstate', handleHashChange);
     };
-  }, []);
-
-  // Monitor initialization state to avoid auto-generating mock records if database is empty or purged
-  useEffect(() => {
-    const unsubscribe = onSnapshot(doc(db, 'system_metadata', 'init_done'), (docSnap) => {
-      if (docSnap.exists() && docSnap.data().value === true) {
-        setInitDoneState(true);
-      } else {
-        setInitDoneState(false);
-      }
-    }, (error) => {
-      console.error("onSnapshot system_metadata error:", error);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource") || lower.includes("project_number")) {
-        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
-      }
-    });
-    return unsubscribe;
   }, []);
   
   const [backupLogs, setBackupLogs] = useState<Array<{ id: string; time: string; scope: string; size: string; status: string }>>([
@@ -304,18 +285,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // 1. Sync Campaigns
   useEffect(() => {
-    if (initDoneState === null) return;
     const q = collection(db, 'campaigns');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
-          defaultCampaigns.forEach((c) => {
-            setDoc(doc(db, 'campaigns', c.id), c);
-          });
-          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
-        } else {
-          setCampaigns([]);
-        }
+        setCampaigns([]);
       } else {
         const list: Campaign[] = [];
         snapshot.forEach((docSnap) => {
@@ -331,24 +304,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState]);
+  }, []);
 
   // 1b. Sync Testimonials
   useEffect(() => {
-    if (initDoneState === null) return;
     const fetchTestimonials = async () => {
       try {
         const q = collection(db, 'testimonials');
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
-          if (initDoneState === false) {
-            defaultTestimonials.forEach((t) => {
-              setDoc(doc(db, 'testimonials', t.id), t);
-            });
-            setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
-          } else {
-            setTestimonials([]);
-          }
+          setTestimonials([]);
         } else {
           const list: Testimonial[] = [];
           snapshot.forEach((docSnap) => {
@@ -371,12 +336,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
     fetchTestimonials();
-  }, [initDoneState]);
+  }, []);
 
   // 2. Sync Publishers
   useEffect(() => {
-    if (initDoneState === null) return;
-    
     const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
     const isPublisher = currentUser?.type === 'publisher';
     
@@ -397,19 +360,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false && isAdminOrEmployee) {
-          const initialPubs: Publisher[] = [
-            { id: 'PUB1001', name: 'Riya Sharma', email: 'riya@gmail.com', phone: '9876543210', password: 'password123', avatar: '👩', blocked: false, joinedDate: '2025-01-10' },
-            { id: 'PUB1002', name: 'Amit Patel', email: 'amit@gmail.com', phone: '8765432109', password: 'password123', avatar: '👨', blocked: false, joinedDate: '2025-02-15' },
-            { id: 'PUB1003', name: 'Zeeshan Khan', email: 'zeeshan@gmail.com', phone: '7654321098', password: 'password123', avatar: '😎', blocked: false, joinedDate: '2025-03-01' }
-          ];
-          initialPubs.forEach((p) => {
-            setDoc(doc(db, 'publishers', p.id), p);
-          });
-          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
-        } else {
-          setPublishers([]);
-        }
+        setPublishers([]);
       } else {
         const list: Publisher[] = [];
         snapshot.forEach((docSnap) => {
@@ -425,12 +376,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState, currentUser]);
+  }, [currentUser]);
 
   // 3. Sync Bank Details Map
   useEffect(() => {
-    if (initDoneState === null) return;
-    
     const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
     const isPublisher = currentUser?.type === 'publisher';
     
@@ -451,18 +400,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false && isAdminOrEmployee) {
-          const initialBank: Record<string, BankDetails> = {
-            'PUB1001': { publisherId: 'PUB1001', holderName: 'Riya Sharma', phone: '9876543210', email: 'riya@gmail.com', accountNumber: '5010024921092', ifsc: 'HDFC0000213', upi: 'riyasharma@okhdfc', qrCode: '' },
-            'PUB1002': { publisherId: 'PUB1002', holderName: 'Amit Patel', phone: '8765432109', email: 'amit@gmail.com', accountNumber: '3029108391039', ifsc: 'SBIN0001092', upi: 'amitpatel@okaxis', qrCode: '' }
-          };
-          Object.entries(initialBank).forEach(([pubId, details]) => {
-            setDoc(doc(db, 'bank_details', pubId), details);
-          });
-          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
-        } else {
-          setBankDetailsMap({});
-        }
+        setBankDetailsMap({});
       } else {
         const map: Record<string, BankDetails> = {};
         snapshot.forEach((docSnap) => {
@@ -478,12 +416,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState, currentUser]);
+  }, [currentUser]);
 
   // 4. Sync Earnings
   useEffect(() => {
-    if (initDoneState === null) return;
-    
     const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
     const isPublisher = currentUser?.type === 'publisher';
     
@@ -504,23 +440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false && isAdminOrEmployee) {
-          const initialEarnings: EarningRecord[] = [
-            { id: 'e1', publisherId: 'PUB1001', campaignId: 'camp-1', campaignName: 'PhonePe Demat Account', amount: 250, date: '2026-06-18', time: '14:25' },
-            { id: 'e2', publisherId: 'PUB1001', campaignId: 'camp-2', campaignName: 'Angel One Demat & Trading', amount: 350, date: '2026-06-17', time: '11:05' },
-            { id: 'e3', publisherId: 'PUB1001', campaignId: 'camp-3', campaignName: 'SBI Credit Card Gold Pro', amount: 1200, date: '2026-06-15', time: '18:40' },
-            { id: 'e4', publisherId: 'PUB1002', campaignId: 'camp-1', campaignName: 'PhonePe Demat Account', amount: 250, date: '2026-06-18', time: '16:15' },
-            { id: 'e5', publisherId: 'PUB1002', campaignId: 'camp-3', campaignName: 'SBI Credit Card Gold Pro', amount: 1200, date: '2026-06-14', time: '09:30' },
-            { id: 'e6', publisherId: 'PUB1003', campaignId: 'camp-2', campaignName: 'Angel One Demat & Trading', amount: 350, date: '2026-06-18', time: '12:00' },
-            { id: 'e7', publisherId: 'PUB1003', campaignId: 'camp-4', campaignName: 'mStock Zero Brokerage Account', amount: 400, date: '2026-06-16', time: '15:10' }
-          ];
-          initialEarnings.forEach((e) => {
-            setDoc(doc(db, 'earnings', e.id), e);
-          });
-          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
-        } else {
-          setEarnings([]);
-        }
+        setEarnings([]);
       } else {
         const list: EarningRecord[] = [];
         snapshot.forEach((docSnap) => {
@@ -536,12 +456,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState, currentUser]);
+  }, [currentUser]);
 
   // 5. Sync Submissions
   useEffect(() => {
-    if (initDoneState === null) return;
-    
     const isAdminOrEmployee = currentUser?.type === 'admin' || currentUser?.type === 'employee';
     const isPublisher = currentUser?.type === 'publisher';
     
@@ -562,58 +480,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false && isAdminOrEmployee) {
-          const initialSubs: DataSubmission[] = [
-            {
-              id: 'sub-1',
-              publisherId: 'PUB1001',
-              publisherName: 'Riya Sharma',
-              campaignId: 'camp-1',
-              campaignName: 'PhonePe Demat Account',
-              payout: 250,
-              clientName: 'Rahul Verma',
-              clientPhone: '9123456780',
-              clientCode: 'PAV109',
-              screenshot: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&q=80&w=150',
-              submitDate: '2026-06-18 14:10',
-              status: 'Payment Done'
-            },
-            {
-              id: 'sub-2',
-              publisherId: 'PUB1001',
-              publisherName: 'Riya Sharma',
-              campaignId: 'camp-3',
-              campaignName: 'SBI Credit Card Gold Pro',
-              payout: 1200,
-              clientName: 'Sanjay Kumar',
-              clientPhone: '9543210987',
-              clientCode: 'PASB987',
-              screenshot: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&q=80&w=150',
-              submitDate: '2026-06-18 15:30',
-              status: 'Process'
-            },
-            {
-              id: 'sub-3',
-              publisherId: 'PUB1002',
-              publisherName: 'Amit Patel',
-              campaignId: 'camp-2',
-              campaignName: 'Angel One Demat & Trading',
-              payout: 350,
-              clientName: 'Vinay Singh',
-              clientPhone: '9988776655',
-              clientCode: 'PANG002',
-              screenshot: 'https://images.unsplash.com/photo-1554415707-6e8cfc93fe23?auto=format&fit=crop&q=80&w=150',
-              submitDate: '2026-06-17 10:15',
-              status: 'Active'
-            }
-          ];
-          initialSubs.forEach((s) => {
-            setDoc(doc(db, 'submissions', s.id), s);
-          });
-          setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
-        } else {
-          setSubmissions([]);
-        }
+        setSubmissions([]);
       } else {
         const list: DataSubmission[] = [];
         snapshot.forEach((docSnap) => {
@@ -629,11 +496,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState, currentUser]);
+  }, [currentUser]);
 
   // 6. Sync Employees
   useEffect(() => {
-    if (initDoneState === null) return;
     const deservesEmployees = ['/Admin', '/Employee'].includes(activePath);
     if (!deservesEmployees) {
       setEmployees([]);
@@ -642,17 +508,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const q = collection(db, 'employees');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
-          const initialEmployees: Employee[] = [
-            { id: 'emp-1', name: 'Karan Mehra', username: 'karan_pay', password: 'Emp@123', role: 'Payment' },
-            { id: 'emp-2', name: 'Sneha Roy', username: 'sneha_mis', password: 'Emp@123', role: 'MIS' }
-          ];
-          initialEmployees.forEach((emp) => {
-            setDoc(doc(db, 'employees', emp.id), emp);
-          });
-        } else {
-          setEmployees([]);
-        }
+        setEmployees([]);
       } else {
         const list: Employee[] = [];
         snapshot.forEach((docSnap) => {
@@ -662,11 +518,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState, activePath]);
+  }, [activePath]);
 
   // 7. Sync Partner Applications
   useEffect(() => {
-    if (initDoneState === null) return;
     const deservesPartners = ['/Admin', '/Partner'].includes(activePath);
     if (!deservesPartners) {
       setPartnerApplications([]);
@@ -675,16 +530,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const q = collection(db, 'partners');
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
-        if (initDoneState === false) {
-          const initialPartners: PartnerApplication[] = [
-            { id: 'part-1', name: 'Deepak Tyagi', phone: '9443210987', email: 'deepak@gmail.com', city: 'Delhi', age: 26, qualification: 'MBA', submitDate: '2026-06-16' }
-          ];
-          initialPartners.forEach((part) => {
-            setDoc(doc(db, 'partners', part.id), part);
-          });
-        } else {
-          setPartnerApplications([]);
-        }
+        setPartnerApplications([]);
       } else {
         const list: PartnerApplication[] = [];
         snapshot.forEach((docSnap) => {
@@ -694,41 +540,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [initDoneState, activePath]);
+  }, [activePath]);
 
-  // 8. Sync Activity Logs
+  // 8. Sync Activity Logs (Bypassed to protect Firestore quota limits)
   useEffect(() => {
-    if (initDoneState === null) return;
-    const deservesLogs = activePath === '/Admin';
-    if (!deservesLogs) {
-      setActivityLogs([]);
-      return;
-    }
-    const q = collection(db, 'activity_logs');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        if (initDoneState === false) {
-          const initialLogs: ActivityLog[] = [
-            { id: 'l1', timestamp: '2026-06-18 10:15:20', userId: 'SYSTEM', userName: 'Server Core', action: 'BOOT', details: 'Public Ads India web console initialized successfully' },
-            { id: 'l2', timestamp: '2026-06-18 12:40:11', userId: 'PUB1001', userName: 'Riya Sharma', action: 'LOGIN', details: 'Successful session establishment from client browser' }
-          ];
-          initialLogs.forEach((log) => {
-            setDoc(doc(db, 'activity_logs', log.id), log);
-          });
-        } else {
-          setActivityLogs([]);
-        }
-      } else {
-        const list: ActivityLog[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as ActivityLog);
-        });
-        list.sort((a, b) => b.timestamp.localeCompare(a.timestamp));
-        setActivityLogs(list);
-      }
-    });
-    return unsubscribe;
-  }, [initDoneState, activePath]);
+    setActivityLogs([
+      { id: 'l1', timestamp: new Date().toISOString().substring(0, 19).replace('T', ' '), userId: 'SYSTEM', userName: 'Server Core', action: 'BOOT', details: 'Bypassed Firestore logging to protect daily free-tier limits.' }
+    ]);
+  }, [activePath]);
 
   // 9. Sync Settings
   useEffect(() => {
@@ -755,47 +574,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, []);
 
-  // 10. Sync Backup Logs
+  // 10. Sync Backup Logs (Disabled to protect Firestore quota limits)
   useEffect(() => {
-    if (initDoneState === null) return;
-    const deservesBackups = activePath === '/Admin';
-    if (!deservesBackups) {
-      setBackupLogs([]);
-      return;
-    }
-    const q = collection(db, 'backups');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        if (initDoneState === false) {
-          const initialBackups = [
-            { id: 'b-0', time: '2026-06-18 04:00:00', scope: 'Full Database Auto-Backup', size: '1.45 MB', status: 'Success' },
-            { id: 'b-1', time: '2026-06-17 04:00:00', scope: 'Full Database Auto-Backup', size: '1.42 MB', status: 'Success' },
-            { id: 'b-2', time: '2026-06-16 04:00:00', scope: 'Full Database Auto-Backup', size: '1.38 MB', status: 'Success' }
-          ];
-          initialBackups.forEach((b) => {
-            setDoc(doc(db, 'backups', b.id), b);
-          });
-        } else {
-          setBackupLogs([]);
-        }
-      } else {
-        const list: any[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data());
-        });
-        list.sort((a, b) => b.time.localeCompare(a.time));
-        setBackupLogs(list);
-      }
-    });
-    return unsubscribe;
-  }, [initDoneState, activePath]);
+    // Keep local static backups for offline state
+  }, [activePath]);
 
   const setTheme = (t: 'light' | 'dark') => {
     setThemeState(t);
     localStorage.setItem('pai_theme', t);
   };
 
-  // Helper to log user activity
+  // Helper to log user activity (Bypassed to console to protect Firebase Firestore quota limits)
   const addLog = (userId: string, userName: string, action: string, details: string) => {
     const logId = `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const newLog: ActivityLog = {
@@ -806,7 +595,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       action,
       details
     };
-    setDoc(doc(db, 'activity_logs', logId), newLog);
+    console.log("[Bypassed Log Saved Locally]", newLog);
   };
 
   // Actions
@@ -1130,7 +919,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       size: `2.4 MB`,
       status: 'Success'
     };
-    setDoc(doc(db, 'backups', bId), newBackup);
+    setBackupLogs(prev => [newBackup, ...prev]);
     addLog('SYSTEM', 'Core Database Manager', 'AUTO_BACKUP', `Database Snapshot exported successfully`);
   };
 

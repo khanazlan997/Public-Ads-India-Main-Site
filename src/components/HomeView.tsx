@@ -534,97 +534,99 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       </section>
 
       {/* Public Testimonials Section with Light Lavender and White Background */}
-      <section id="public-registry-desk" className="py-16 bg-gradient-to-b from-[#f6f4ff] via-white to-white dark:from-[#0d091e] dark:via-[#090515] dark:to-[#020108] border-t border-purple-100/50 dark:border-slate-800/80 relative overflow-hidden select-none">
-        
-        {/* Subtle decorative glowing background light */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-80 bg-purple-200/15 dark:bg-purple-950/15 rounded-full blur-[100px] pointer-events-none" />
-        
-        <div className="max-w-7xl mx-auto px-4 text-center space-y-3 mb-10 relative z-10">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider text-purple-600 dark:text-amber-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200/30 dark:border-amber-400/20 shadow-sm">
-            <MessageSquare className="w-3.5 h-3.5" />
-            Verified Feedback
-          </span>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
-            Loved By Over <span className="text-purple-600 dark:text-amber-400">2,000+ Publishers</span>
-          </h2>
-          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-lg mx-auto">
-            Real success stories from our elite remote publishers and campaign performance partners earning consistently with zero investment.
-          </p>
-        </div>
-
-        {/* INFINITE SMOOTH SLIDING MARQUEE TRACK */}
-        <div className="w-full relative py-4 overflow-hidden z-10">
+      {testimonials.length > 0 && (
+        <section id="public-registry-desk" className="py-16 bg-gradient-to-b from-[#f6f4ff] via-white to-white dark:from-[#0d091e] dark:via-[#090515] dark:to-[#020108] border-t border-purple-100/50 dark:border-slate-800/80 relative overflow-hidden select-none">
           
-          {/* Subtle light/dark fading mask layers */}
-          <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-56 bg-gradient-to-r from-[#f6f4ff] via-[#f6f4ff]/50 to-transparent dark:from-[#0d091e] dark:via-[#0d091e]/50 dark:to-transparent z-20 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-56 bg-gradient-to-l from-white via-white/50 to-transparent dark:from-[#020108] dark:via-[#020108]/50 dark:to-transparent z-20 pointer-events-none" />
+          {/* Subtle decorative glowing background light */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-80 bg-purple-200/15 dark:bg-purple-950/15 rounded-full blur-[100px] pointer-events-none" />
+          
+          <div className="max-w-7xl mx-auto px-4 text-center space-y-3 mb-10 relative z-10">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider text-purple-600 dark:text-amber-400 bg-purple-50 dark:bg-purple-950/30 border border-purple-200/30 dark:border-amber-400/20 shadow-sm">
+              <MessageSquare className="w-3.5 h-3.5" />
+              Verified Feedback
+            </span>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-800 dark:text-white tracking-tight">
+              Loved By Over <span className="text-purple-600 dark:text-amber-400">2,000+ Publishers</span>
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-lg mx-auto">
+              Real success stories from our elite remote publishers and campaign performance partners earning consistently with zero investment.
+            </p>
+          </div>
 
-          {/* Sliding container with 3 repetitions of the testimonials list to prevent gaps */}
-          <div className="flex gap-4 animate-carousel-slide w-max px-4">
-            {[...testimonials, ...testimonials, ...testimonials].map((testimonial, idx) => (
-              <div
-                key={`${testimonial.id}-${idx}`}
-                className="group relative w-[280px] sm:w-[325px] shrink-0 p-[1px] rounded-2xl bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10 dark:from-purple-500/10 dark:via-transparent dark:to-amber-500/10 hover:from-purple-500/35 hover:to-blue-500/35 dark:hover:from-purple-500/25 dark:hover:to-amber-500/25 transition-all duration-300"
-              >
-                {/* Glassmorphic main panel background */}
-                <div className="bg-white/90 dark:bg-[#0c0a1e]/90 backdrop-blur-md rounded-2xl p-4 flex flex-col justify-between h-full shadow-[0_4px_16px_-4px_rgba(150,130,250,0.05)]">
-                  <div>
-                    {/* Top Quote & Star Rating */}
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="flex gap-0.5">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
-                        ))}
-                      </div>
-                      <Quote className="w-5 h-5 text-purple-200/50 dark:text-slate-800/40" />
-                    </div>
+          {/* INFINITE SMOOTH SLIDING MARQUEE TRACK */}
+          <div className="w-full relative py-4 overflow-hidden z-10">
+            
+            {/* Subtle light/dark fading mask layers */}
+            <div className="absolute left-0 top-0 bottom-0 w-24 sm:w-56 bg-gradient-to-r from-[#f6f4ff] via-[#f6f4ff]/50 to-transparent dark:from-[#0d091e] dark:via-[#0d091e]/50 dark:to-transparent z-20 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-24 sm:w-56 bg-gradient-to-l from-white via-white/50 to-transparent dark:from-[#020108] dark:via-[#020108]/50 dark:to-transparent z-20 pointer-events-none" />
 
-                    <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold italic mb-4">
-                      "{testimonial.message}"
-                    </p>
-                  </div>
-
-                  {/* Profile & Verified Info */}
-                  <div className="flex items-center gap-2.5 pt-3 border-t border-purple-50/50 dark:border-slate-800/40">
-                    <img 
-                      src={testimonial.image} 
-                      alt={testimonial.name} 
-                      className="w-9 h-9 rounded-full object-cover border border-purple-100/60 dark:border-slate-800/60 shadow-sm"
-                      referrerPolicy="no-referrer"
-                    />
+            {/* Sliding container with 3 repetitions of the testimonials list to prevent gaps */}
+            <div className="flex gap-4 animate-carousel-slide w-max px-4">
+              {[...testimonials, ...testimonials, ...testimonials].map((testimonial, idx) => (
+                <div
+                  key={`${testimonial.id}-${idx}`}
+                  className="group relative w-[280px] sm:w-[325px] shrink-0 p-[1px] rounded-2xl bg-gradient-to-br from-purple-500/10 via-transparent to-blue-500/10 dark:from-purple-500/10 dark:via-transparent dark:to-amber-500/10 hover:from-purple-500/35 hover:to-blue-500/35 dark:hover:from-purple-500/25 dark:hover:to-amber-500/25 transition-all duration-300"
+                >
+                  {/* Glassmorphic main panel background */}
+                  <div className="bg-white/90 dark:bg-[#0c0a1e]/90 backdrop-blur-md rounded-2xl p-4 flex flex-col justify-between h-full shadow-[0_4px_16px_-4px_rgba(150,130,250,0.05)]">
                     <div>
-                      <h4 className="text-[11px] sm:text-xs font-black text-slate-800 dark:text-white leading-tight">
-                        {testimonial.name}
-                      </h4>
-                      <span className="text-[9px] text-purple-600 dark:text-amber-400 font-bold uppercase tracking-wider block">
-                        {testimonial.profession}
-                      </span>
+                      {/* Top Quote & Star Rating */}
+                      <div className="flex justify-between items-center mb-2">
+                        <div className="flex gap-0.5">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className="w-3 h-3 text-amber-500 fill-amber-500" />
+                          ))}
+                        </div>
+                        <Quote className="w-5 h-5 text-purple-200/50 dark:text-slate-800/40" />
+                      </div>
+
+                      <p className="text-[11px] sm:text-xs text-slate-600 dark:text-slate-300 leading-relaxed font-semibold italic mb-4">
+                        "{testimonial.message}"
+                      </p>
                     </div>
-                    <div className="ml-auto bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider flex items-center gap-0.5">
-                      <CheckCircle2 className="w-2.5 h-2.5" />
-                      <span>Verified</span>
+
+                    {/* Profile & Verified Info */}
+                    <div className="flex items-center gap-2.5 pt-3 border-t border-purple-50/50 dark:border-slate-800/40">
+                      <img 
+                        src={testimonial.image} 
+                        alt={testimonial.name} 
+                        className="w-9 h-9 rounded-full object-cover border border-purple-100/60 dark:border-slate-800/60 shadow-sm"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div>
+                        <h4 className="text-[11px] sm:text-xs font-black text-slate-800 dark:text-white leading-tight">
+                          {testimonial.name}
+                        </h4>
+                        <span className="text-[9px] text-purple-600 dark:text-amber-400 font-bold uppercase tracking-wider block">
+                          {testimonial.profession}
+                        </span>
+                      </div>
+                      <div className="ml-auto bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 dark:text-emerald-400 px-1.5 py-0.5 rounded text-[8px] font-black tracking-wider flex items-center gap-0.5">
+                        <CheckCircle2 className="w-2.5 h-2.5" />
+                        <span>Verified</span>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+
           </div>
 
-        </div>
-
-        {/* FEEDBACK SUBMISSION LINK */}
-        <div className="text-center relative z-10 mt-8 max-w-md mx-auto space-y-2 px-4">
-          <a
-            href="https://form.svhrt.com/6689209124bae747d62ea087"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-200 shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer group"
-          >
-            <MessageSquare className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:rotate-12" />
-            <span>Add Your Feedback</span>
-          </a>
-        </div>
-      </section>
+          {/* FEEDBACK SUBMISSION LINK */}
+          <div className="text-center relative z-10 mt-8 max-w-md mx-auto space-y-2 px-4">
+            <a
+              href="https://form.svhrt.com/6689209124bae747d62ea087"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-1.5 px-5 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white font-bold text-[10px] uppercase tracking-wider rounded-xl transition-all duration-200 shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer group"
+            >
+              <MessageSquare className="w-3.5 h-3.5 shrink-0 transition-transform group-hover:rotate-12" />
+              <span>Add Your Feedback</span>
+            </a>
+          </div>
+        </section>
+      )}
 
 
 

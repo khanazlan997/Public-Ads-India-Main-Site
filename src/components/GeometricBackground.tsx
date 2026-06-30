@@ -34,7 +34,8 @@ export default function GeometricBackground() {
       vx: number;
       vy: number;
       size: number;
-      type: 'circle' | 'triangle' | 'square' | 'hexagon';
+      type: 'circle' | 'triangle' | 'square' | 'hexagon' | 'currency';
+      currencySymbol?: string;
       angle: number;
       spinSpeed: number;
       baseColor: string;
@@ -64,27 +65,31 @@ export default function GeometricBackground() {
 
     const initNodes = () => {
       nodes = [];
-      const types: Array<'circle' | 'triangle' | 'square' | 'hexagon'> = [
+      const types: Array<'circle' | 'triangle' | 'square' | 'hexagon' | 'currency'> = [
         'circle',
         'triangle',
         'square',
         'hexagon',
+        'currency',
       ];
+      const currencies = ['₹', '$', '€', '£', '¥', '₩', '₽', '₺', '฿', '₫', '₪', '₱', '₭', 'A$', 'C$'];
       
       for (let i = 0; i < MAX_NODES; i++) {
         const type = types[Math.floor(Math.random() * types.length)];
         // Keep sizes elegant and medium-small to avoid distraction
-        const size = type === 'circle' ? Math.random() * 3 + 2 : Math.random() * 14 + 6;
+        const size = type === 'circle' ? Math.random() * 3 + 2 : Math.random() * 14 + 10;
+        const currencySymbol = type === 'currency' ? currencies[Math.floor(Math.random() * currencies.length)] : undefined;
         
         nodes.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 0.4, // Slow gentle drift
-          vy: (Math.random() - 0.5) * 0.4,
+          vx: (Math.random() - 0.5) * 1.5, // Faster drift (was 0.4)
+          vy: (Math.random() - 0.5) * 1.5,
           size,
           type,
+          currencySymbol,
           angle: Math.random() * Math.PI * 2,
-          spinSpeed: (Math.random() - 0.5) * 0.01,
+          spinSpeed: (Math.random() - 0.5) * 0.04, // Faster rotation
           baseColor: i % 2 === 0 ? '59, 130, 246' : '245, 158, 11', // Blue vs Amber theme
         });
       }
@@ -188,6 +193,10 @@ export default function GeometricBackground() {
           drawHexagon(ctx, 0, 0, node.size);
           ctx.fill();
           ctx.stroke();
+        } else if (node.type === 'currency' && node.currencySymbol) {
+          ctx.fillStyle = `rgba(${node.baseColor}, ${pointAlpha * 1.5})`;
+          ctx.font = `900 ${Math.round(node.size)}px sans-serif`;
+          ctx.fillText(node.currencySymbol, -node.size / 2, node.size / 3);
         }
 
         ctx.restore();

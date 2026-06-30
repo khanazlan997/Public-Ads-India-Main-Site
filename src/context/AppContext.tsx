@@ -254,8 +254,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true };
     }
   });
-  const [supportPhone, setSupportPhone] = useState(() => localStorage.getItem('pai_support_phone') || '+91 9110022334');
-  const [supportEmail, setSupportEmail] = useState(() => localStorage.getItem('pai_support_email') || 'support@publicadsindia.com');
+  const [supportPhone, setSupportPhone] = useState(() => {
+    const val = localStorage.getItem('pai_support_phone');
+    return (!val || val === '+91 9110022334') ? '+91 8934932418' : val;
+  });
+  const [supportEmail, setSupportEmail] = useState(() => {
+    const val = localStorage.getItem('pai_support_email');
+    return (!val || val === 'support@publicadsindia.com') ? 'publicadsnetwork@gmail.com' : val;
+  });
   const [partnerHiringActive, setPartnerHiringActive] = useState(() => {
     const stored = localStorage.getItem('pai_hiring_active');
     return stored === null ? true : stored === 'true';
@@ -651,8 +657,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const docSnap = await getDoc(docRef);
         if (!docSnap.exists()) {
           const initialSettings = {
-            supportPhone: '+91 9110022334',
-            supportEmail: 'support@publicadsindia.com',
+            supportPhone: '+91 8934932418',
+            supportEmail: 'publicadsnetwork@gmail.com',
             partnerHiringActive: true,
             offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
           };
@@ -661,17 +667,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('pai_support_email', initialSettings.supportEmail);
           localStorage.setItem('pai_hiring_active', String(initialSettings.partnerHiringActive));
           localStorage.setItem('pai_offer', JSON.stringify(initialSettings.offer));
+          setSupportPhone(initialSettings.supportPhone);
+          setSupportEmail(initialSettings.supportEmail);
         } else {
           const data = docSnap.data();
           if (data) {
-            if (data.supportPhone) {
-              setSupportPhone(data.supportPhone);
-              localStorage.setItem('pai_support_phone', data.supportPhone);
+            let phone = data.supportPhone || '+91 8934932418';
+            let email = data.supportEmail || 'publicadsnetwork@gmail.com';
+            
+            // Auto-upgrade legacy defaults in Firestore database to current permanent contact details
+            if (phone === '+91 9110022334') {
+              phone = '+91 8934932418';
+              updateDoc(docRef, { supportPhone: phone });
             }
-            if (data.supportEmail) {
-              setSupportEmail(data.supportEmail);
-              localStorage.setItem('pai_support_email', data.supportEmail);
+            if (email === 'support@publicadsindia.com') {
+              email = 'publicadsnetwork@gmail.com';
+              updateDoc(docRef, { supportEmail: email });
             }
+
+            setSupportPhone(phone);
+            localStorage.setItem('pai_support_phone', phone);
+
+            setSupportEmail(email);
+            localStorage.setItem('pai_support_email', email);
+
             if (data.partnerHiringActive !== undefined) {
               setPartnerHiringActive(data.partnerHiringActive);
               localStorage.setItem('pai_hiring_active', String(data.partnerHiringActive));
@@ -930,16 +949,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateOfferPopup = (image: string, active: boolean, title?: string, description?: string, buttonText?: string, link?: string, showButton?: boolean) => {
     const newOffer = { image, active, title, description, buttonText, link, showButton };
     updateDoc(doc(db, 'configs', 'settings'), { offer: newOffer });
+    setOffer(newOffer);
+    localStorage.setItem('pai_offer', JSON.stringify(newOffer));
     addLog('ADMIN', 'Administrator', 'OFFER_UPDATE', `Admin modified promo banner popup (Activated: ${active})`);
   };
 
   const updateSupportDetails = (phone: string, email: string) => {
     updateDoc(doc(db, 'configs', 'settings'), { supportPhone: phone, supportEmail: email });
+    setSupportPhone(phone);
+    setSupportEmail(email);
+    localStorage.setItem('pai_support_phone', phone);
+    localStorage.setItem('pai_support_email', email);
     addLog('ADMIN', 'Administrator', 'SUPPORT_EDIT', `Site-wide contacts updated. Phone: ${phone}, Email: ${email}`);
   };
 
   const togglePartnerHiring = (active: boolean) => {
     updateDoc(doc(db, 'configs', 'settings'), { partnerHiringActive: active });
+    setPartnerHiringActive(active);
+    localStorage.setItem('pai_hiring_active', String(active));
     addLog('ADMIN', 'Administrator', 'HIRING_TOGGLE', `Hiring availability program toggled to ${active ? 'Active' : 'Paused'}`);
   };
 

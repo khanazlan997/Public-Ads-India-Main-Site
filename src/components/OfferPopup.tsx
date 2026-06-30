@@ -9,6 +9,13 @@ export default function OfferPopup() {
 
   useEffect(() => {
     if (offer.active && offer.image) {
+      // Check if user already dismissed this specific offer in the current session
+      const isClosed = sessionStorage.getItem('pai_offer_dismissed_img') === offer.image;
+      if (isClosed) {
+        setVisible(false);
+        return;
+      }
+
       // Small delay for better UX feel
       const timer = setTimeout(() => {
         setVisible(true);
@@ -18,6 +25,13 @@ export default function OfferPopup() {
       setVisible(false);
     }
   }, [offer]);
+
+  const dismissOffer = () => {
+    setVisible(false);
+    if (offer.image) {
+      sessionStorage.setItem('pai_offer_dismissed_img', offer.image);
+    }
+  };
 
   if (!visible) return null;
 
@@ -34,7 +48,7 @@ export default function OfferPopup() {
           {/* Close button top right */}
           <button 
             id="close-offer-popup"
-            onClick={() => setVisible(false)}
+            onClick={dismissOffer}
             className="absolute top-3 right-3 z-10 p-2 text-white bg-black/60 rounded-full hover:bg-black/90 transition-colors border border-white/20 hover:scale-105 active:scale-95"
             aria-label="Close Announcement"
           >
@@ -72,7 +86,7 @@ export default function OfferPopup() {
                   href={offer.link}
                   target="_blank"
                   rel="noreferrer"
-                  onClick={() => setVisible(false)}
+                  onClick={dismissOffer}
                   className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-accent hover:opacity-95 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer text-center no-underline text-xs animate-fade-up"
                 >
                   <Gift className="w-5 h-5" />
@@ -81,7 +95,7 @@ export default function OfferPopup() {
               ) : (
                 <button
                   id="accept-offer-view"
-                  onClick={() => setVisible(false)}
+                  onClick={dismissOffer}
                   className="w-full py-3 bg-gradient-to-r from-brand-primary to-brand-accent hover:opacity-95 text-white font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer text-xs animate-fade-up"
                 >
                   <Gift className="w-5 h-5" />

@@ -43,7 +43,7 @@ function PremiumFinanceGeometricCanvas() {
       vx: number;
       vy: number;
       size: number;
-      type: 'circle' | 'hexagon' | 'rupee' | 'dollar' | 'percent' | 'arrow' | 'line';
+      type: 'circle' | 'hexagon' | 'rupee' | 'dollar' | 'euro' | 'pound' | 'yen' | 'won' | 'ruble' | 'baht' | 'dong' | 'shekel' | 'peso' | 'percent' | 'arrow' | 'line';
       angle: number;
       spinSpeed: number;
       opacity: number;
@@ -53,23 +53,28 @@ function PremiumFinanceGeometricCanvas() {
 
     const initItems = (w: number, h: number) => {
       items = [];
-      const types: FloatingItem['type'][] = ['circle', 'hexagon', 'rupee', 'dollar', 'percent', 'arrow', 'line'];
+      const types: FloatingItem['type'][] = [
+        'circle', 'hexagon', 'rupee', 'dollar', 'euro', 'pound', 
+        'yen', 'won', 'ruble', 'baht', 'dong', 'shekel', 'peso', 
+        'percent', 'arrow', 'line'
+      ];
       // Elegant minimalist count to remain perfectly responsive and non-distracting
       const count = Math.min(22, Math.floor((w * h) / 16000) + 6);
       for (let i = 0; i < count; i++) {
         const type = types[Math.floor(Math.random() * types.length)];
-        const size = type === 'rupee' || type === 'dollar' || type === 'percent' || type === 'arrow'
+        const isCurrencyOrSymbol = type !== 'circle' && type !== 'hexagon' && type !== 'line';
+        const size = isCurrencyOrSymbol
           ? Math.random() * 8 + 10 
           : Math.random() * 6 + 3;
         items.push({
           x: Math.random() * w,
           y: Math.random() * h,
-          vx: (Math.random() - 0.5) * 0.3,
-          vy: (Math.random() - 0.5) * 0.3,
+          vx: (Math.random() - 0.5) * 1.5, // Faster drift (was 0.3)
+          vy: (Math.random() - 0.5) * 1.5,
           size,
           type,
           angle: Math.random() * Math.PI * 2,
-          spinSpeed: (Math.random() - 0.5) * 0.006,
+          spinSpeed: (Math.random() - 0.5) * 0.03, // Faster spin (was 0.006)
           opacity: Math.random() * 0.25 + 0.08,
         });
       }
@@ -107,7 +112,12 @@ function PremiumFinanceGeometricCanvas() {
         ? `rgba(52, 211, 153, ${item.opacity})` // emerald
         : `rgba(5, 150, 105, ${item.opacity * 0.75})`; // emerald light
 
-      ctx.fillStyle = (item.type === 'rupee' || item.type === 'dollar' || item.type === 'percent' || item.type === 'arrow') 
+      const isCurrencyType = [
+        'rupee', 'dollar', 'euro', 'pound', 'yen', 'won', 
+        'ruble', 'baht', 'dong', 'shekel', 'peso', 'percent', 'arrow'
+      ].includes(item.type);
+
+      ctx.fillStyle = isCurrencyType 
         ? financeColor 
         : themeColor;
       
@@ -132,6 +142,33 @@ function PremiumFinanceGeometricCanvas() {
       } else if (item.type === 'dollar') {
         ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
         ctx.fillText('$', -item.size / 2, item.size / 3);
+      } else if (item.type === 'euro') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('€', -item.size / 2, item.size / 3);
+      } else if (item.type === 'pound') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('£', -item.size / 2, item.size / 3);
+      } else if (item.type === 'yen') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('¥', -item.size / 2, item.size / 3);
+      } else if (item.type === 'won') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('₩', -item.size / 2, item.size / 3);
+      } else if (item.type === 'ruble') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('₽', -item.size / 2, item.size / 3);
+      } else if (item.type === 'baht') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('฿', -item.size / 2, item.size / 3);
+      } else if (item.type === 'dong') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('₫', -item.size / 2, item.size / 3);
+      } else if (item.type === 'shekel') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('₪', -item.size / 2, item.size / 3);
+      } else if (item.type === 'peso') {
+        ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
+        ctx.fillText('₱', -item.size / 2, item.size / 3);
       } else if (item.type === 'percent') {
         ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
         ctx.fillText('%', -item.size / 2, item.size / 3);
@@ -779,18 +816,166 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   return (
     <div id="active-publisher-workspace" className="max-w-7xl mx-auto px-4 py-8">
       
-      {/* 1. Top action row with logout OUTSIDE the container */}
-      <div className="flex justify-end mb-4">
-        <button
-          id="nav-logout-avatar"
-          onClick={() => { logout(); onNavigate('/Home'); }}
-          className="group flex items-center gap-1.5 text-xs font-black text-rose-500 hover:text-rose-600 transition-all uppercase tracking-wider select-none px-4 py-2 bg-white dark:bg-[#0d1628] rounded-2xl border border-slate-200/60 dark:border-slate-800/80 shadow-xs"
-          title="Sign out of Ad Network"
-        >
-          <span>Logout</span>
-          <ChevronRight className="w-3.5 h-3.5 text-rose-450 group-hover:translate-x-0.5 transition-transform" />
-          <LogOut className="w-4 h-4 ml-0.5 text-rose-500" />
-        </button>
+      {/* 1. Segmented Navigation Bar Menu - Responsive Mobile Dropdown and Luxury Desktop List */}
+      <div id="publisher-navbar" className="relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
+        
+        {/* Mobile View with Navigation Workspace Menu & Logout Button next to it */}
+        <div className="lg:hidden flex items-end justify-between gap-3">
+          <div className="flex-1 max-w-xs sm:max-w-md">
+            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 font-mono">
+              Navigation Workspace Menu
+            </label>
+            <div className="relative">
+              {/* The main trigger button */}
+              <button
+                type="button"
+                onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
+                className="w-full flex items-center justify-between gap-3 px-5 py-3.5 bg-white dark:bg-[#0d1628] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs text-sm font-black text-slate-800 dark:text-slate-105 transition-all text-left group"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                    {activeTab === 'dashboard' && <Coins className="w-5 h-5" />}
+                    {activeTab === 'campaign' && <FileText className="w-5 h-5" />}
+                    {activeTab === 'datasubmit' && <UploadCloud className="w-5 h-5" />}
+                    {activeTab === 'mistracking' && <HelpCircle className="w-5 h-5" />}
+                    {activeTab === 'verification' && <CheckCircle2 className="w-5 h-5" />}
+                    {activeTab === 'topearners' && <Trophy className="w-5 h-5" />}
+                    {activeTab === 'bankupdate' && <QrCode className="w-5 h-5" />}
+                  </span>
+                  <div>
+                    <span className="text-[10px] block font-bold text-slate-400 uppercase tracking-wider font-sans leading-none mb-1">Current Active Space</span>
+                    <span className="text-sm font-black tracking-tight block text-slate-800 dark:text-slate-200">
+                      {activeTab === 'dashboard' && 'Earning Dashboard'}
+                      {activeTab === 'campaign' && 'Active Campaign'}
+                      {activeTab === 'datasubmit' && 'Data Submission'}
+                      {activeTab === 'mistracking' && 'MIS Tracking Feed'}
+                      {activeTab === 'verification' && 'Verification Track'}
+                      {activeTab === 'topearners' && 'Top Earners Board'}
+                      {activeTab === 'bankupdate' && 'Bank Update'}
+                    </span>
+                  </div>
+                </div>
+                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-305 ${isNavMenuOpen ? 'rotate-180 text-blue-500' : ''}`} />
+              </button>
+
+              {/* Dropdown Menu List Options */}
+              {isNavMenuOpen && (
+                <>
+                  {/* Overlay layer to close dropdown when clicked outside */}
+                  <div 
+                    className="fixed inset-0 z-40 cursor-default" 
+                    onClick={() => setIsNavMenuOpen(false)} 
+                  />
+                  
+                  {/* Floating Option Cards container */}
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0c1322] border border-slate-200 dark:border-slate-800/90 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[380px] overflow-y-auto animate-fade-up">
+                    {[
+                      { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Overview of earnings, payouts & graphs', icon: <Coins className="w-4 h-4" /> },
+                      { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse and apply for active campaign deals', icon: <FileText className="w-4 h-4" /> },
+                      { tabId: 'datasubmit', label: 'Data Submission', desc: 'Submit leads & upload conversions work', icon: <UploadCloud className="w-4 h-4" /> },
+                      { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute reports & mis-tracking logs', icon: <HelpCircle className="w-4 h-4" /> },
+                      { tabId: 'verification', label: 'Verification Track', desc: 'Realtime approval status of submitted work', icon: <CheckCircle2 className="w-4 h-4" /> },
+                      { tabId: 'topearners', label: 'Top Earners Board', desc: 'Our live public high-earning publishers list', icon: <Trophy className="w-4 h-4" /> },
+                      { tabId: 'bankupdate', label: 'Bank Update', desc: 'Update details & UPI scan triggers', icon: <QrCode className="w-4 h-4" /> }
+                    ].map((btn) => (
+                      <button
+                        key={btn.tabId}
+                        id={`tab-publisher-${btn.tabId}`}
+                        type="button"
+                        onClick={() => {
+                          setActiveTab(btn.tabId as TabType);
+                          setIsNavMenuOpen(false);
+                        }}
+                        className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                          activeTab === btn.tabId 
+                            ? 'bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold' 
+                            : 'text-slate-700 dark:text-slate-350'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className={`p-2 rounded-xl transition-colors ${
+                            activeTab === btn.tabId 
+                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300' 
+                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800/80 dark:text-slate-450'
+                          }`}>
+                            {btn.icon}
+                          </span>
+                          <div>
+                            <span className="text-xs font-black block tracking-tight">{btn.label}</span>
+                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold block mt-0.5">{btn.desc}</span>
+                          </div>
+                        </div>
+                        
+                        {activeTab === btn.tabId && (
+                          <Check className="w-4 h-4 text-blue-500 mr-1.5" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Logout Button (Mobile) - Icon only */}
+          <button
+            id="nav-logout-avatar-mobile"
+            onClick={() => { logout(); onNavigate('/Home'); }}
+            className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0 mb-0.5"
+            title="Sign out of Ad Network"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Desktop Horizontal Tabs Menu - Bento Style (visible on screen lengths >= 1024px) */}
+        <div className="hidden lg:flex items-stretch justify-between gap-4">
+          <div className="flex-1 flex flex-wrap items-stretch gap-2.5">
+            {[
+              { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
+              { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
+              { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
+              { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
+              { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
+              { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
+              { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
+            ].map((btn) => (
+              <button
+                key={btn.tabId}
+                type="button"
+                onClick={() => setActiveTab(btn.tabId as TabType)}
+                className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
+                  activeTab === btn.tabId
+                    ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
+                    : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
+                }`}
+              >
+                <span className={`p-2 rounded-xl w-fit transition-transform self-start ${
+                  activeTab === btn.tabId
+                    ? 'bg-indigo-600 text-white shadow-sm scale-105'
+                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-450'
+                }`}>
+                  {btn.icon}
+                </span>
+                <div>
+                  <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Logout Button (Desktop) - Icon only */}
+          <button
+            id="nav-logout-avatar"
+            onClick={() => { logout(); onNavigate('/Home'); }}
+            className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0"
+            title="Sign out of Ad Network"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+
       </div>
 
       {/* 2. Top Profile Element bar - Redesigned to be ultra-premium */}
@@ -940,26 +1125,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <FileText className="w-5 h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] text-slate-450 dark:text-slate-500 uppercase font-bold tracking-widest leading-none">Total Work</span>
+                <span className="text-[10px] text-slate-455 dark:text-slate-500 uppercase font-bold tracking-widest leading-none">Total Work</span>
                 <span className="text-base font-black text-slate-850 dark:text-slate-100 mt-1 font-mono">
                   {pubSubmissions.length} Leads
                 </span>
                 <span className="text-[8px] text-indigo-550 dark:text-indigo-455 font-bold uppercase tracking-wider mt-0.5">Submitted Logs</span>
-              </div>
-            </div>
-
-            <div className="hidden sm:block h-10 w-[1px] bg-slate-200 dark:bg-slate-800/80" />
-
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-555 dark:text-amber-400 flex items-center justify-center shrink-0 animate-pulse">
-                <Trophy className="w-5 h-5 fill-amber-500/10" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-455 dark:text-slate-500 uppercase font-bold tracking-widest leading-none">Partner Rank</span>
-                <span className="text-base font-black text-amber-550 dark:text-amber-400 mt-1">
-                  Gold Club
-                </span>
-                <span className="text-[8px] text-amber-550 dark:text-amber-450 font-bold uppercase tracking-wider mt-0.5">Bonus Rate Enable</span>
               </div>
             </div>
           </div>
@@ -1100,144 +1270,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         )}
       </div>
 
-      {/* 3. Segmented Navigation Bar Menu - Responsive Mobile Dropdown and Luxury Desktop List */}
-      <div id="publisher-navbar" className="relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
-        
-        {/* Mobile Dropdown View (visible on screen lengths < 1024px) */}
-        <div className="max-w-xs sm:max-w-md lg:hidden">
-          <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 font-mono">
-            Navigation Workspace Menu
-          </label>
-          <div className="relative">
-            {/* The main trigger button */}
-            <button
-              type="button"
-              onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
-              className="w-full flex items-center justify-between gap-3 px-5 py-3.5 bg-white dark:bg-[#0d1628] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs text-sm font-black text-slate-800 dark:text-slate-105 transition-all text-left group"
-            >
-              <div className="flex items-center gap-3">
-                <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
-                  {activeTab === 'dashboard' && <Coins className="w-5 h-5" />}
-                  {activeTab === 'campaign' && <FileText className="w-5 h-5" />}
-                  {activeTab === 'datasubmit' && <UploadCloud className="w-5 h-5" />}
-                  {activeTab === 'mistracking' && <HelpCircle className="w-5 h-5" />}
-                  {activeTab === 'verification' && <CheckCircle2 className="w-5 h-5" />}
-                  {activeTab === 'topearners' && <Trophy className="w-5 h-5" />}
-                  {activeTab === 'bankupdate' && <QrCode className="w-5 h-5" />}
-                </span>
-                <div>
-                  <span className="text-[10px] block font-bold text-slate-400 uppercase tracking-wider font-sans leading-none mb-1">Current Active Space</span>
-                  <span className="text-sm font-black tracking-tight block text-slate-800 dark:text-slate-200">
-                    {activeTab === 'dashboard' && 'Earning Dashboard'}
-                    {activeTab === 'campaign' && 'Active Campaign'}
-                    {activeTab === 'datasubmit' && 'Data Submission'}
-                    {activeTab === 'mistracking' && 'MIS Tracking Feed'}
-                    {activeTab === 'verification' && 'Verification Track'}
-                    {activeTab === 'topearners' && 'Top Earners Board'}
-                    {activeTab === 'bankupdate' && 'Bank Update'}
-                  </span>
-                </div>
-              </div>
-              <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-305 ${isNavMenuOpen ? 'rotate-180 text-blue-500' : ''}`} />
-            </button>
 
-
-            {/* Dropdown Menu List Options */}
-            {isNavMenuOpen && (
-              <>
-                {/* Overlay layer to close dropdown when clicked outside */}
-                <div 
-                  className="fixed inset-0 z-40 cursor-default" 
-                  onClick={() => setIsNavMenuOpen(false)} 
-                />
-                
-                {/* Floating Option Cards container */}
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0c1322] border border-slate-200 dark:border-slate-800/90 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[380px] overflow-y-auto animate-fade-up">
-                  {[
-                    { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Overview of earnings, payouts & graphs', icon: <Coins className="w-4 h-4" /> },
-                    { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse and apply for active campaign deals', icon: <FileText className="w-4 h-4" /> },
-                    { tabId: 'datasubmit', label: 'Data Submission', desc: 'Submit leads & upload conversions work', icon: <UploadCloud className="w-4 h-4" /> },
-                    { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute reports & mis-tracking logs', icon: <HelpCircle className="w-4 h-4" /> },
-                    { tabId: 'verification', label: 'Verification Track', desc: 'Realtime approval status of submitted work', icon: <CheckCircle2 className="w-4 h-4" /> },
-                    { tabId: 'topearners', label: 'Top Earners Board', desc: 'Our live public high-earning publishers list', icon: <Trophy className="w-4 h-4" /> },
-                    { tabId: 'bankupdate', label: 'Bank Update', desc: 'Update details & UPI scan triggers', icon: <QrCode className="w-4 h-4" /> }
-                  ].map((btn) => (
-                    <button
-                      key={btn.tabId}
-                      id={`tab-publisher-${btn.tabId}`}
-                      type="button"
-                      onClick={() => {
-                        setActiveTab(btn.tabId as TabType);
-                        setIsNavMenuOpen(false);
-                      }}
-                      className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
-                        activeTab === btn.tabId 
-                          ? 'bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold' 
-                          : 'text-slate-700 dark:text-slate-350'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className={`p-2 rounded-xl transition-colors ${
-                          activeTab === btn.tabId 
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300' 
-                            : 'bg-slate-100 text-slate-500 dark:bg-slate-800/80 dark:text-slate-450'
-                        }`}>
-                          {btn.icon}
-                        </span>
-                        <div>
-                          <span className="text-xs font-black block tracking-tight">{btn.label}</span>
-                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold block mt-0.5">{btn.desc}</span>
-                        </div>
-                      </div>
-                      
-                      {activeTab === btn.tabId && (
-                        <Check className="w-4 h-4 text-blue-500 mr-1.5" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Desktop Horizontal Tabs Menu - Bento Style (visible on screen lengths >= 1024px) */}
-        <div className="hidden lg:flex flex-wrap items-stretch justify-between gap-2.5">
-          {[
-            { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
-            { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
-            { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
-            { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
-            { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
-            { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
-            { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
-          ].map((btn) => (
-            <button
-              key={btn.tabId}
-              type="button"
-              onClick={() => setActiveTab(btn.tabId as TabType)}
-              className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
-                activeTab === btn.tabId
-                  ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
-                  : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
-              }`}
-            >
-              <span className={`p-2 rounded-xl w-fit transition-transform self-start ${
-                activeTab === btn.tabId
-                  ? 'bg-indigo-600 text-white shadow-sm scale-105'
-                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-450'
-              }`}>
-                {btn.icon}
-              </span>
-              <div>
-                <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
-                <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
-              </div>
-            </button>
-          ))}
-        </div>
-
-      </div>
 
       {/* 4. Tab Context Router panels */}
 

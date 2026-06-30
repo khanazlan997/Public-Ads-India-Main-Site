@@ -816,22 +816,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   return (
     <div id="active-publisher-workspace" className="max-w-7xl mx-auto px-4 py-8">
       
-      {/* PC/Desktop Only: Top action row with logout OUTSIDE the container */}
-      <div className="hidden lg:flex justify-end mb-4">
-        <button
-          id="nav-logout-avatar-desktop"
-          onClick={() => { logout(); onNavigate('/Home'); }}
-          className="group flex items-center gap-1.5 text-xs font-black text-rose-500 hover:text-rose-600 transition-all uppercase tracking-wider select-none px-4 py-2 bg-white dark:bg-[#0d1628] rounded-2xl border border-slate-200/60 dark:border-slate-800/80 shadow-xs cursor-pointer"
-          title="Sign out of Ad Network"
-        >
-          <span>Logout</span>
-          <ChevronRight className="w-3.5 h-3.5 text-rose-450 group-hover:translate-x-0.5 transition-transform" />
-          <LogOut className="w-4 h-4 ml-0.5 text-rose-500" />
-        </button>
-      </div>
-
-      {/* Mobile/Phone Only: Segmented Navigation Bar Menu - Responsive Mobile Dropdown next to logout */}
-      <div id="publisher-navbar-mobile" className="lg:hidden relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
+      {/* 1. Segmented Navigation Bar Menu - Responsive Mobile Dropdown and Luxury Desktop List */}
+      <div id="publisher-navbar" className="relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
         
         {/* Mobile View with Navigation Workspace Menu & Logout Button next to it */}
         <div className="lg:hidden flex items-end justify-between gap-3">
@@ -844,10 +830,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <button
                 type="button"
                 onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
-                className="w-full flex items-center justify-between gap-3 px-5 py-3.5 bg-white dark:bg-[#0d1628] hover:bg-slate-50 dark:hover:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs text-sm font-black text-slate-800 dark:text-slate-105 transition-all text-left group"
+                className="w-full flex items-center justify-between gap-3 px-5 py-3.5 bg-white dark:bg-[#0d1628] hover:bg-slate-55 dark:hover:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs text-sm font-black text-slate-800 dark:text-slate-105 transition-all text-left group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-605 dark:text-indigo-400">
                     {activeTab === 'dashboard' && <Coins className="w-5 h-5" />}
                     {activeTab === 'campaign' && <FileText className="w-5 h-5" />}
                     {activeTab === 'datasubmit' && <UploadCloud className="w-5 h-5" />}
@@ -900,7 +886,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                           setActiveTab(btn.tabId as TabType);
                           setIsNavMenuOpen(false);
                         }}
-                        className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/40 ${
+                        className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer ${
                           activeTab === btn.tabId 
                             ? 'bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold' 
                             : 'text-slate-700 dark:text-slate-350'
@@ -935,7 +921,55 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <button
             id="nav-logout-avatar-mobile"
             onClick={() => { logout(); onNavigate('/Home'); }}
-            className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0 mb-0.5"
+            className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0 mb-0.5 cursor-pointer"
+            title="Sign out of Ad Network"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Desktop Horizontal Tabs Menu - Bento Style (visible on screen lengths >= 1024px) */}
+        <div className="hidden lg:flex items-stretch justify-between gap-4">
+          <div className="flex-1 flex flex-wrap items-stretch gap-2.5">
+            {[
+              { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
+              { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
+              { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
+              { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
+              { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
+              { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
+              { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
+            ].map((btn) => (
+              <button
+                key={btn.tabId}
+                type="button"
+                onClick={() => setActiveTab(btn.tabId as TabType)}
+                className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
+                  activeTab === btn.tabId
+                    ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
+                    : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
+                }`}
+              >
+                <span className={`p-2 rounded-xl w-fit transition-transform self-start ${
+                  activeTab === btn.tabId
+                    ? 'bg-indigo-600 text-white shadow-sm scale-105'
+                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-450'
+                }`}>
+                  {btn.icon}
+                </span>
+                <div>
+                  <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {/* Logout Button (Desktop) - Icon only */}
+          <button
+            id="nav-logout-avatar-desktop"
+            onClick={() => { logout(); onNavigate('/Home'); }}
+            className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0 cursor-pointer"
             title="Sign out of Ad Network"
           >
             <LogOut className="w-5 h-5" />
@@ -1233,44 +1267,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
           </div>
         )}
-      </div>
-
-      {/* 3. PC/Desktop Only: Desktop Horizontal Tabs Menu - Bento Style (visible on screen lengths >= 1024px) */}
-      <div id="publisher-navbar-desktop" className="hidden lg:block relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
-        <div className="flex flex-wrap items-stretch gap-2.5">
-          {[
-            { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
-            { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
-            { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
-            { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
-            { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
-            { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
-            { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
-          ].map((btn) => (
-            <button
-              key={btn.tabId}
-              type="button"
-              onClick={() => setActiveTab(btn.tabId as TabType)}
-              className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
-                activeTab === btn.tabId
-                  ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
-                  : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
-              }`}
-            >
-              <span className={`p-2 rounded-xl w-fit transition-transform self-start ${
-                activeTab === btn.tabId
-                  ? 'bg-indigo-600 text-white shadow-sm scale-105'
-                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-450'
-              }`}>
-                {btn.icon}
-              </span>
-              <div>
-                <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
-                <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
-              </div>
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* 4. Tab Context Router panels */}
@@ -1784,108 +1780,40 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       {/* TAB F: Top Earners Board */}
       {activeTab === 'topearners' && (
         <div id="tabPanel-topEarners" className="animate-fade-up">
-          <div className="max-w-2xl mx-auto space-y-8">
+          <div className="max-w-2xl mx-auto space-y-6">
             
-            {/* 3 top earners podium design */}
-            <div className="grid grid-cols-3 gap-4 items-end pt-12">
-              {(() => {
-                const totalLeaders = getLeaderboard();
-                const first = totalLeaders[0] || { name: 'Empty', income: 0, id: 'x', avatar: '😎' };
-                const second = totalLeaders[1] || { name: 'Empty', income: 0, id: 'y', avatar: '👩' };
-                const third = totalLeaders[2] || { name: 'Empty', income: 0, id: 'z', avatar: '👨' };
-
-                return (
-                  <>
-                    {/* 2nd place - left silver */}
-                    <div className="flex flex-col items-center">
-                      <div className="relative text-3xl mb-1.5 animate-bounce delay-150">
-                        {second.avatar && (second.avatar.startsWith('data:image/') || second.avatar.startsWith('http')) ? (
-                          <div className="w-10 h-10 rounded-full border-2 border-slate-300 overflow-hidden flex items-center justify-center bg-white shadow-xs">
-                            <img src={second.avatar} alt="Podium 2" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </div>
-                        ) : (
-                          second.avatar
-                        )}
-                      </div>
-                      <span className="text-[10px] font-extrabold text-slate-750 dark:text-slate-200 block text-center truncate w-full">{second.name}</span>
-                      <span className="text-[9px] font-extrabold text-brand-success font-mono">₹{second.income}</span>
-                      
-                      {/* Silver Podium block */}
-                      <div className="w-full bg-slate-200 dark:bg-slate-800 text-slate-650 h-24 rounded-t-2xl flex flex-col items-center justify-center mt-3 shadow-md border-x border-t border-slate-300 dark:border-slate-700">
-                        <span className="text-xl font-black">2</span>
-                        <span className="text-[8px] font-bold uppercase tracking-widest mt-0.5">Silver</span>
-                      </div>
-                    </div>
-
-                    {/* 1st place - center gold crown podium! */}
-                    <div className="flex flex-col items-center group">
-                      <div className="relative text-5xl mb-1.5 transform group-hover:scale-105 transition-transform flex flex-col items-center">
-                        <Crown className="w-5.5 h-5.5 text-amber-500 fill-amber-400 absolute top-[-22px] left-1/2 -translate-x-1/2 rotate-[-5deg] z-10" />
-                        {first.avatar && (first.avatar.startsWith('data:image/') || first.avatar.startsWith('http')) ? (
-                          <div className="w-14 h-14 rounded-full border-2 border-amber-400 overflow-hidden flex items-center justify-center bg-white shadow-sm mt-1">
-                            <img src={first.avatar} alt="Podium 1" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </div>
-                        ) : (
-                          first.avatar
-                        )}
-                      </div>
-                      <span className="text-xs font-black text-slate-900 dark:text-white block text-center truncate w-full">{first.name}</span>
-                      <span className="text-xs font-black text-brand-success font-mono">₹{first.income}</span>
-                      
-                      {/* Gold Podium block */}
-                      <div className="w-full bg-amber-400 dark:bg-amber-500 text-amber-950 h-32 rounded-t-3xl flex flex-col items-center justify-center mt-3 shadow-lg border-x border-t border-amber-500 relative">
-                        <span className="text-3xl font-black">1</span>
-                        <span className="text-[9px] font-black uppercase tracking-widest mt-0.5">Top Earner</span>
-                      </div>
-                    </div>
-
-                    {/* 3rd place - right bronze */}
-                    <div className="flex flex-col items-center">
-                      <div className="relative text-2xl mb-1.5 animate-bounce delay-300">
-                        {third.avatar && (third.avatar.startsWith('data:image/') || third.avatar.startsWith('http')) ? (
-                          <div className="w-9 h-9 rounded-full border-2 border-orange-300 overflow-hidden flex items-center justify-center bg-white shadow-xs">
-                            <img src={third.avatar} alt="Podium 3" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </div>
-                        ) : (
-                          third.avatar
-                        )}
-                      </div>
-                      <span className="text-[10px] font-extrabold text-slate-750 dark:text-slate-200 block text-center truncate w-full">{third.name}</span>
-                      <span className="text-[9px] font-extrabold text-brand-success font-mono">₹{third.income}</span>
-                      
-                      {/* Bronze Podium block */}
-                      <div className="w-full bg-orange-200 dark:bg-orange-900/60 text-orange-950 dark:text-orange-305 h-18 rounded-t-2xl flex flex-col items-center justify-center mt-3 shadow-md border-x border-t border-orange-300 dark:border-orange-800">
-                        <span className="text-lg font-black">3</span>
-                        <span className="text-[8px] font-bold uppercase tracking-widest mt-0.5">Bronze</span>
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-
             {/* List remaining earners */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80">
-              <h4 className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-4">Complete Earnings List</h4>
+            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+              <div className="text-center pb-5 mb-5 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Top Earners Leaderboard</h3>
+                <p className="text-xs text-slate-450 mt-1">Our live public high-earning publishers performance list</p>
+              </div>
               
               <div className="space-y-3">
-                {getLeaderboard().slice(3).length === 0 ? (
-                  <div className="text-center py-2 text-[10px] text-slate-400">Join the active earners ranking by creating verified transactions!</div>
+                {getLeaderboard().length === 0 ? (
+                  <div className="text-center py-6 text-xs text-slate-400">Join the active earners ranking by creating verified transactions!</div>
                 ) : (
-                  getLeaderboard().slice(3).map((leader, i) => (
-                    <div key={leader.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-900/40 p-3 rounded-xl border border-slate-100 dark:border-slate-800/50">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-xs font-mono font-bold text-slate-400">#{i + 4}</span>
+                  getLeaderboard().map((leader, i) => (
+                    <div key={leader.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800/40 transition-all hover:bg-slate-50 dark:hover:bg-slate-900/60">
+                      <div className="flex items-center gap-3">
+                        <span className={`text-xs font-mono font-bold w-6 text-center ${
+                          i === 0 ? 'text-amber-500 font-black' : 
+                          i === 1 ? 'text-slate-400 font-black' : 
+                          i === 2 ? 'text-orange-500 font-black' : 
+                          'text-slate-400'
+                        }`}>
+                          #{i + 1}
+                        </span>
                         {leader.avatar && (leader.avatar.startsWith('data:image/') || leader.avatar.startsWith('http')) ? (
-                          <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 shadow-2xs">
+                          <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 shadow-2xs">
                             <img src={leader.avatar} alt="User Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </div>
                         ) : (
-                          <span className="text-xl select-none">{leader.avatar}</span>
+                          <span className="text-xl select-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-full">{leader.avatar}</span>
                         )}
                         <div>
                           <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 block">{leader.name}</span>
-                          <span className="text-[9px] text-slate-450 block font-mono">{leader.id}</span>
+                          <span className="text-[9px] text-slate-455 block font-mono">{leader.id}</span>
                         </div>
                       </div>
                       <span className="text-xs font-extrabold text-brand-success font-mono">₹{leader.income}</span>

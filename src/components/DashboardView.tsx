@@ -816,11 +816,23 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   return (
     <div id="active-publisher-workspace" className="max-w-7xl mx-auto px-4 py-8">
       
-      {/* 1. Segmented Navigation Bar Menu - Responsive Mobile Dropdown and Luxury Desktop List */}
-      <div id="publisher-navbar" className="relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
-        
-        {/* Mobile View with Navigation Workspace Menu & Logout Button next to it */}
-        <div className="lg:hidden flex items-end justify-between gap-3">
+      {/* PC/Desktop Only: Top action row with logout OUTSIDE the container */}
+      <div className="hidden lg:flex justify-end mb-4">
+        <button
+          id="nav-logout-avatar-desktop"
+          onClick={() => { logout(); onNavigate('/Home'); }}
+          className="group flex items-center gap-1.5 text-xs font-black text-rose-500 hover:text-rose-600 transition-all uppercase tracking-wider select-none px-4 py-2 bg-white dark:bg-[#0d1628] rounded-2xl border border-slate-200/60 dark:border-slate-800/80 shadow-xs cursor-pointer"
+          title="Sign out of Ad Network"
+        >
+          <span>Logout</span>
+          <ChevronRight className="w-3.5 h-3.5 text-rose-450 group-hover:translate-x-0.5 transition-transform" />
+          <LogOut className="w-4 h-4 ml-0.5 text-rose-500" />
+        </button>
+      </div>
+
+      {/* Mobile/Phone Only: Segmented Navigation Bar Menu - Responsive Mobile Dropdown next to logout */}
+      <div id="publisher-navbar-mobile" className="lg:hidden relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
+        <div className="flex items-end justify-between gap-3">
           <div className="flex-1 max-w-xs sm:max-w-md">
             <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 font-mono">
               Navigation Workspace Menu
@@ -922,54 +934,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             id="nav-logout-avatar-mobile"
             onClick={() => { logout(); onNavigate('/Home'); }}
             className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0 mb-0.5 cursor-pointer"
-            title="Sign out of Ad Network"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Desktop Horizontal Tabs Menu - Bento Style (visible on screen lengths >= 1024px) */}
-        <div className="hidden lg:flex items-stretch justify-between gap-4">
-          <div className="flex-1 flex flex-wrap items-stretch gap-2.5">
-            {[
-              { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
-              { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
-              { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
-              { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
-              { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
-              { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
-              { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
-            ].map((btn) => (
-              <button
-                key={btn.tabId}
-                type="button"
-                onClick={() => setActiveTab(btn.tabId as TabType)}
-                className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
-                  activeTab === btn.tabId
-                    ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
-                    : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
-                }`}
-              >
-                <span className={`p-2 rounded-xl w-fit transition-transform self-start ${
-                  activeTab === btn.tabId
-                    ? 'bg-indigo-600 text-white shadow-sm scale-105'
-                    : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-450'
-                }`}>
-                  {btn.icon}
-                </span>
-                <div>
-                  <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Logout Button (Desktop) - Icon only */}
-          <button
-            id="nav-logout-avatar-desktop"
-            onClick={() => { logout(); onNavigate('/Home'); }}
-            className="p-3.5 bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white border border-rose-200 dark:bg-[#0d1628]/30 dark:border-rose-950/40 rounded-2xl transition-all shadow-sm flex items-center justify-center shrink-0 cursor-pointer"
             title="Sign out of Ad Network"
           >
             <LogOut className="w-5 h-5" />
@@ -1267,6 +1231,44 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
           </div>
         )}
+      </div>
+
+      {/* 3. PC/Desktop Only: Desktop Horizontal Tabs Menu - Bento Style (visible on screen lengths >= 1024px) */}
+      <div id="publisher-navbar-desktop" className="hidden lg:block relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
+        <div className="flex flex-wrap items-stretch gap-2.5">
+          {[
+            { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
+            { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
+            { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
+            { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
+            { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
+            { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
+            { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
+          ].map((btn) => (
+            <button
+              key={btn.tabId}
+              type="button"
+              onClick={() => setActiveTab(btn.tabId as TabType)}
+              className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
+                activeTab === btn.tabId
+                  ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
+                  : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
+              }`}
+            >
+              <span className={`p-2 rounded-xl w-fit transition-transform self-start ${
+                activeTab === btn.tabId
+                  ? 'bg-indigo-600 text-white shadow-sm scale-105'
+                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800/90 dark:text-slate-450'
+              }`}>
+                {btn.icon}
+              </span>
+              <div>
+                <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
+                <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
+              </div>
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* 4. Tab Context Router panels */}
@@ -1796,12 +1798,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   getLeaderboard().map((leader, i) => (
                     <div key={leader.id} className="flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/30 p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800/40 transition-all hover:bg-slate-50 dark:hover:bg-slate-900/60">
                       <div className="flex items-center gap-3">
-                        <span className={`text-xs font-mono font-bold w-6 text-center ${
-                          i === 0 ? 'text-amber-500 font-black' : 
-                          i === 1 ? 'text-slate-400 font-black' : 
-                          i === 2 ? 'text-orange-500 font-black' : 
-                          'text-slate-400'
-                        }`}>
+                        <span className="text-xs font-mono font-bold w-6 text-center text-slate-500 dark:text-slate-400">
                           #{i + 1}
                         </span>
                         {leader.avatar && (leader.avatar.startsWith('data:image/') || leader.avatar.startsWith('http')) ? (

@@ -4,7 +4,7 @@ import {
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
   Camera, UploadCloud, Edit3, Sparkles, LogOut, Check, ChevronDown, ChevronRight,
-  Lock, X, Download, ExternalLink
+  Lock, X, Download, ExternalLink, Eye, EyeOff
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
 
@@ -275,6 +275,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const [authEmail, setAuthEmail] = useState('');
   const [authPhone, setAuthPhone] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
 
   // Password recovery flow
@@ -738,14 +739,23 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     </button>
                   )}
                 </div>
-                <input
-                  type="password"
-                  required
-                  placeholder="••••••••"
-                  value={authPassword}
-                  onChange={(e) => setAuthPassword(e.target.value)}
-                  className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-brand-accent text-slate-900 dark:text-white font-medium"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    placeholder="••••••••"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full text-xs p-3 pr-10 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-brand-accent text-slate-900 dark:text-white font-medium"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-2.5 p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
 
               <button

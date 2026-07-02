@@ -298,8 +298,11 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 1400 * 1024) {
-      alert('File size exceeds safety standards (1.4 MB). Provide a compressed asset.');
+    const limit = target === 'offer' ? 2048 * 1024 : 1400 * 1024;
+    const limitLabel = target === 'offer' ? '2.0 MB' : '1.4 MB';
+
+    if (file.size > limit) {
+      alert(`File size exceeds safety standards (${limitLabel}). Provide a compressed asset.`);
       return;
     }
 
@@ -1602,7 +1605,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         <span className="text-xs font-bold text-indigo-650 block group-hover:scale-[1.01] transition-transform">
                           📁 Select or Drop Photo File
                         </span>
-                        <span className="text-[10px] text-slate-400 mt-1 block font-medium">Supports JPG, JPEG, PNG, WEBP (Max 1.4 MB)</span>
+                        <span className="text-[10px] text-slate-400 mt-1 block font-medium">Supports JPG, JPEG, PNG, WEBP (Max 2 MB)</span>
                       </div>
                     </div>
 
@@ -2400,6 +2403,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <button
                     type="button"
                     onClick={() => {
+                      if (!testiFormOpen && !editingTestiId && testimonials.length >= 10) {
+                        setTestiMsg('Warning: You cannot add more than 10 reviews. Please edit or delete existing reviews to replace them.');
+                        return;
+                      }
                       setEditingTestiId(null);
                       setTestiName('');
                       setTestiProfession('');
@@ -2430,6 +2437,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     e.preventDefault();
                     if (!testiName || !testiProfession || !testiMessage) {
                       setTestiMsg('Warning: Plase fully fill all required review fields (Name, Profession, Message).');
+                      return;
+                    }
+                    if (!editingTestiId && testimonials.length >= 10) {
+                      setTestiMsg('Warning: You cannot add more than 10 reviews. Please edit or delete existing reviews.');
                       return;
                     }
                     const payload = {

@@ -378,16 +378,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, []);
 
-  // 1b. Sync Testimonials (Optimized with Local Cache Check to prevent redundant reads)
+  // 1b. Sync Testimonials from Firestore on app mount
   useEffect(() => {
     const fetchTestimonials = async () => {
       try {
-        const stored = localStorage.getItem('pai_cached_testimonials');
-        if (stored) {
-          // Skip reading from Firestore since we already have valid testimonials in cache!
-          return;
-        }
-
         const q = collection(db, 'testimonials');
         const snapshot = await getDocs(q);
         if (snapshot.empty) {
@@ -398,8 +392,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           snapshot.forEach((docSnap) => {
             list.push(docSnap.data() as Testimonial);
           });
-          // Sort testimonials so they maintain consistent orders
-          const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6"];
+          // Sort testimonials so they maintain consistent orders (supports up to 10 sorted items)
+          const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6", "testi-7", "testi-8", "testi-9", "testi-10"];
           list.sort((a, b) => {
             const idxA = defaultOrder.indexOf(a.id);
             const idxB = defaultOrder.indexOf(b.id);
@@ -413,6 +407,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       } catch (err) {
         console.error("Error loading testimonials:", err);
+        // Fallback to cache if Firestore read fails
+        const stored = localStorage.getItem('pai_cached_testimonials');
+        if (stored) {
+          try {
+            setTestimonials(JSON.parse(stored));
+          } catch {
+            setTestimonials(defaultTestimonials);
+          }
+        }
       }
     };
     fetchTestimonials();
@@ -1143,16 +1146,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newId
     };
     setDoc(doc(db, 'testimonials', newId), newTestimonial);
+
+    // Update local state and cache immediately
+    const updatedList = [...testimonials, newTestimonial];
+    setTestimonials(updatedList);
+    localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_ADD', `Added testimonial/feedback from '${t.name}'`);
   };
 
   const editTestimonial = (id: string, updated: Partial<Testimonial>) => {
     updateDoc(doc(db, 'testimonials', id), updated);
+
+    // Update local state and cache immediately
+    const updatedList = testimonials.map(t => t.id === id ? { ...t, ...updated } : t);
+    setTestimonials(updatedList);
+    localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_EDIT', `Modified testimonial/feedback from '${updated.name || id}'`);
   };
 
   const deleteTestimonial = (id: string) => {
     deleteDoc(doc(db, 'testimonials', id));
+
+    // Update local state and cache immediately
+    const updatedList = testimonials.filter(t => t.id !== id);
+    setTestimonials(updatedList);
+    localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_DELETE', `Deleted testimonial with ID '${id}'`);
   };
 

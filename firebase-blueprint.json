@@ -63,6 +63,21 @@
         "joinedDate": { "type": "string" }
       },
       "required": ["id", "name", "email", "phone", "password", "avatar", "blocked", "joinedDate"]
+    },
+    "AdvertiserInquiry": {
+      "title": "AdvertiserInquiry",
+      "description": "Details of an advertiser lead inquiry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "company": { "type": "string" },
+        "campaign": { "type": "string" },
+        "submittedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "phone", "email", "company", "campaign", "submittedAt"]
     }
   },
   "firestore": {
@@ -77,6 +92,10 @@
     "publishers/{publisherId}": {
       "schema": "Publisher",
       "description": "Standard app user roster"
+    },
+    "advertiserInquiries/{inquiryId}": {
+      "schema": "AdvertiserInquiry",
+      "description": "Submitted advertiser inquiry form leads"
     }
   }
 }

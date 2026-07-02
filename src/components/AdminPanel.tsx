@@ -4,7 +4,7 @@ import {
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
-  Clock, Filter, ShieldCheck, RefreshCcw, Star
+  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -46,6 +46,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     supportPhone, 
     supportEmail, 
     updateSupportDetails, 
+    googleSheetUrl,
+    updateGoogleSheetUrl,
+    advertiserInquiries,
+    deleteAdvertiserInquiry,
     offer, 
     updateOfferPopup, 
     partnerHiringActive, 
@@ -112,6 +116,11 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [suppEmailInput, setSuppEmailInput] = useState(supportEmail);
   const [suppMsg, setSuppMsg] = useState('');
 
+  // Google Sheets integration states
+  const [googleSheetUrlInput, setGoogleSheetUrlInput] = useState(googleSheetUrl);
+  const [sheetMsg, setSheetMsg] = useState('');
+  const [sheetInquirySearch, setSheetInquirySearch] = useState('');
+
   // Filter & Search states for backups and activity logs
   const [backupQuery, setBackupQuery] = useState('');
   const [activityQuery, setActivityQuery] = useState('');
@@ -162,6 +171,17 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     setSuppPhoneInput(supportPhone || '');
     setSuppEmailInput(supportEmail || '');
   }, [supportPhone, supportEmail]);
+
+  useEffect(() => {
+    setGoogleSheetUrlInput(googleSheetUrl || '');
+  }, [googleSheetUrl]);
+
+  const handleSheetUrlSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateGoogleSheetUrl(googleSheetUrlInput);
+    setSheetMsg('Google Sheet Apps Script Web App URL updated successfully!');
+    setTimeout(() => setSheetMsg(''), 3000);
+  };
 
   // Handle Admin login verify
   const handleAdminAuth = (e: React.FormEvent) => {
@@ -542,8 +562,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   className="fixed inset-0 z-40 cursor-default" 
                   onClick={() => setAdminTabDropdownOpen(false)} 
                 />
-                
-                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 animate-fade-up max-h-80 overflow-y-auto">
+                  <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 animate-fade-up max-h-80 overflow-y-auto">
                   {[
                     { tab: 'overview', label: 'Console Overview', icon: <Activity className="w-4.5 h-4.5 text-indigo-600" /> },
                     { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
@@ -2648,6 +2667,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
             </div>
           )}
+
+
 
         </main>
       </div>

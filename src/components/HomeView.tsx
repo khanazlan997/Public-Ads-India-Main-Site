@@ -13,7 +13,7 @@ interface HomeViewProps {
 }
 
 export default function HomeView({ onNavigate }: HomeViewProps) {
-  const { supportPhone, supportEmail, partnerHiringActive, publishers, testimonials } = useAppState();
+  const { supportPhone, supportEmail, partnerHiringActive, publishers, testimonials, submitAdvertiserInquiry } = useAppState();
 
   // Testimonials compact toggling state
   const [showAllTestimonials, setShowAllTestimonials] = useState(false);
@@ -67,6 +67,8 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
   // Advertiser Form
   const [advFormOpen, setAdvFormOpen] = useState(false);
   const [advFormSubmitted, setAdvFormSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -80,10 +82,31 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleAdvertiserSubmit = (e: React.FormEvent) => {
+  const handleAdvertiserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name || !formData.phone || !formData.email || !formData.company) return;
-    setAdvFormSubmitted(true);
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await submitAdvertiserInquiry(
+        formData.name,
+        formData.phone,
+        formData.email,
+        formData.company,
+        formData.campaign
+      );
+      if (res.success) {
+        setAdvFormSubmitted(true);
+        // Reset form data for subsequent uses
+        setFormData({ name: '', phone: '', email: '', company: '', campaign: '' });
+      } else {
+        setSubmitError(res.message);
+      }
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const certificates = [
@@ -344,24 +367,31 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                     </div>
                   ) : (
                     <form onSubmit={handleAdvertiserSubmit} className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-up">
+                      {submitError && (
+                        <div className="p-3 bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900 text-rose-800 dark:text-rose-400 font-bold text-xs rounded-xl">
+                          {submitError}
+                        </div>
+                      )}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input 
                           type="text" 
                           name="name"
                           placeholder="Your Name" 
                           required
+                          disabled={isSubmitting}
                           value={formData.name}
                           onChange={handleInputChange}
-                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white disabled:opacity-50"
                         />
                         <input 
                           type="tel" 
                           name="phone"
                           placeholder="Contact Phone" 
                           required
+                          disabled={isSubmitting}
                           value={formData.phone}
                           onChange={handleInputChange}
-                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white disabled:opacity-50"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -370,54 +400,52 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                           name="email"
                           placeholder="Email Address" 
                           required
+                          disabled={isSubmitting}
                           value={formData.email}
                           onChange={handleInputChange}
-                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white disabled:opacity-50"
                         />
                         <input 
                           type="text" 
                           name="company"
                           placeholder="Company Name" 
                           required
+                          disabled={isSubmitting}
                           value={formData.company}
                           onChange={handleInputChange}
-                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                          className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white disabled:opacity-50"
                         />
                       </div>
                       <input 
                         type="text" 
                         name="campaign"
                         placeholder="Proposed Campaign Name (e.g. Free Demat Account)" 
+                        disabled={isSubmitting}
                         value={formData.campaign}
                         onChange={handleInputChange}
-                        className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                        className="w-full text-xs p-2.5 bg-white dark:bg-[#0d1628] border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white disabled:opacity-50"
                       />
                       
                       <button
                         type="submit"
                         id="advertiser-submit-btn"
-                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] sm:text-xs rounded-xl transition-colors uppercase tracking-wider"
+                        disabled={isSubmitting}
+                        className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-[11px] sm:text-xs rounded-xl transition-colors uppercase tracking-wider disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
                       >
-                        Inquiry Now & Apply Rules
+                        {isSubmitting ? (
+                          <>
+                            <span className="w-4 h-4 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                            Submitting Inquiry...
+                          </>
+                        ) : (
+                          'Inquiry Now & Apply Rules'
+                        )}
                       </button>
                     </form>
                   )}
                 </div>
               )}
             </div>
-
-            <button
-              id="advertiser-bottom-trigger"
-              onClick={() => {
-                setAdvFormOpen(true);
-                const block = document.getElementById('advertiser-inquiry-box');
-                if (block) block.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="w-full py-3 sm:py-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-extrabold rounded-xl sm:rounded-2xl flex items-center justify-center gap-2 transition-all border border-slate-200/50 dark:border-slate-700 text-xs sm:text-sm"
-            >
-              Advertiser Action Stream
-              <ArrowRight className="w-4 h-4 text-amber-500" />
-            </button>
           </div>
 
         </div>

@@ -25,7 +25,8 @@ import {
   ActivityLog, 
   ActiveOffer,
   SubmissionStatus,
-  Testimonial
+  Testimonial,
+  AdvertiserInquiry
 } from '../types';
 
 interface AppContextType {
@@ -46,6 +47,8 @@ interface AppContextType {
   currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
   testimonials: Testimonial[];
   quotaError: string | null;
+  googleSheetUrl: string;
+  advertiserInquiries: AdvertiserInquiry[];
   
   hasMoreSubmissions: boolean;
   loadMoreSubmissions: () => void;
@@ -86,6 +89,9 @@ interface AppContextType {
   addTestimonial: (t: Omit<Testimonial, 'id'>) => void;
   editTestimonial: (id: string, updated: Partial<Testimonial>) => void;
   deleteTestimonial: (id: string) => void;
+  updateGoogleSheetUrl: (url: string) => Promise<void>;
+  deleteAdvertiserInquiry: (id: string) => Promise<void>;
+  submitAdvertiserInquiry: (name: string, phone: string, email: string, company: string, campaign: string) => Promise<{ success: boolean; message: string }>;
   
   // Publisher Actions
   submitBankDetails: (details: BankDetails) => Promise<{ success: boolean; message: string }>;
@@ -266,6 +272,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const stored = localStorage.getItem('pai_hiring_active');
     return stored === null ? true : stored === 'true';
   });
+
+  const [googleSheetUrl, setGoogleSheetUrl] = useState(() => {
+    return localStorage.getItem('pai_google_sheet_url') || 'https://script.google.com/macros/s/AKfycbyDBbwsuefEhBrEZouttfoIlbwqTABJ058VxJHyKsquK8PnFN4fctF7-UIiBB_UivC_/exec';
+  });
+  const [advertiserInquiries, setAdvertiserInquiries] = useState<AdvertiserInquiry[]>([]);
   
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const [activePath, setActivePath] = useState<string>('/Home');
@@ -642,6 +653,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [activePath, partnersLimit]);
 
+  // Sync Advertiser Inquiries (Removed to avoid Firestore logging as requested)
+  useEffect(() => {
+    setAdvertiserInquiries([]);
+  }, [activePath]);
+
   // 8. Sync Activity Logs (Bypassed to protect Firestore quota limits)
   useEffect(() => {
     setActivityLogs([
@@ -660,15 +676,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             supportPhone: '+91 8934932418',
             supportEmail: 'publicadsnetwork@gmail.com',
             partnerHiringActive: true,
+            googleSheetUrl: '',
             offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
           };
           await setDoc(docRef, initialSettings);
           localStorage.setItem('pai_support_phone', initialSettings.supportPhone);
           localStorage.setItem('pai_support_email', initialSettings.supportEmail);
           localStorage.setItem('pai_hiring_active', String(initialSettings.partnerHiringActive));
+          localStorage.setItem('pai_google_sheet_url', '');
           localStorage.setItem('pai_offer', JSON.stringify(initialSettings.offer));
           setSupportPhone(initialSettings.supportPhone);
           setSupportEmail(initialSettings.supportEmail);
+          setGoogleSheetUrl('');
         } else {
           const data = docSnap.data();
           if (data) {
@@ -690,6 +709,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             setSupportEmail(email);
             localStorage.setItem('pai_support_email', email);
+
+            if (data.googleSheetUrl !== undefined) {
+              setGoogleSheetUrl(data.googleSheetUrl);
+              localStorage.setItem('pai_google_sheet_url', data.googleSheetUrl);
+            }
 
             if (data.partnerHiringActive !== undefined) {
               setPartnerHiringActive(data.partnerHiringActive);
@@ -963,6 +987,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addLog('ADMIN', 'Administrator', 'SUPPORT_EDIT', `Site-wide contacts updated. Phone: ${phone}, Email: ${email}`);
   };
 
+  const updateGoogleSheetUrl = async (url: string) => {
+    try {
+      await updateDoc(doc(db, 'configs', 'settings'), { googleSheetUrl: url });
+      setGoogleSheetUrl(url);
+      localStorage.setItem('pai_google_sheet_url', url);
+      addLog('ADMIN', 'Administrator', 'GOOGLESHEET_EDIT', `Updated Google Sheet App Script Web App URL to: ${url}`);
+    } catch (err) {
+      console.error("Error saving Google Sheet URL:", err);
+    }
+  };
+
+  const deleteAdvertiserInquiry = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'advertiserInquiries', id));
+      addLog('ADMIN', 'Administrator', 'INQUIRY_DELETE', `Deleted advertiser inquiry: ${id}`);
+    } catch (err) {
+      console.error("Error deleting inquiry:", err);
+    }
+  };
+
+  const submitAdvertiserInquiry = async (name: string, phone: string, email: string, company: string, campaign: string) => {
+    try {
+      const id = 'INQ-' + Date.now().toString().slice(-6) + Math.random().toString(36).substring(2, 5).toUpperCase();
+      const submittedAt = new Date().toISOString();
+      const newInquiry: AdvertiserInquiry = {
+        id,
+        name,
+        phone,
+        email,
+        company,
+        campaign: campaign || 'N/A',
+        submittedAt
+      };
+
+      // Send directly to Google Sheets using the hardcoded Web App URL provided by the user
+      const targetUrl = 'https://script.google.com/macros/s/AKfycbyDBbwsuefEhBrEZouttfoIlbwqTABJ058VxJHyKsquK8PnFN4fctF7-UIiBB_UivC_/exec';
+      try {
+        await fetch(targetUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(newInquiry)
+        });
+      } catch (fetchErr) {
+        console.warn("Google Apps Script fetch triggered (no-cors mode):", fetchErr);
+      }
+
+      // Save a log trace
+      addLog('SYSTEM', 'Advertiser Form', 'INQUIRY_SUBMIT', `New advertiser inquiry from ${name} (${company}) sent to Google Sheet`);
+
+      return { success: true, message: 'Advertiser inquiry submitted successfully.' };
+    } catch (err) {
+      console.error("Error submitting advertiser inquiry:", err);
+      return { success: false, message: err instanceof Error ? err.message : 'Submission failed.' };
+    }
+  };
+
   const togglePartnerHiring = (active: boolean) => {
     updateDoc(doc(db, 'configs', 'settings'), { partnerHiringActive: active });
     setPartnerHiringActive(active);
@@ -1223,6 +1306,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       supportPhone,
       supportEmail,
       partnerHiringActive,
+      googleSheetUrl,
+      advertiserInquiries,
       currentUser,
       testimonials,
       quotaError,
@@ -1263,6 +1348,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addTestimonial,
       editTestimonial,
       deleteTestimonial,
+      updateGoogleSheetUrl,
+      deleteAdvertiserInquiry,
+      submitAdvertiserInquiry,
       submitBankDetails,
       submitLead,
       applyForPartner,

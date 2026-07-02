@@ -109,3 +109,13 @@ export interface Testimonial {
   message: string;
 }
 
+export interface AdvertiserInquiry {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  company: string;
+  campaign: string;
+  submittedAt: string;
+}
+

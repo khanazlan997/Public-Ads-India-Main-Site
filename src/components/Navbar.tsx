@@ -137,7 +137,7 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                   ))}
                   <div className="border-t border-slate-100 dark:border-slate-800/80 mt-1.5 pt-1.5 px-1">
                     <button
-                      onClick={() => window.open('https://old.publicadsindia.com', '_blank', 'noopener,noreferrer')}
+                      onClick={() => window.open('https://publicads-support.blogspot.com/', '_blank', 'noopener,noreferrer')}
                       className="w-full text-left px-2.5 py-2 rounded-xl bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 transition-colors flex items-center justify-between gap-2.5 text-xs font-bold text-blue-600 dark:text-blue-400"
                     >
                       <div className="flex items-center gap-2">
@@ -287,7 +287,7 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
               </button>
             ))}
             <button
-              onClick={() => { window.open('https://old.publicadsindia.com', '_blank', 'noopener,noreferrer'); setMobileMenuOpen(false); }}
+              onClick={() => { window.open('https://publicads-support.blogspot.com/', '_blank', 'noopener,noreferrer'); setMobileMenuOpen(false); }}
               className="text-left ml-3 mr-1 py-2 px-2.5 text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2 font-bold bg-blue-50/50 hover:bg-blue-50 dark:bg-blue-950/20 dark:hover:bg-blue-950/40 rounded-xl border border-blue-100/40 dark:border-blue-900/30 transition-all font-sans"
             >
               <ExternalLink className="w-3.5 h-3.5 text-blue-500 shrink-0" />

@@ -17,6 +17,11 @@
   100% { transform: translate3d(-50%, 0, 0); }
 }
 
+@keyframes marquee-partners {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
 @keyframes pulse-logo {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
@@ -63,6 +68,16 @@
 }
 
 .animate-ticker:hover {
+  animation-play-state: paused;
+}
+
+.animate-marquee-partners {
+  display: inline-flex;
+  white-space: nowrap;
+  animation: marquee-partners 45s linear infinite;
+}
+
+.animate-marquee-partners:hover {
   animation-play-state: paused;
 }
 

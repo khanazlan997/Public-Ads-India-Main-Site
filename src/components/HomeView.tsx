@@ -222,6 +222,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         </div>
       </section>
 
+
       {/* 2. Feature Cards Row (3 Cards with translateY hover effect) */}
       <section className="py-16 bg-slate-550/20 dark:bg-[#0a1122]/40 border-y border-slate-200/50 dark:border-slate-800/50">
         <div className="max-w-7xl mx-auto px-4">

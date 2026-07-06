@@ -34,11 +34,13 @@ export default function GeometricBackground() {
       vx: number;
       vy: number;
       size: number;
-      type: 'circle' | 'triangle' | 'square' | 'hexagon' | 'currency';
+      type: 'circle' | 'triangle' | 'square' | 'hexagon' | 'currency' | 'rupee-coin' | 'trend-line';
       currencySymbol?: string;
       angle: number;
       spinSpeed: number;
       baseColor: string;
+      pulseState?: number;
+      pulseSpeed?: number;
     }
 
     let nodes: GeometricNode[] = [];
@@ -65,32 +67,40 @@ export default function GeometricBackground() {
 
     const initNodes = () => {
       nodes = [];
-      const types: Array<'circle' | 'triangle' | 'square' | 'hexagon' | 'currency'> = [
+      const types: Array<'circle' | 'triangle' | 'square' | 'hexagon' | 'currency' | 'rupee-coin' | 'trend-line'> = [
         'circle',
         'triangle',
         'square',
         'hexagon',
         'currency',
+        'rupee-coin',
+        'trend-line',
       ];
-      const currencies = ['₹', '$', '€', '£', '¥', '₩', '₽', '₺', '฿', '₫', '₪', '₱', '₭', 'A$', 'C$'];
       
       for (let i = 0; i < MAX_NODES; i++) {
         const type = types[Math.floor(Math.random() * types.length)];
         // Keep sizes elegant and medium-small to avoid distraction
-        const size = type === 'circle' ? Math.random() * 3 + 2 : Math.random() * 14 + 10;
-        const currencySymbol = type === 'currency' ? currencies[Math.floor(Math.random() * currencies.length)] : undefined;
+        const size = type === 'circle' ? Math.random() * 3 + 2 
+                   : type === 'rupee-coin' ? Math.random() * 16 + 18
+                   : type === 'trend-line' ? Math.random() * 14 + 16
+                   : type === 'currency' ? Math.random() * 18 + 14
+                   : Math.random() * 14 + 10;
+        const currencySymbol = type === 'currency' ? '₹' : undefined;
         
         nodes.push({
           x: Math.random() * width,
           y: Math.random() * height,
-          vx: (Math.random() - 0.5) * 1.5, // Faster drift (was 0.4)
-          vy: (Math.random() - 0.5) * 1.5,
+          vx: (Math.random() - 0.5) * 1.8, // Faster drift
+          vy: (Math.random() - 0.5) * 1.8,
           size,
           type,
           currencySymbol,
           angle: Math.random() * Math.PI * 2,
-          spinSpeed: (Math.random() - 0.5) * 0.04, // Faster rotation
-          baseColor: i % 2 === 0 ? '59, 130, 246' : '245, 158, 11', // Blue vs Amber theme
+          spinSpeed: (Math.random() - 0.5) * 0.05, // Faster rotation
+          // Blue vs Emerald green vs Amber (Indian flag & fintech colors)
+          baseColor: i % 3 === 0 ? '59, 130, 246' : i % 3 === 1 ? '16, 185, 129' : '245, 158, 11',
+          pulseState: Math.random() * Math.PI,
+          pulseSpeed: 0.02 + Math.random() * 0.03,
         });
       }
     };
@@ -171,6 +181,13 @@ export default function GeometricBackground() {
         ctx.translate(node.x, node.y);
         ctx.rotate(node.angle);
 
+        // Apply scale pulsing
+        if (node.pulseState !== undefined && node.pulseSpeed !== undefined) {
+          node.pulseState += node.pulseSpeed;
+          const pulseFactor = 0.85 + Math.sin(node.pulseState) * 0.15;
+          ctx.scale(pulseFactor, pulseFactor);
+        }
+
         // Apply colors
         ctx.strokeStyle = `rgba(${node.baseColor}, ${pointAlpha})`;
         ctx.fillStyle = `rgba(${node.baseColor}, ${nodeFillAlpha})`;
@@ -194,9 +211,55 @@ export default function GeometricBackground() {
           ctx.fill();
           ctx.stroke();
         } else if (node.type === 'currency' && node.currencySymbol) {
-          ctx.fillStyle = `rgba(${node.baseColor}, ${pointAlpha * 1.5})`;
-          ctx.font = `900 ${Math.round(node.size)}px sans-serif`;
-          ctx.fillText(node.currencySymbol, -node.size / 2, node.size / 3);
+          ctx.fillStyle = `rgba(${node.baseColor}, ${pointAlpha * 1.8})`;
+          ctx.font = `bold ${Math.round(node.size)}px sans-serif`;
+          ctx.fillText(node.currencySymbol, -node.size / 3, node.size / 3);
+        } else if (node.type === 'rupee-coin') {
+          // Double circle coin representation
+          ctx.beginPath();
+          ctx.arc(0, 0, node.size, 0, Math.PI * 2);
+          ctx.strokeStyle = `rgba(${node.baseColor}, ${pointAlpha * 1.5})`;
+          ctx.fillStyle = `rgba(${node.baseColor}, ${nodeFillAlpha * 2})`;
+          ctx.fill();
+          ctx.stroke();
+          
+          ctx.beginPath();
+          ctx.arc(0, 0, node.size * 0.75, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // ₹ Symbol in coin center (without rotating text so it's readable)
+          ctx.save();
+          // Counter-rotate text so it stays upright/semi-upright
+          ctx.rotate(-node.angle + 0.1);
+          ctx.fillStyle = `rgba(${node.baseColor}, ${pointAlpha * 2.2})`;
+          ctx.font = `bold ${Math.round(node.size * 0.9)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('₹', 0, 1);
+          ctx.restore();
+        } else if (node.type === 'trend-line') {
+          // An ascending financial chart line chart representation
+          ctx.beginPath();
+          ctx.moveTo(-node.size / 2, node.size / 3);
+          ctx.lineTo(-node.size / 6, node.size / 10);
+          ctx.lineTo(node.size / 6, -node.size / 10);
+          ctx.lineTo(node.size / 2, -node.size / 2);
+          ctx.strokeStyle = `rgba(${node.baseColor}, ${pointAlpha * 1.8})`;
+          ctx.lineWidth = 1.8;
+          ctx.stroke();
+
+          // Tiny arrow head
+          ctx.beginPath();
+          ctx.moveTo(node.size / 2 - 4, -node.size / 2);
+          ctx.lineTo(node.size / 2, -node.size / 2);
+          ctx.lineTo(node.size / 2, -node.size / 2 + 4);
+          ctx.stroke();
+
+          // Glow dot
+          ctx.beginPath();
+          ctx.arc(node.size / 2, -node.size / 2, 3, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(${node.baseColor}, ${pointAlpha * 2.5})`;
+          ctx.fill();
         }
 
         ctx.restore();

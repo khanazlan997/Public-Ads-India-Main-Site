@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppState } from '../context/AppContext';
+import { compressImageBase64 } from '../lib/image';
 import { 
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
@@ -420,24 +421,39 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     setIsEditingProfile(false);
   };
 
-  // Convert files to base64
+  // Convert files to base64 and compress
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, target: 'lead' | 'bank') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 1400 * 1024) {
-      alert('File is too large! Maximum limit is 1.4 MB to accommodate Cloud Sync limits.');
+    // We allow files up to 6MB since we will automatically compress them down to < 200KB anyway
+    if (file.size > 6 * 1024 * 1024) {
+      alert('File is too large! Maximum limit is 6.0 MB.');
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
+    reader.onloadend = async () => {
       const base64String = reader.result as string;
-      if (target === 'lead') {
-        setScreenBase64(base64String);
-        setScreenFileName(file.name);
-      } else {
-        setBankQrCode(base64String);
+      
+      try {
+        // Compress the image before storing to prevent Firestore size limit issues (1MB)
+        const compressedBase64 = await compressImageBase64(base64String, 900, 900, 0.7);
+        
+        if (target === 'lead') {
+          setScreenBase64(compressedBase64);
+          setScreenFileName(file.name);
+        } else {
+          setBankQrCode(compressedBase64);
+        }
+      } catch (err) {
+        console.error('Image compression failed, using original', err);
+        if (target === 'lead') {
+          setScreenBase64(base64String);
+          setScreenFileName(file.name);
+        } else {
+          setBankQrCode(base64String);
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -1035,13 +1051,19 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            if (file.size > 1.5 * 1024 * 1024) {
-                               alert("Photo too large! (Limit 1.5MB)");
+                            if (file.size > 5 * 1024 * 1024) {
+                               alert("Photo too large! (Limit 5MB)");
                                return;
                             }
                             const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setProfileAvatar(reader.result as string);
+                            reader.onloadend = async () => {
+                              const base64String = reader.result as string;
+                              try {
+                                const compressed = await compressImageBase64(base64String, 200, 200, 0.8);
+                                setProfileAvatar(compressed);
+                              } catch (err) {
+                                setProfileAvatar(base64String);
+                              }
                             };
                             reader.readAsDataURL(file);
                           }

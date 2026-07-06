@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState } from '../context/AppContext';
+import { compressImageBase64 } from '../lib/image';
 import { 
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
@@ -293,25 +294,33 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     resetCampForm();
   };
 
-  // Convert campaign image or offer to Base64
+  // Convert campaign image or offer to Base64 and compress
   const handleImageUploadBase64 = (e: React.ChangeEvent<HTMLInputElement>, target: 'camp' | 'offer') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const limit = target === 'offer' ? 2048 * 1024 : 1400 * 1024;
-    const limitLabel = target === 'offer' ? '2.0 MB' : '1.4 MB';
-
-    if (file.size > limit) {
-      alert(`File size exceeds safety standards (${limitLabel}). Provide a compressed asset.`);
+    // Support uploads up to 6MB since we compress them on-the-fly
+    if (file.size > 6 * 1024 * 1024) {
+      alert(`File is too large! Max limit is 6.0 MB.`);
       return;
     }
 
     const reader = new FileReader();
-    reader.onloadend = () => {
-      if (target === 'camp') {
-        setCampImage(reader.result as string);
-      } else {
-        setOfferUrl(reader.result as string);
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      try {
+        const compressed = await compressImageBase64(base64String, 1000, 1000, 0.75);
+        if (target === 'camp') {
+          setCampImage(compressed);
+        } else {
+          setOfferUrl(compressed);
+        }
+      } catch (err) {
+        if (target === 'camp') {
+          setCampImage(base64String);
+        } else {
+          setOfferUrl(base64String);
+        }
       }
     };
     reader.readAsDataURL(file);
@@ -2519,12 +2528,20 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (!file) return;
-                            if (file.size > 800 * 1024) {
-                              alert('Photo exceeds safety guidelines (800 KB limit).');
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert('Photo exceeds safety guidelines (5 MB limit).');
                               return;
                             }
                             const r = new FileReader();
-                            r.onloadend = () => setTestiImage(r.result as string);
+                            r.onloadend = async () => {
+                              const base64String = r.result as string;
+                              try {
+                                const compressed = await compressImageBase64(base64String, 200, 200, 0.8);
+                                setTestiImage(compressed);
+                              } catch (err) {
+                                setTestiImage(base64String);
+                              }
+                            };
                             r.readAsDataURL(file);
                           }}
                           className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-10"

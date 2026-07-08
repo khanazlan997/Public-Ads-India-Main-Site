@@ -100,27 +100,6 @@ function AppContent() {
         <TickerBar />
       )}
 
-      {/* Quota limit exceeded / Server Busy notification banner */}
-      {quotaError && (
-        <div className="max-w-7xl mx-auto px-4 pt-4 select-none">
-          <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 sm:p-5 flex gap-3.5 items-start shadow-xs">
-            <span className="text-xl shrink-0">⚠️</span>
-            <div className="space-y-1 text-left">
-              <h5 className="text-xs font-black text-amber-850 dark:text-amber-300 uppercase tracking-wider">
-                System Status: Firebase Daily Limits Exceeded (फायरबेस डेली लिमिट समाप्त)
-              </h5>
-              <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium leading-relaxed font-sans">
-                Since you have 50+ active clients, the Firebase free-tier limit of 50,000 read requests per day has been exceeded. 
-                <strong> All your campaigns and data are 100% safe inside the database</strong>, but Firestore has paused loading new updates temporarily until the limit resets tomorrow or you upgrade your plan.
-              </p>
-              <p className="text-[10px] text-amber-700 dark:text-amber-450 font-medium leading-relaxed font-sans mt-1">
-                <strong>How to Solve (समाधान):</strong> Go to the <a href="https://console.firebase.google.com/" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-900 dark:text-amber-200">Firebase Console</a>, select your project <strong>ai-studio-1d3c5653-93f4-411f-bd71-32fe9be35e38</strong>, and click <strong>Upgrade</strong> at the bottom left to change from Spark to <strong>Blaze Plan (Pay as you go)</strong>. This will instantly activate the site for all 50+ users and cost almost nothing (only $0.06 per 100,000 extra reads).
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Dynamic transition layout pages wrapper */}
       <main className="relative">
         <AnimatePresence mode="wait">

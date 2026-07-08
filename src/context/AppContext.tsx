@@ -222,9 +222,18 @@ const sanitizeError = (error: any): string => {
     lowerMsg.includes('free tier') ||
     lowerMsg.includes('resource_exhausted') ||
     lowerMsg.includes('quota exceeded') ||
-    lowerMsg.includes('service_unavailable')
+    lowerMsg.includes('service_unavailable') ||
+    lowerMsg.includes('cannot be written') ||
+    lowerMsg.includes('projects/') ||
+    lowerMsg.includes('databases/') ||
+    lowerMsg.includes('maximum allowed size') ||
+    lowerMsg.includes('size (') ||
+    lowerMsg.includes('bytes') ||
+    lowerMsg.includes('permission-denied') ||
+    lowerMsg.includes('insufficient permissions') ||
+    lowerMsg.includes('index')
   ) {
-    return 'Database daily limits reached or server busy. Please upgrade your Firebase plan or try again later.';
+    return 'Website Under maintenance please try again after some time.';
   }
   return msg;
 };
@@ -372,7 +381,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("onSnapshot campaigns error:", error);
       const lower = error.message?.toLowerCase() || '';
       if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource") || lower.includes("project_number")) {
-        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+        setQuotaError("maintenance");
       }
     });
     return unsubscribe;
@@ -468,7 +477,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("onSnapshot publishers error:", error);
       const lower = error.message?.toLowerCase() || '';
       if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+        setQuotaError("maintenance");
       }
     });
     return unsubscribe;
@@ -512,7 +521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("onSnapshot bank_details error:", error);
       const lower = error.message?.toLowerCase() || '';
       if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+        setQuotaError("maintenance");
       }
     });
     return unsubscribe;
@@ -558,7 +567,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("onSnapshot earnings error:", error);
       const lower = error.message?.toLowerCase() || '';
       if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+        setQuotaError("maintenance");
       }
     });
     return unsubscribe;
@@ -604,7 +613,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("onSnapshot submissions error:", error);
       const lower = error.message?.toLowerCase() || '';
       if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("Firestore daily free-tier read limits exceeded. Enable billing / upgrade to Blaze plan on Firebase Console to avoid interruptions.");
+        setQuotaError("maintenance");
       }
     });
     return unsubscribe;

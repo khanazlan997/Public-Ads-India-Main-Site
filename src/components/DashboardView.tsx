@@ -860,9 +860,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       <div id="publisher-navbar-mobile" className="lg:hidden relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
         <div className="flex items-end justify-between gap-3">
           <div className="flex-1 max-w-xs sm:max-w-md">
-            <label className="block text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-2 font-mono">
-              Navigation Workspace Menu
-            </label>
             <div className="relative">
               {/* The main trigger button */}
               <button
@@ -974,7 +971,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <PremiumFinanceGeometricCanvas />
         </div>
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+        <div className="relative z-10 grid grid-cols-1 gap-6 items-stretch">
           {/* Card 1: User Profile Glass card */}
           <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col justify-center transition-all duration-300 hover:shadow-md hover:border-indigo-500/35 min-h-[140px]">
             {/* Glowing backdrop ambient layers */}
@@ -1109,51 +1106,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 </div>
               </form>
             )}
-          </div>
-
-          {/* Card 2: Micro-Statistics Glass card */}
-          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col sm:flex-row items-stretch sm:items-center justify-around gap-6 sm:gap-4 text-left transition-all duration-300 hover:shadow-md hover:border-indigo-500/35">
-            <div className="absolute -top-10 -right-10 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
-            
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-505 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[10px] text-slate-455 dark:text-slate-500 uppercase font-bold tracking-widest leading-none">Total Work</span>
-                <span className="text-base font-black text-slate-850 dark:text-slate-100 mt-1 font-mono">
-                  {pubSubmissions.length} Leads
-                </span>
-                <span className="text-[8px] text-indigo-550 dark:text-indigo-455 font-bold uppercase tracking-wider mt-0.5">Submitted Logs</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Card 3: Right Dynamic Income Desk Card */}
-          <div className="relative bg-gradient-to-b from-white/75 to-emerald-50/20 dark:from-[#0d1628]/65 dark:to-emerald-950/5 backdrop-blur-md border border-slate-200/85 dark:border-emerald-500/15 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-emerald-500/35 group overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
-                <Coins className="w-4 h-4 text-emerald-555 animate-spin" style={{ animationDuration: '8s' }} />
-                <span>My Income Desk</span>
-              </div>
-              <span className="text-[8px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 font-black rounded-full uppercase tracking-wider">
-                Instant Disbursal
-              </span>
-            </div>
-
-            <div className="my-3 flex items-baseline gap-1">
-              <span className="text-sm font-black text-slate-400 dark:text-slate-500">₹</span>
-              <span className="text-3xl font-black text-emerald-600 dark:text-emerald-450 font-mono tracking-tight">
-                {publisherEarningStats.total}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              <span>Database synced & locked in</span>
-            </div>
           </div>
 
         </div>
@@ -1340,6 +1292,83 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
               <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4">₹{publisherEarningStats.last30}</h3>
               <p className="text-[10px] text-slate-400 font-medium mt-2.5">Evaluated active lead cycles.</p>
+            </div>
+
+          </div>
+
+          {quotaError && (
+            <div className="select-none">
+              <div className="bg-blue-50/70 dark:bg-[#0c1938] border border-blue-200 dark:border-blue-900/60 rounded-3xl p-5 sm:p-6 flex gap-4 items-start shadow-sm">
+                <span className="text-2xl shrink-0 animate-pulse text-blue-500">⚙️</span>
+                <div className="space-y-1 text-left">
+                  <h5 className="text-xs sm:text-sm font-black text-blue-800 dark:text-blue-300 uppercase tracking-wider">
+                    System Status: Scheduled Database Optimizations (सर्वर में सुधार कार्य जारी है)
+                  </h5>
+                  <p className="text-xs text-blue-700/90 dark:text-blue-400 font-medium leading-relaxed font-sans">
+                    We are currently performing routine database performance upgrades to optimize speed and handle the high volume of active publisher networks. 
+                    <strong className="text-blue-900 dark:text-blue-200"> All campaign registers, balances, and data submissions are 100% secure.</strong> Full real-time synchronization will resume shortly.
+                  </p>
+                  <p className="text-xs text-blue-600/90 dark:text-blue-450 font-medium leading-relaxed font-sans mt-1.5">
+                    <strong>नोट (Note):</strong> वेबसाइट का डेटाबेस अपग्रेड चल रहा है ताकि अधिक ट्रैफ़िक होने पर भी आपको तेज़ स्पीड मिले। आपका सारा काम और बैलेंस पूरी तरह सुरक्षित है। कृपया कुछ समय बाद पुनः प्रयास करें।
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2-Column Grid: My Income Desk + Total Work Box Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Card 3: Right Dynamic Income Desk Card */}
+            <div className="relative bg-gradient-to-b from-white/75 to-emerald-50/20 dark:from-[#0d1628]/65 dark:to-emerald-950/5 border border-slate-200/85 dark:border-emerald-500/15 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-emerald-500/35 group overflow-hidden min-h-[140px]">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
+                  <Coins className="w-4 h-4 text-emerald-555 animate-spin" style={{ animationDuration: '8s' }} />
+                  <span>My Income Desk</span>
+                </div>
+                <span className="text-[8px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 font-black rounded-full uppercase tracking-wider">
+                  Instant Disbursal
+                </span>
+              </div>
+
+              <div className="my-3 flex items-baseline gap-1 text-left">
+                <span className="text-sm font-black text-slate-400 dark:text-slate-500">₹</span>
+                <span className="text-3xl font-black text-emerald-600 dark:text-emerald-450 font-mono tracking-tight">
+                  {publisherEarningStats.total}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none text-left">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Database synced & locked in</span>
+              </div>
+            </div>
+
+            {/* Total Work Box Card */}
+            <div className="relative bg-white dark:bg-[#0d1628] border border-slate-205 dark:border-slate-800/85 rounded-3xl p-6 transition-all duration-300 hover:shadow-md hover:border-indigo-500/35 overflow-hidden flex flex-col justify-between min-h-[140px]">
+              <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <div className="flex flex-col text-left">
+                    <span className="text-xs text-slate-455 dark:text-slate-500 uppercase font-black tracking-widest leading-none">Total Work</span>
+                    <span className="text-xl font-black text-slate-850 dark:text-slate-100 mt-1 font-mono">
+                      {pubSubmissions.length} Leads
+                    </span>
+                    <span className="text-[10px] text-indigo-550 dark:text-indigo-400 font-extrabold uppercase tracking-wider mt-0.5">Submitted Logs</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none text-left">
+                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                <span>All leads verified & recorded</span>
+              </div>
             </div>
 
           </div>
@@ -1817,7 +1846,22 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div className="max-w-2xl mx-auto space-y-6">
             
             {/* List remaining earners */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 shadow-xs relative overflow-hidden min-h-[320px]">
+              {/* Coming Soon Premium Overlay */}
+              <div className="absolute inset-0 bg-white/80 dark:bg-[#0d1628]/90 backdrop-blur-xs flex flex-col items-center justify-center z-20 p-6 select-none">
+                <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-4 shadow-sm animate-bounce" style={{ animationDuration: '3s' }}>
+                  <Trophy className="w-8 h-8" />
+                </div>
+                <h4 className="text-lg font-black text-slate-850 dark:text-slate-100 uppercase tracking-widest font-mono">Coming Soon</h4>
+                <p className="text-[11px] text-slate-450 dark:text-slate-505 font-bold uppercase tracking-wider mt-1.5 text-center max-w-xs leading-relaxed">
+                  Live publishers leaderboard ranking will go active shortly
+                </p>
+                <div className="mt-4 flex items-center gap-1.5 text-[9px] text-indigo-550 dark:text-indigo-400 font-extrabold uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-indigo-550 dark:bg-indigo-400 animate-ping" />
+                  <span>Integrating System Ledgers</span>
+                </div>
+              </div>
+
               <div className="text-center pb-5 mb-5 border-b border-slate-100 dark:border-slate-800">
                 <h3 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Top Earners Leaderboard</h3>
                 <p className="text-xs text-slate-450 mt-1">Our live public high-earning publishers performance list</p>

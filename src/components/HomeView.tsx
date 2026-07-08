@@ -539,9 +539,9 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
 
             {/* Support timing card & WhatsApp Trigger */}
             <div className="bg-white dark:bg-[#0d1628] rounded-2xl p-5 sm:p-8 border border-slate-200/80 dark:border-slate-800/80 text-center flex flex-col justify-center items-center shadow-sm w-full">
-              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">Active Support Timings</h3>
+              <h3 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">24/7 Active Support Desk</h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-bold mt-1 max-w-xs leading-relaxed">
-                Monday to Friday, 11:00 AM to 04:00 PM. All standard tickets resolution complete within 48 hours.
+                Our customer success and technical teams remain fully active 24/7. Any doubts or inquiries will receive a professional resolution within 15 minutes.
               </p>
               
               <a

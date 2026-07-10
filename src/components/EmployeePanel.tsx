@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useAppState } from '../context/AppContext';
+import { useAppState, db } from '../context/AppContext';
+import { doc, getDoc } from 'firebase/firestore';
 import { Lock, Eye, EyeOff, ShieldCheck, UserCheck, Search, Users, Banknote, ListTodo, LogOut, CheckCircle2, Download } from 'lucide-react';
 import { SubmissionStatus } from '../types';
 
@@ -25,6 +26,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
   // Search filtering state
   const [filterQuery, setFilterQuery] = useState('');
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [viewingBankDetails, setViewingBankDetails] = useState<{ id: string; name: string; bank: any } | null>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,14 +256,29 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                           <td className="p-3">
                             <button
                               type="button"
-                              onClick={() => {
-                                const clientBank = bankDetailsMap[sub.publisherId];
-                                setPreviewImage(clientBank?.qrCode || 'NO_QR');
+                              onClick={async () => {
+                                let bank = bankDetailsMap[sub.publisherId] || null;
+                                if (!bank) {
+                                  try {
+                                    const docRef = doc(db, 'bank_details', sub.publisherId);
+                                    const docSnap = await getDoc(docRef);
+                                    if (docSnap.exists()) {
+                                      bank = docSnap.data() as any;
+                                    }
+                                  } catch (error) {
+                                    console.error("Error fetching bank on-demand:", error);
+                                  }
+                                }
+                                setViewingBankDetails({
+                                  id: sub.publisherId,
+                                  name: sub.publisherName,
+                                  bank: bank
+                                });
                               }}
-                              className="inline-flex items-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 px-2 py-1 rounded font-bold border border-blue-100 dark:border-blue-900 cursor-pointer"
-                              title="Show Client UPI QR Card"
+                              className="inline-flex items-center gap-1 text-[10px] bg-emerald-55 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 px-2 py-1 rounded font-bold border border-emerald-100 dark:border-emerald-900 cursor-pointer"
+                              title="Show Client Bank Details and UPI QR Code"
                             >
-                              Proof Card <CheckCircle2 className="w-3 h-3" />
+                              🏦 View Bank <CheckCircle2 className="w-3 h-3" />
                             </button>
                           </td>
                         )}
@@ -333,6 +350,137 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
         </div>
 
       </div>
+
+      {/* Interactive Bank Details Modal */}
+      {viewingBankDetails && (
+        <div 
+          id="publisher-bank-details-modal-emp" 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setViewingBankDetails(null)}
+        >
+          <div 
+            className="relative bg-white dark:bg-slate-900 rounded-2xl overflow-hidden max-w-md w-full border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 border-b border-slate-150 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+              <span className="font-extrabold text-slate-850 dark:text-slate-100 text-[11px] uppercase tracking-wider">🏦 Banking Ledger: {viewingBankDetails.id}</span>
+              <button 
+                onClick={() => setViewingBankDetails(null)}
+                className="p-1 px-2.5 bg-slate-200 dark:bg-slate-800 hover:bg-slate-300 dark:hover:bg-slate-700 rounded-xl font-black text-slate-750 dark:text-slate-250 cursor-pointer text-[10px]"
+              >
+                ✕ Close
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
+                <span className="block text-[10px] uppercase tracking-widest font-mono text-slate-400">Account Owner</span>
+                <h4 className="text-base font-extrabold mt-0.5 text-slate-900 dark:text-white">{viewingBankDetails.name}</h4>
+              </div>
+
+              {viewingBankDetails.bank && (viewingBankDetails.bank.accountNumber || viewingBankDetails.bank.upi) ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Holder Name</span>
+                      <span className="text-xs font-bold text-slate-750 dark:text-slate-300">{viewingBankDetails.bank.holderName || viewingBankDetails.name}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Account Number</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs font-bold text-slate-750 dark:text-slate-300 font-mono">{viewingBankDetails.bank.accountNumber || 'N/A'}</span>
+                        {viewingBankDetails.bank.accountNumber && (
+                          <button 
+                            onClick={() => {
+                              const txt = viewingBankDetails.bank.accountNumber;
+                              const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              alert('Copied Account Number!');
+                            }}
+                            className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Bank IFSC Code</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs font-bold text-slate-750 dark:text-slate-300 font-mono uppercase">{viewingBankDetails.bank.ifsc || 'N/A'}</span>
+                        {viewingBankDetails.bank.ifsc && (
+                          <button 
+                            onClick={() => {
+                              const txt = viewingBankDetails.bank.ifsc;
+                              const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              alert('Copied IFSC!');
+                            }}
+                            className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">UPI ID Ledger</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs font-bold text-slate-750 dark:text-slate-300 font-mono">{viewingBankDetails.bank.upi || 'N/A'}</span>
+                        {viewingBankDetails.bank.upi && (
+                          <button 
+                            onClick={() => {
+                              const txt = viewingBankDetails.bank.upi;
+                              const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              alert('Copied UPI ID!');
+                            }}
+                            className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Registered Phone</span>
+                      <span className="text-xs font-bold text-slate-750 dark:text-slate-300 font-mono">{viewingBankDetails.bank.phone || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Registered Email</span>
+                      <span className="text-xs font-bold text-slate-750 dark:text-slate-300 font-mono break-all">{viewingBankDetails.bank.email || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  {viewingBankDetails.bank.qrCode && (
+                    <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-2">Uploaded UPI QR Scan card</span>
+                      <div className="flex justify-center bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-800">
+                        <img 
+                          src={viewingBankDetails.bank.qrCode} 
+                          alt="Client QR code" 
+                          className="w-40 h-40 rounded border border-slate-150 dark:border-slate-800 object-contain bg-white dark:bg-slate-900" 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-450 text-xs font-semibold space-y-2">
+                  <p className="text-2xl">🏦</p>
+                  <p className="text-slate-500 font-bold">No bank ledger coordinates configured.</p>
+                  <p className="text-[10px] text-slate-400 max-w-xs mx-auto font-normal">This client has not filled out or saved their bank or UPI details inside their dashboard yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Interactive Image Preview Modal */}
       {previewImage && (

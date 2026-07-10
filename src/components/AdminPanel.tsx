@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAppState } from '../context/AppContext';
+import { useAppState, db } from '../context/AppContext';
 import { compressImageBase64 } from '../lib/image';
+import { doc, getDoc } from 'firebase/firestore';
 import { 
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
@@ -136,6 +137,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [scannedBankDetails, setScannedBankDetails] = useState<any>(null);
   const [isBankDetailsRevealed, setIsBankDetailsRevealed] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [viewingBankDetails, setViewingBankDetails] = useState<{ id: string; name: string; bank: any } | null>(null);
 
   // Publisher list search & Reset states
   const [pubSearchQuery, setPubSearchQuery] = useState('');
@@ -343,7 +345,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   };
 
   // Search bank details
-  const handlePaymentSearch = (e: React.FormEvent) => {
+  const handlePaymentSearch = async (e: React.FormEvent) => {
     e.preventDefault();
     setScannedBankDetails(null);
     setIsBankDetailsRevealed(false);
@@ -352,7 +354,18 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
     const pubMatch = publishers.find(p => p.id.toLowerCase() === paymentUid.trim().toLowerCase());
     if (pubMatch) {
-      const bank = bankDetailsMap[pubMatch.id] || null;
+      let bank = bankDetailsMap[pubMatch.id] || null;
+      if (!bank) {
+        try {
+          const docRef = doc(db, 'bank_details', pubMatch.id);
+          const docSnap = await getDoc(docRef);
+          if (docSnap.exists()) {
+            bank = docSnap.data() as any;
+          }
+        } catch (error) {
+          console.error("Error fetching bank on-demand:", error);
+        }
+      }
       setScannedBankDetails({
         id: pubMatch.id,
         name: pubMatch.name,
@@ -1150,7 +1163,36 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                             <tr key={sub.id} className="hover:bg-slate-50/50">
                               <td className="p-4">
                                 <span className="font-extrabold text-slate-900 block">{sub.id.substring(0, 8)}</span>
-                                <span className="text-[10px] text-slate-400 block mt-0.5 font-mono">By: {sub.publisherName} ({sub.publisherId})</span>
+                                <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                  <span className="text-[10px] text-slate-400 font-mono">By: {sub.publisherName} ({sub.publisherId})</span>
+                                  <button
+                                    type="button"
+                                    id={`view-bank-sub-${sub.id}`}
+                                    onClick={async () => {
+                                      let bank = bankDetailsMap[sub.publisherId] || null;
+                                      if (!bank) {
+                                        try {
+                                          const docRef = doc(db, 'bank_details', sub.publisherId);
+                                          const docSnap = await getDoc(docRef);
+                                          if (docSnap.exists()) {
+                                            bank = docSnap.data() as any;
+                                          }
+                                        } catch (error) {
+                                          console.error("Error fetching bank on-demand:", error);
+                                        }
+                                      }
+                                      setViewingBankDetails({
+                                        id: sub.publisherId,
+                                        name: sub.publisherName,
+                                        bank: bank
+                                      });
+                                    }}
+                                    className="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded text-[9px] font-extrabold border border-emerald-100 uppercase tracking-wide cursor-pointer transition-all"
+                                    title="View Publisher Bank Details"
+                                  >
+                                    🏦 Bank
+                                  </button>
+                                </div>
                               </td>
                               <td className="p-4">
                                 <span className="font-extrabold text-slate-800 block">{sub.clientName}</span>
@@ -1447,6 +1489,32 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           <td className="p-3 text-slate-405">{pub.joinedDate}</td>
                           <td className="p-3 text-right">
                             <div className="flex justify-end gap-2 items-center">
+                              <button
+                                id={`view-bank-pub-${pub.id}`}
+                                onClick={async () => {
+                                  let bank = bankDetailsMap[pub.id] || null;
+                                  if (!bank) {
+                                    try {
+                                      const docRef = doc(db, 'bank_details', pub.id);
+                                      const docSnap = await getDoc(docRef);
+                                      if (docSnap.exists()) {
+                                        bank = docSnap.data() as any;
+                                      }
+                                    } catch (error) {
+                                      console.error("Error fetching bank on-demand:", error);
+                                    }
+                                  }
+                                  setViewingBankDetails({
+                                    id: pub.id,
+                                    name: pub.name,
+                                    bank: bank
+                                  });
+                                }}
+                                className="px-2.5 py-1 text-[10px] font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg border border-emerald-150 transition-colors cursor-pointer flex items-center gap-1"
+                                title="View Publisher Bank Ledger Details"
+                              >
+                                🏦 View Bank
+                              </button>
                               <button
                                 id={`edit-earnings-${pub.id}`}
                                 onClick={() => {
@@ -2700,6 +2768,137 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
         </main>
       </div>
+
+      {/* Interactive Bank Details Modal */}
+      {viewingBankDetails && (
+        <div 
+          id="publisher-bank-details-modal" 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setViewingBankDetails(null)}
+        >
+          <div 
+            className="relative bg-white rounded-2xl overflow-hidden max-w-md w-full border border-slate-200 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 border-b border-slate-150 bg-slate-50">
+              <span className="font-extrabold text-slate-850 text-[11px] uppercase tracking-wider">🏦 Banking Ledger: {viewingBankDetails.id}</span>
+              <button 
+                onClick={() => setViewingBankDetails(null)}
+                className="p-1 px-2.5 bg-slate-200 hover:bg-slate-300 rounded-xl font-black text-slate-750 cursor-pointer text-[10px]"
+              >
+                ✕ Close
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <span className="block text-[10px] uppercase tracking-widest font-mono text-slate-400">Account Owner</span>
+                <h4 className="text-base font-extrabold mt-0.5 text-slate-900">{viewingBankDetails.name}</h4>
+              </div>
+
+              {viewingBankDetails.bank && (viewingBankDetails.bank.accountNumber || viewingBankDetails.bank.upi) ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Holder Name</span>
+                      <span className="text-xs font-bold text-slate-750">{viewingBankDetails.bank.holderName || viewingBankDetails.name}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Account Number</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs font-bold text-slate-750 font-mono">{viewingBankDetails.bank.accountNumber || 'N/A'}</span>
+                        {viewingBankDetails.bank.accountNumber && (
+                          <button 
+                            onClick={() => {
+                              const txt = viewingBankDetails.bank.accountNumber;
+                              const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              alert('Copied Account Number!');
+                            }}
+                            className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Bank IFSC Code</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs font-bold text-slate-750 font-mono uppercase">{viewingBankDetails.bank.ifsc || 'N/A'}</span>
+                        {viewingBankDetails.bank.ifsc && (
+                          <button 
+                            onClick={() => {
+                              const txt = viewingBankDetails.bank.ifsc;
+                              const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              alert('Copied IFSC!');
+                            }}
+                            className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">UPI ID Ledger</span>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className="text-xs font-bold text-slate-750 font-mono">{viewingBankDetails.bank.upi || 'N/A'}</span>
+                        {viewingBankDetails.bank.upi && (
+                          <button 
+                            onClick={() => {
+                              const txt = viewingBankDetails.bank.upi;
+                              const ta = document.createElement("textarea"); ta.value = txt; ta.style.position="fixed"; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+                              alert('Copied UPI ID!');
+                            }}
+                            className="px-1.5 py-0.5 text-[8px] font-black bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Registered Phone</span>
+                      <span className="text-xs font-bold text-slate-750 font-mono">{viewingBankDetails.bank.phone || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold">Registered Email</span>
+                      <span className="text-xs font-bold text-slate-750 font-mono break-all">{viewingBankDetails.bank.email || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  {viewingBankDetails.bank.qrCode && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <span className="block text-[9px] uppercase tracking-widest text-slate-400 font-bold mb-2">Uploaded UPI QR Scan card</span>
+                      <div className="flex justify-center bg-slate-50 p-3 rounded-xl border border-slate-100">
+                        <img 
+                          src={viewingBankDetails.bank.qrCode} 
+                          alt="Client QR code" 
+                          className="w-40 h-40 rounded border border-slate-150 object-contain bg-white" 
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-slate-450 text-xs font-semibold space-y-2">
+                  <p className="text-2xl">🏦</p>
+                  <p className="text-slate-500 font-bold">No bank ledger coordinates configured.</p>
+                  <p className="text-[10px] text-slate-400 max-w-xs mx-auto font-normal">This client has not filled out or saved their bank or UPI details inside their dashboard yet.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Interactive Image Preview Modal */}
       {previewImage && (

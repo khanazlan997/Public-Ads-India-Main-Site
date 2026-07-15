@@ -880,11 +880,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   <div>
                     <span className="text-[10px] block font-bold text-slate-400 uppercase tracking-wider font-sans leading-none mb-1">Current Active Space</span>
                     <span className="text-sm font-black tracking-tight block text-slate-800 dark:text-slate-200">
-                      {activeTab === 'dashboard' && 'Earning Dashboard'}
-                      {activeTab === 'campaign' && 'Active Campaign'}
-                      {activeTab === 'datasubmit' && 'Data Submission'}
-                      {activeTab === 'mistracking' && 'MIS Tracking Feed'}
-                      {activeTab === 'verification' && 'Verification Track'}
+                      {activeTab === 'dashboard' && 'Dashboard'}
+                      {activeTab === 'campaign' && 'Live Campaign'}
+                      {activeTab === 'datasubmit' && 'Leads Submit'}
+                      {activeTab === 'mistracking' && 'MIS Lead Track'}
+                      {activeTab === 'verification' && 'Client File Submit'}
                       {activeTab === 'topearners' && 'Top Earners Board'}
                       {activeTab === 'bankupdate' && 'Bank Update'}
                     </span>
@@ -905,11 +905,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   {/* Floating Option Cards container */}
                   <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0c1322] border border-slate-200 dark:border-slate-800/90 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[380px] overflow-y-auto animate-fade-up">
                     {[
-                      { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Overview of earnings, payouts & graphs', icon: <Coins className="w-4 h-4" /> },
-                      { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse and apply for active campaign deals', icon: <FileText className="w-4 h-4" /> },
-                      { tabId: 'datasubmit', label: 'Data Submission', desc: 'Submit leads & upload conversions work', icon: <UploadCloud className="w-4 h-4" /> },
-                      { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute reports & mis-tracking logs', icon: <HelpCircle className="w-4 h-4" /> },
-                      { tabId: 'verification', label: 'Verification Track', desc: 'Realtime approval status of submitted work', icon: <CheckCircle2 className="w-4 h-4" /> },
+                      { tabId: 'dashboard', label: 'Dashboard', desc: 'Overview of earnings, payouts & graphs', icon: <Coins className="w-4 h-4" /> },
+                      { tabId: 'campaign', label: 'Live Campaign', desc: 'Browse and apply for active campaign deals', icon: <FileText className="w-4 h-4" /> },
+                      { tabId: 'datasubmit', label: 'Leads Submit', desc: 'Submit leads & upload conversions work', icon: <UploadCloud className="w-4 h-4" /> },
+                      { tabId: 'mistracking', label: 'MIS Lead Track', desc: 'Track dispute reports & mis-tracking logs', icon: <HelpCircle className="w-4 h-4" /> },
+                      { tabId: 'verification', label: 'Client File Submit', desc: 'Realtime approval status of submitted work', icon: <CheckCircle2 className="w-4 h-4" /> },
                       { tabId: 'topearners', label: 'Top Earners Board', desc: 'Our live public high-earning publishers list', icon: <Trophy className="w-4 h-4" /> },
                       { tabId: 'bankupdate', label: 'Bank Update', desc: 'Update details & UPI scan triggers', icon: <QrCode className="w-4 h-4" /> }
                     ].map((btn) => (
@@ -1221,11 +1221,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       <div id="publisher-navbar-desktop" className="hidden lg:block relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
         <div className="flex flex-wrap items-stretch gap-2.5">
           {[
-            { tabId: 'dashboard', label: 'Earning Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
-            { tabId: 'campaign', label: 'Active Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
-            { tabId: 'datasubmit', label: 'Submit Leads', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
-            { tabId: 'mistracking', label: 'MIS Tracking Feed', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
-            { tabId: 'verification', label: 'Verification Track', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
+            { tabId: 'dashboard', label: 'Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
+            { tabId: 'campaign', label: 'Live Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
+            { tabId: 'datasubmit', label: 'Leads Submit', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
+            { tabId: 'mistracking', label: 'MIS Lead Track', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
+            { tabId: 'verification', label: 'Client File Submit', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
             { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
             { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
           ].map((btn) => (
@@ -1357,7 +1357,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-xs text-slate-455 dark:text-slate-500 uppercase font-black tracking-widest leading-none">Total Work</span>
-                    <span className="text-xl font-black text-slate-850 dark:text-slate-100 mt-1 font-mono">
+                    <span className="text-xl font-black text-slate-855 dark:text-slate-100 mt-1 font-mono">
                       {pubSubmissions.length} Leads
                     </span>
                     <span className="text-[10px] text-indigo-550 dark:text-indigo-400 font-extrabold uppercase tracking-wider mt-0.5">Submitted Logs</span>
@@ -1371,54 +1371,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
             </div>
 
-          </div>
-
-          {/* Last 5 Earnings Box table */}
-          <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-205 dark:border-slate-800/85">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Last 5 Earnings Logs</h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">Disbursed rewards with automated system triggers</p>
-              </div>
-              <span className="text-[10px] font-bold text-amber-500 bg-amber-50 dark:bg-amber-950/20 px-2.5 py-1 rounded">Live Ledger Feed</span>
-            </div>
-
-            {matchedEarnings.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-xs font-medium">
-                No active reward disbursements on record yet. Complete campaigns and submit verification.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">
-                      <th className="p-3 rounded-l-xl">Campaign Name</th>
-                      <th className="p-3">Disburse Date</th>
-                      <th className="p-3">Timestamp</th>
-                      <th className="p-3 rounded-r-xl text-right">Consolidated Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {matchedEarnings.map((earning) => (
-                      <tr key={earning.id} className="border-b border-slate-50 dark:border-slate-850/20">
-                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
-                          {earning.campaignName}
-                        </td>
-                        <td className="p-3 text-slate-500 dark:text-slate-350 font-medium">
-                          {earning.date}
-                        </td>
-                        <td className="p-3 text-slate-400 dark:text-slate-500 font-mono">
-                          {earning.time}
-                        </td>
-                        <td className="p-3 text-right font-black text-brand-success font-mono">
-                          +₹{earning.amount}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
           </div>
 
         </div>
@@ -1734,7 +1686,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
             {pubSubmissions.length === 0 ? (
               <div className="text-center py-10 text-slate-400 text-xs font-medium">
-                No campaign submissions located for your publisher account. Submit conversions in Data Submission first.
+                No campaign submissions located for your publisher account. Submit conversions in Leads Submit first.
               </div>
             ) : (
               <>

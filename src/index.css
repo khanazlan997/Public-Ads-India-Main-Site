@@ -201,3 +201,110 @@ html, body, #root {
 .animate-carousel-slide:hover {
   animation-play-state: paused !important;
 }
+
+/* --- CUSTOM PAI LOADER STYLING --- */
+.loader-wrap {
+  position: relative;
+  width: 420px;
+  max-width: 90vw;
+  text-align: center;
+  animation: introPop 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes introPop {
+  0%   { opacity: 0; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.glow-ring {
+  fill: none;
+  stroke: #0080c0;
+  stroke-width: 1;
+  opacity: 0;
+  transform-origin: 350px 130px;
+  animation: pulseRing 3.2s ease-out infinite;
+}
+
+@keyframes pulseRing {
+  0%   { transform: scale(0.9); opacity: 0.35; }
+  70%  { transform: scale(1.25); opacity: 0; }
+  100% { transform: scale(1.25); opacity: 0; }
+}
+
+/* Sequential stroke drawing animation for P, A, I */
+.drawing-path {
+  stroke-dasharray: 600;
+  stroke-dashoffset: 600;
+  animation: drawStroke 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.p-path {
+  animation-delay: 0s;
+}
+
+.a-path {
+  animation-delay: 0.25s;
+}
+
+.i-path {
+  animation-delay: 0.5s;
+}
+
+@keyframes drawStroke {
+  0% {
+    stroke-dashoffset: 600;
+  }
+  45% {
+    stroke-dashoffset: 0;
+  }
+  80% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 600;
+    opacity: 0.3;
+  }
+}
+
+.brand {
+  margin-top: 15px;
+  color: #0080c0;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 4px;
+  opacity: 0;
+  animation: fadeUp 0.8s ease-out 0.5s forwards;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 0.9; transform: translateY(0); }
+}
+
+.progress-track {
+  width: 160px;
+  height: 3px;
+  background: #e6e6e6;
+  border-radius: 3px;
+  margin: 14px auto 0;
+  overflow: hidden;
+}
+
+.dark .progress-track {
+  background: #1e293b;
+}
+
+.progress-fill {
+  height: 100%;
+  width: 40%;
+  background: linear-gradient(90deg, #4fd8ff, #0080c0);
+  border-radius: 3px;
+  animation: loadBar 1.8s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes loadBar {
+  0%   { width: 0%; margin-left: 0%; }
+  50%  { width: 55%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}

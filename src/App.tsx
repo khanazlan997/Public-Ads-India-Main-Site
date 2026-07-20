@@ -17,14 +17,6 @@ function AppContent() {
   
   // Custom SPA Routing State
   const [route, setRoute] = useState<string>('/Home');
-  const [isAppLoading, setIsAppLoading] = useState(true);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsAppLoading(false);
-    }, 2800);
-    return () => clearTimeout(timer);
-  }, []);
 
   // Monitor path modifications from browser address bar or buttons
   useEffect(() => {
@@ -95,35 +87,6 @@ function AppContent() {
   return (
     <div className={`min-h-screen transition-colors duration-300 font-sans ${theme === 'dark' && !isAdminActive ? 'bg-[#060d1f] text-slate-100' : 'bg-[#f8faff] text-slate-900'}`}>
       
-      {/* Dynamic PAI Loading Screen designed by user */}
-      <AnimatePresence>
-        {isAppLoading && (
-          <motion.div
-            initial={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeInOut' }}
-            className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-[#f8faff] dark:bg-[#060d1f]"
-          >
-            <div className="text-center select-none">
-              <motion.h1
-                initial={{ opacity: 0, scale: 0.95, letterSpacing: "0.1em" }}
-                animate={{ opacity: [0, 1, 1, 0.9], scale: [0.95, 1, 1, 0.98], letterSpacing: ["0.1em", "0.25em", "0.25em", "0.22em"] }}
-                transition={{ duration: 2.2, ease: [0.16, 1, 0.3, 1], times: [0, 0.4, 0.8, 1] }}
-                className="text-5xl md:text-6xl font-black bg-gradient-to-r from-blue-400 via-sky-500 to-indigo-600 bg-clip-text text-transparent filter drop-shadow-[0_4px_20px_rgba(56,189,248,0.15)] leading-none"
-              >
-                PAI
-              </motion.h1>
-              <motion.div 
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: "90px", opacity: 0.85 }}
-                transition={{ delay: 0.2, duration: 1.5, ease: [0.16, 1, 0.3, 1] }}
-                className="h-1 bg-gradient-to-r from-blue-400 via-sky-500 to-indigo-600 mx-auto mt-4 rounded-full"
-              />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
       {/* Promo Alert Announcer Popup */}
       {currentUser?.type === 'publisher' && <OfferPopup />}
 

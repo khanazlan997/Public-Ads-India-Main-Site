@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAppState } from '../context/AppContext';
 import { compressImageBase64 } from '../lib/image';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
@@ -314,6 +315,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const [leadClientCode, setLeadClientCode] = useState('');
   const [submissionError, setSubmissionError] = useState('');
   const [submissionSuccess, setSubmissionSuccess] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Copied states trackers
   const [copiedCampId, setCopiedCampId] = useState<string | null>(null);
@@ -462,6 +465,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   // Submit Lead Lead code
   const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
     setSubmissionError('');
     setSubmissionSuccess('');
 
@@ -478,17 +483,25 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       return;
     }
 
-    const res = await submitLead(selectedCampaignId, leadClientName, leadClientPhone, leadClientCode, screenBase64);
-    if (res.success) {
-      setSubmissionSuccess(res.message);
-      // Reset
-      setLeadClientName('');
-      setLeadClientPhone('');
-      setLeadClientCode('');
-      setScreenBase64('');
-      setScreenFileName('');
-    } else {
-      setSubmissionError(res.message);
+    setIsSubmitting(true);
+    try {
+      const res = await submitLead(selectedCampaignId, leadClientName, leadClientPhone, leadClientCode, screenBase64);
+      if (res.success) {
+        setSubmissionSuccess(res.message);
+        setShowSuccessPopup(true);
+        // Reset form fields
+        setLeadClientName('');
+        setLeadClientPhone('');
+        setLeadClientCode('');
+        setScreenBase64('');
+        setScreenFileName('');
+      } else {
+        setSubmissionError(res.message);
+      }
+    } catch (err: any) {
+      setSubmissionError(err.message || 'An error occurred during submission.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -1662,9 +1675,24 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <button
                 type="submit"
                 id="submit-lead-form-btn"
-                className="mt-6 w-full py-4 bg-brand-primary hover:bg-blue-700 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md cursor-pointer"
+                disabled={isSubmitting}
+                className={`mt-6 w-full py-4 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md flex items-center justify-center gap-2 ${
+                  isSubmitting 
+                    ? 'bg-slate-400 dark:bg-slate-700 cursor-not-allowed opacity-80' 
+                    : 'bg-brand-primary hover:bg-blue-700 cursor-pointer'
+                }`}
               >
-                Submit Client Lead data
+                {isSubmitting ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Submitting client lead...
+                  </>
+                ) : (
+                  'Submit Client Lead data'
+                )}
               </button>
 
             </form>
@@ -2034,6 +2062,64 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           </div>
         </div>
       )}
+
+      {/* Dynamic Animated Success Popup */}
+      <AnimatePresence>
+        {showSuccessPopup && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+            onClick={() => setShowSuccessPopup(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
+              className="relative bg-white dark:bg-[#0d1628] rounded-3xl p-8 max-w-sm w-full border border-slate-200 dark:border-slate-800 shadow-2xl text-center overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Confetti / Particle effect container (pure CSS) */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-50">
+                <div className="absolute top-10 left-10 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping" />
+                <div className="absolute top-24 right-12 w-2 h-2 bg-sky-400 rounded-full animate-pulse" />
+                <div className="absolute bottom-16 left-16 w-3 h-3 bg-amber-400 rounded-full animate-pulse" />
+              </div>
+
+              {/* Animated Checkmark SVG */}
+              <div className="flex justify-center mb-6">
+                <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-950/40 rounded-full flex items-center justify-center border border-emerald-100 dark:border-emerald-800/40 shadow-inner">
+                  <svg className="w-10 h-10 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                    <motion.path
+                      initial={{ pathLength: 0 }}
+                      animate={{ pathLength: 1 }}
+                      transition={{ duration: 0.6, ease: "easeInOut", delay: 0.1 }}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                </div>
+              </div>
+
+              <h3 className="text-xl font-extrabold text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+                Data Saved Successfully!
+              </h3>
+              
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">
+                Your client lead submission has been safely recorded in our secure network database. Feel rest assured, your data is complete!
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setShowSuccessPopup(false)}
+                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
+              >
+                Awesome, Got It!
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

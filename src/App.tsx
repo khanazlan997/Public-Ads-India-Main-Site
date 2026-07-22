@@ -17,10 +17,21 @@ function AppContent() {
   
   // Custom SPA Routing State
   const [route, setRoute] = useState<string>('/Home');
+  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [isPageNavigating, setIsPageNavigating] = useState(false);
+
+  // Initial App Mount Loader
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsAppLoading(false);
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Monitor path modifications from browser address bar or buttons
   useEffect(() => {
     const handleLocationChange = () => {
+      setIsPageNavigating(true);
       // Prioritize hash routing to prevent 404 on refresh in any cloud runtime
       const hash = window.location.hash;
       let path = '/Home';
@@ -45,6 +56,12 @@ function AppContent() {
         }
       }
       setRoute(path);
+
+      // Smooth page loading animation finish
+      const navTimer = setTimeout(() => {
+        setIsPageNavigating(false);
+      }, 650);
+      return () => clearTimeout(navTimer);
     };
 
     // Initialize routing on load
@@ -61,8 +78,12 @@ function AppContent() {
 
   // Update URL via hash dynamically to reflect active panels across refreshes
   const navigateTo = (newRoute: string) => {
+    setIsPageNavigating(true);
     setRoute(newRoute);
     window.location.hash = `#${newRoute}`;
+    setTimeout(() => {
+      setIsPageNavigating(false);
+    }, 650);
   };
 
   // Bind site-wide HTML dark mode Class changes
@@ -87,6 +108,52 @@ function AppContent() {
   return (
     <div className={`min-h-screen transition-colors duration-300 font-sans ${theme === 'dark' && !isAdminActive ? 'bg-[#060d1f] text-slate-100' : 'bg-[#f8faff] text-slate-900'}`}>
       
+      {/* Full-Screen PAI Brand Loading Screen (Shown on initial mount & page navigation/signin) */}
+      <AnimatePresence mode="wait">
+        {(isAppLoading || isPageNavigating) && (
+          <motion.div
+            key="pai-loading-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="fixed inset-0 z-[99999] flex flex-col items-center justify-center bg-[#f8faff] dark:bg-[#060d1f] select-none pointer-events-auto"
+          >
+            <div className="text-center px-4 flex flex-col items-center justify-center">
+              <motion.h1
+                initial={{ opacity: 0, scale: 0.88, letterSpacing: "0.1em" }}
+                animate={{ 
+                  opacity: [0, 1, 1], 
+                  scale: [0.88, 1, 0.98], 
+                  letterSpacing: ["0.1em", "0.22em", "0.22em"] 
+                }}
+                transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+                className="text-6xl md:text-7xl font-black bg-gradient-to-r from-blue-400 via-sky-500 to-indigo-600 bg-clip-text text-transparent filter drop-shadow-[0_4px_20px_rgba(56,189,248,0.25)] leading-none"
+              >
+                PAI
+              </motion.h1>
+              <motion.p
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 0.9, y: 0 }}
+                transition={{ delay: 0.1, duration: 0.4 }}
+                className="text-[10px] sm:text-xs uppercase tracking-[0.3em] font-extrabold text-sky-500 mt-3"
+              >
+                Public Ads India
+              </motion.p>
+              
+              <div className="w-28 h-1 bg-slate-200 dark:bg-slate-800 rounded-full mt-5 overflow-hidden relative">
+                <motion.div 
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "0%" }}
+                  transition={{ duration: 0.55, ease: "easeInOut" }}
+                  className="w-full h-full bg-gradient-to-r from-blue-400 via-sky-500 to-indigo-600 rounded-full shadow-[0_0_10px_rgba(56,189,248,0.6)]"
+                />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Promo Alert Announcer Popup */}
       {currentUser?.type === 'publisher' && <OfferPopup />}
 

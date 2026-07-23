@@ -6,7 +6,7 @@ import {
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
   Camera, UploadCloud, Edit3, Sparkles, LogOut, Check, ChevronDown, ChevronRight,
-  Lock, X, Download, ExternalLink, Eye, EyeOff
+  Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
 
@@ -878,10 +878,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <button
                 type="button"
                 onClick={() => setIsNavMenuOpen(!isNavMenuOpen)}
-                className="w-full flex items-center justify-between gap-3 px-5 py-3.5 bg-white dark:bg-[#0d1628] hover:bg-slate-55 dark:hover:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-800/80 shadow-xs text-sm font-black text-slate-800 dark:text-slate-105 transition-all text-left group cursor-pointer"
+                className="w-full flex items-center justify-between gap-3 px-4.5 py-3.5 bg-slate-900 dark:bg-[#09101f] hover:bg-slate-800 dark:hover:bg-[#0d162b] rounded-2xl border-2 border-slate-700/80 dark:border-slate-800 shadow-md text-sm font-black text-white transition-all text-left group cursor-pointer ring-1 ring-slate-700/30"
               >
                 <div className="flex items-center gap-3">
-                  <span className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-605 dark:text-indigo-400">
+                  <span className="p-2 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30">
                     {activeTab === 'dashboard' && <Coins className="w-5 h-5" />}
                     {activeTab === 'campaign' && <FileText className="w-5 h-5" />}
                     {activeTab === 'datasubmit' && <UploadCloud className="w-5 h-5" />}
@@ -891,19 +891,19 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     {activeTab === 'bankupdate' && <QrCode className="w-5 h-5" />}
                   </span>
                   <div>
-                    <span className="text-[10px] block font-bold text-slate-400 uppercase tracking-wider font-sans leading-none mb-1">Current Active Space</span>
-                    <span className="text-sm font-black tracking-tight block text-slate-800 dark:text-slate-200">
+                    <span className="text-[10px] block font-bold text-sky-400 uppercase tracking-wider font-sans leading-none mb-1">Current Active Space</span>
+                    <span className="text-sm font-black tracking-tight block text-white dark:text-slate-100">
                       {activeTab === 'dashboard' && 'Dashboard'}
                       {activeTab === 'campaign' && 'Live Campaign'}
                       {activeTab === 'datasubmit' && 'Leads Submit'}
-                      {activeTab === 'mistracking' && 'MIS Lead Track'}
+                      {activeTab === 'mistracking' && 'MIS Lead Report'}
                       {activeTab === 'verification' && 'Client File Submit'}
                       {activeTab === 'topearners' && 'Top Earners Board'}
                       {activeTab === 'bankupdate' && 'Bank Update'}
                     </span>
                   </div>
                 </div>
-                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-305 ${isNavMenuOpen ? 'rotate-180 text-blue-500' : ''}`} />
+                <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${isNavMenuOpen ? 'rotate-180 text-sky-400' : 'group-hover:text-slate-200'}`} />
               </button>
 
               {/* Dropdown Menu List Options */}
@@ -916,15 +916,15 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   />
                   
                   {/* Floating Option Cards container */}
-                  <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-[#0c1322] border border-slate-200 dark:border-slate-800/90 rounded-2xl shadow-xl z-50 overflow-hidden divide-y divide-slate-100 dark:divide-slate-800/60 max-h-[380px] overflow-y-auto animate-fade-up">
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 dark:bg-[#09101f] text-white border-2 border-slate-700/80 dark:border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800/80 max-h-[400px] overflow-y-auto animate-fade-up ring-1 ring-slate-700/30">
                     {[
-                      { tabId: 'dashboard', label: 'Dashboard', desc: 'Overview of earnings, payouts & graphs', icon: <Coins className="w-4 h-4" /> },
-                      { tabId: 'campaign', label: 'Live Campaign', desc: 'Browse and apply for active campaign deals', icon: <FileText className="w-4 h-4" /> },
-                      { tabId: 'datasubmit', label: 'Leads Submit', desc: 'Submit leads & upload conversions work', icon: <UploadCloud className="w-4 h-4" /> },
-                      { tabId: 'mistracking', label: 'MIS Lead Track', desc: 'Track dispute reports & mis-tracking logs', icon: <HelpCircle className="w-4 h-4" /> },
-                      { tabId: 'verification', label: 'Client File Submit', desc: 'Realtime approval status of submitted work', icon: <CheckCircle2 className="w-4 h-4" /> },
-                      { tabId: 'topearners', label: 'Top Earners Board', desc: 'Our live public high-earning publishers list', icon: <Trophy className="w-4 h-4" /> },
-                      { tabId: 'bankupdate', label: 'Bank Update', desc: 'Update details & UPI scan triggers', icon: <QrCode className="w-4 h-4" /> }
+                      { tabId: 'dashboard', label: 'Dashboard', desc: 'Overview & earnings stats', icon: <Coins className="w-4.5 h-4.5" /> },
+                      { tabId: 'campaign', label: 'Live Campaign', desc: 'Browse available deals', icon: <FileText className="w-4.5 h-4.5" /> },
+                      { tabId: 'datasubmit', label: 'Leads Submit', desc: 'Upload proof files', icon: <UploadCloud className="w-4.5 h-4.5" /> },
+                      { tabId: 'mistracking', label: 'MIS Lead Report', desc: 'Track dispute logs', icon: <HelpCircle className="w-4.5 h-4.5" /> },
+                      { tabId: 'verification', label: 'Client File Submit', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4.5 h-4.5" /> },
+                      { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4.5 h-4.5" /> },
+                      { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4.5 h-4.5" /> }
                     ].map((btn) => (
                       <button
                         key={btn.tabId}
@@ -934,28 +934,30 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                           setActiveTab(btn.tabId as TabType);
                           setIsNavMenuOpen(false);
                         }}
-                        className={`w-full px-4 py-3 flex items-center justify-between gap-3 text-left transition-all hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer ${
+                        className={`w-full px-4.5 py-3.5 flex items-center justify-between gap-3 text-left transition-all hover:bg-slate-800/90 dark:hover:bg-slate-800/60 cursor-pointer ${
                           activeTab === btn.tabId 
-                            ? 'bg-blue-50/50 dark:bg-blue-950/20 text-blue-600 dark:text-blue-400 font-bold' 
-                            : 'text-slate-700 dark:text-slate-350'
+                            ? 'bg-blue-600/25 text-blue-400 font-bold border-l-4 border-blue-500 pl-3.5' 
+                            : 'text-slate-200 dark:text-slate-300'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <span className={`p-2 rounded-xl transition-colors ${
                             activeTab === btn.tabId 
-                              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-300' 
-                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800/80 dark:text-slate-450'
+                              ? 'bg-blue-500/30 text-blue-400' 
+                              : 'bg-slate-800 text-slate-400 dark:bg-slate-800/80 dark:text-slate-400'
                           }`}>
                             {btn.icon}
                           </span>
                           <div>
-                            <span className="text-xs font-black block tracking-tight">{btn.label}</span>
-                            <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold block mt-0.5">{btn.desc}</span>
+                            <span className="text-sm font-black block tracking-tight text-white dark:text-slate-100">{btn.label}</span>
+                            {btn.desc ? (
+                              <span className="text-[11px] text-slate-400 dark:text-slate-400 font-medium block mt-0.5">{btn.desc}</span>
+                            ) : null}
                           </div>
                         </div>
                         
                         {activeTab === btn.tabId && (
-                          <Check className="w-4 h-4 text-blue-500 mr-1.5" />
+                          <Check className="w-4 h-4 text-blue-400 mr-1.5" />
                         )}
                       </button>
                     ))}
@@ -1234,19 +1236,19 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       <div id="publisher-navbar-desktop" className="hidden lg:block relative border-b border-slate-200/50 dark:border-slate-800/50 pb-6 mb-8 select-none">
         <div className="flex flex-wrap items-stretch gap-2.5">
           {[
-            { tabId: 'dashboard', label: 'Dashboard', desc: 'Performance analytics', icon: <Coins className="w-4 h-4" /> },
-            { tabId: 'campaign', label: 'Live Campaign', desc: 'Browse available deals', icon: <FileText className="w-4 h-4" /> },
-            { tabId: 'datasubmit', label: 'Leads Submit', desc: 'Upload proof files', icon: <UploadCloud className="w-4 h-4" /> },
-            { tabId: 'mistracking', label: 'MIS Lead Track', desc: 'Track dispute logs', icon: <HelpCircle className="w-4 h-4" /> },
-            { tabId: 'verification', label: 'Client File Submit', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4 h-4" /> },
-            { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4 h-4" /> },
-            { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4 h-4" /> }
+            { tabId: 'dashboard', label: 'Dashboard', desc: 'Overview & stats', icon: <Coins className="w-4.5 h-4.5" /> },
+            { tabId: 'campaign', label: 'Live Campaign', desc: 'Browse active deals', icon: <FileText className="w-4.5 h-4.5" /> },
+            { tabId: 'datasubmit', label: 'Leads Submit', desc: 'Upload proof files', icon: <UploadCloud className="w-4.5 h-4.5" /> },
+            { tabId: 'mistracking', label: 'MIS Lead Report', desc: 'Track dispute logs', icon: <HelpCircle className="w-4.5 h-4.5" /> },
+            { tabId: 'verification', label: 'Client File Submit', desc: 'Lead approval states', icon: <CheckCircle2 className="w-4.5 h-4.5" /> },
+            { tabId: 'topearners', label: 'Top Earners Board', desc: 'High payout records', icon: <Trophy className="w-4.5 h-4.5" /> },
+            { tabId: 'bankupdate', label: 'Bank Update', desc: 'Configure bank / UPI', icon: <QrCode className="w-4.5 h-4.5" /> }
           ].map((btn) => (
             <button
               key={btn.tabId}
               type="button"
               onClick={() => setActiveTab(btn.tabId as TabType)}
-              className={`flex-1 min-w-[125px] max-w-[170px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
+              className={`flex-1 min-w-[130px] max-w-[185px] p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer flex flex-col justify-between gap-3 ${
                 activeTab === btn.tabId
                   ? 'bg-gradient-to-b from-indigo-50/50 to-indigo-100/10 dark:from-[#111c35] dark:to-[#0f172a]/20 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 shadow-xs ring-1 ring-indigo-200/20'
                   : 'bg-white dark:bg-[#0c1322]/30 hover:bg-slate-50 dark:hover:bg-[#0c1322]/80 text-slate-605 dark:text-slate-400 border-slate-205 dark:border-slate-800/80 hover:border-slate-300 dark:hover:border-slate-705'
@@ -1260,8 +1262,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 {btn.icon}
               </span>
               <div>
-                <span className={`text-[11px] font-extrabold tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-800 dark:text-slate-300'}`}>{btn.label}</span>
-                <span className="text-[9px] text-slate-400 dark:text-slate-500 block font-semibold leading-normal mt-0.5">{btn.desc}</span>
+                <span className={`text-xs sm:text-[13px] font-black tracking-tight block ${activeTab === btn.tabId ? 'text-indigo-700 dark:text-indigo-350' : 'text-slate-900 dark:text-slate-200'}`}>{btn.label}</span>
+                {btn.desc ? (
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 block font-medium leading-normal mt-0.5">{btn.desc}</span>
+                ) : null}
               </div>
             </button>
           ))}
@@ -1370,20 +1374,96 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   </div>
                   <div className="flex flex-col text-left">
                     <span className="text-xs text-slate-455 dark:text-slate-500 uppercase font-black tracking-widest leading-none">Total Work</span>
-                    <span className="text-xl font-black text-slate-855 dark:text-slate-100 mt-1 font-mono">
-                      {pubSubmissions.length} Leads
-                    </span>
-                    <span className="text-[10px] text-indigo-550 dark:text-indigo-400 font-extrabold uppercase tracking-wider mt-0.5">Submitted Logs</span>
+                    <div className="flex items-baseline gap-2 mt-1">
+                      <span className="text-2xl font-black text-slate-855 dark:text-slate-100 font-mono">
+                        {pubSubmissions.length}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Total Leads</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none text-left">
+              {/* Status Breakdown badges */}
+              <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/40">
+                  ✓ {pubSubmissions.filter(s => s.status === 'approved').length} Approved
+                </span>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/40">
+                  ⏳ {pubSubmissions.filter(s => s.status === 'pending').length} In Verification
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none text-left mt-3">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                <span>All leads verified & recorded</span>
+                <span>All submitted leads locked & synced safely</span>
               </div>
             </div>
 
+          </div>
+
+          {/* Lead Counting Sync & Help Banner - Executive Pro Card */}
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-[#0d1629] to-indigo-950 text-white p-6 sm:p-7 border border-indigo-500/30 dark:border-indigo-500/40 shadow-xl text-left">
+            {/* Ambient Background Glow Effect */}
+            <div className="absolute -top-24 -right-24 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10 space-y-4">
+              {/* Top Meta Badges & Title Header */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black text-white tracking-wide uppercase">Lead Counting & Syncing Protocol</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                        24-48 Hours Audit Window
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">Automated Advertiser Verification & Manual Mis-Tracking Support</p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mistracking')}
+                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2 cursor-pointer border border-blue-400/30 shrink-0"
+                >
+                  <HelpCircle className="w-4 h-4 text-sky-200" />
+                  <span>Report Missing Lead</span>
+                  <ChevronRight className="w-4 h-4 text-sky-200" />
+                </button>
+              </div>
+
+              {/* Instructions Content Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+                {/* English Guidelines */}
+                <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-sky-400 uppercase tracking-wider">
+                    <CheckCircle2 className="w-4 h-4 text-sky-400" />
+                    <span>English Guidance</span>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                    Conversions are processed automatically via client webhooks within <strong>24–48 hours</strong>. 
+                    If any lead fails to reflect in your dashboard, submit a claim under <strong className="text-amber-300">MIS Lead Report</strong> for priority manual reconciliation.
+                  </p>
+                </div>
+
+                {/* Hindi Guidelines */}
+                <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 space-y-1.5">
+                  <div className="flex items-center gap-2 text-xs font-extrabold text-amber-400 uppercase tracking-wider">
+                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
+                    <span>हिंदी दिशानिर्देश</span>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed font-normal">
+                    सभी सबमिट की गई लीड्स <strong>24 से 48 घंटे</strong> के भीतर एडवरटाइज़र द्वारा वेरीफाई होती हैं। यदि आपकी कोई लीड काउंट नहीं दिख रही है, तो <strong className="text-sky-300">MIS Lead Report</strong> सेक्शन में टिकट रेज करें।
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
         </div>

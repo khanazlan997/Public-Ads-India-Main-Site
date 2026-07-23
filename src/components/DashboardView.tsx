@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import { useAppState } from '../context/AppContext';
 import { compressImageBase64 } from '../lib/image';
 import { motion, AnimatePresence } from 'motion/react';
@@ -288,6 +289,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
   // Profile editing state
   const [profileName, setProfileName] = useState('');
+  const [requestedNewName, setRequestedNewName] = useState('');
   const [profileAvatar, setProfileAvatar] = useState('😎');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [showLockPopup, setShowLockPopup] = useState(false);
@@ -417,10 +419,38 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     }
   };
 
+  const handleSavePhoto = (newAvatar?: string) => {
+    const avatarToSave = newAvatar || profileAvatar;
+    if (!avatarToSave) return;
+    
+    // Save to profile context
+    updatePublisherProfile(profileName, avatarToSave);
+    if (newAvatar) setProfileAvatar(newAvatar);
+    
+    // Trigger Confetti Animation
+    confetti({
+      particleCount: 100,
+      spread: 70,
+      origin: { y: 0.6 }
+    });
+
+    // Automatically return to profile view so updated DP is immediately visible
+    setIsEditingProfile(false);
+  };
+
   const handleProfileSave = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profileName.trim()) return;
-    updatePublisherProfile(profileName.trim(), profileAvatar);
+    const newNameFormatted = requestedNewName.trim() || profileName;
+    
+    // Construct WhatsApp message in English for name replacement request
+    const waMsg = `Hello Admin, I want to request a profile name replacement.\n\nPublisher UID: ${currentUser?.id || ''}\nCurrent Name: ${profileName}\nNew Requested Name: ${newNameFormatted}\n\nNote: I acknowledge that a ₹99 fee is required for the name replacement process.`;
+    
+    // Open WhatsApp link to +91 8934932418
+    const waUrl = `https://wa.me/918934932418?text=${encodeURIComponent(waMsg)}`;
+    window.open(waUrl, '_blank');
+
+    // Save avatar locally if updated
+    updatePublisherProfile(profileName, profileAvatar);
     setIsEditingProfile(false);
   };
 
@@ -852,6 +882,48 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const activeAndAdminCamps = campaigns.filter(c => c.active === true);
   const pubSubmissions = submissions.filter(s => s.publisherId === currentUser.id);
 
+  // User's successful UPI settlements / payouts (Last 5 only)
+  const paidSubmissions = pubSubmissions.filter(s => s.status === 'Payment Done');
+  const userEarnings = earnings.filter(e => e.publisherId === currentUser.id);
+
+  interface PayoutRecord {
+    id: string;
+    campaignName: string;
+    amount: number;
+    date: string;
+    upi: string;
+    status: string;
+  }
+
+  const userPayoutHistory: PayoutRecord[] = Array.from(
+    new Map<string, PayoutRecord>(
+      [
+        ...paidSubmissions.map(s => [
+          s.id,
+          {
+            id: s.id,
+            campaignName: s.campaignName,
+            amount: s.payout,
+            date: s.submitDate,
+            upi: bankUpi || bankDetailsMap[currentUser?.id || '']?.upi || 'Registered UPI',
+            status: 'Payment Done'
+          }
+        ] as [string, PayoutRecord]),
+        ...userEarnings.map(e => [
+          e.id,
+          {
+            id: e.id,
+            campaignName: e.campaignName,
+            amount: e.amount,
+            date: `${e.date} ${e.time || ''}`.trim(),
+            upi: bankUpi || bankDetailsMap[currentUser?.id || '']?.upi || 'Registered UPI',
+            status: 'Payment Done'
+          }
+        ] as [string, PayoutRecord])
+      ]
+    ).values()
+  ).slice(0, 5);
+
   return (
     <div id="active-publisher-workspace" className="max-w-7xl mx-auto px-4 py-8">
       
@@ -980,81 +1052,91 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       </div>
 
       {/* 2. Top Profile Element bar - Redesigned to be ultra-premium */}
-      <div className="relative mb-8 select-none">
+      <div className="relative mb-8 select-none pt-12 sm:pt-16">
         {/* Dynamic canvas animating in the background of the entire row block */}
         <div className="absolute inset-0 bg-slate-50/25 dark:bg-[#070b13]/40 rounded-3xl border border-slate-200/50 dark:border-slate-800/60 pointer-events-none overflow-hidden h-full w-full">
           <PremiumFinanceGeometricCanvas />
         </div>
 
         <div className="relative z-10 grid grid-cols-1 gap-6 items-stretch">
-          {/* Card 1: User Profile Glass card */}
-          <div className="relative bg-white/70 dark:bg-[#0d1628]/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-3xl p-6 flex flex-col justify-center transition-all duration-300 hover:shadow-md hover:border-indigo-500/35 min-h-[140px]">
-            {/* Glowing backdrop ambient layers */}
-            <div className="absolute -top-10 -left-10 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
-            
+          {/* Card 1: User Profile Adaptive Glass Card */}
+          <div className="relative bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-7 pt-8 sm:pt-10 border-2 border-slate-900 dark:border-slate-700 shadow-md transition-all duration-300 min-h-[140px]">
             {!isEditingProfile ? (
-              <div className="flex flex-col sm:flex-row items-center sm:items-center gap-6 text-center sm:text-left z-10 w-full h-full">
-                {/* Avatar Ring */}
-                <div className="relative group shrink-0 self-center">
-                  <div className="absolute -inset-0.5 bg-gradient-to-r from-indigo-550 to-brand-accent rounded-full blur-xs opacity-60 group-hover:opacity-100 transition duration-300 animate-pulse" style={{ animationDuration: '6s' }}></div>
-                  <div className="relative w-20 h-20 bg-white dark:bg-[#090f1d] border border-slate-250 dark:border-slate-855 rounded-full flex items-center justify-center overflow-hidden select-none">
-                    {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
-                      <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                    ) : (
-                      <span className="text-4xl">{profileAvatar || '😎'}</span>
-                    )}
+              <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6 z-10 relative w-full h-full">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 text-center sm:text-left">
+                  {/* Clean Professional Avatar Centered exactly on the Top Border Line */}
+                  <div className="relative shrink-0 -mt-[80px] sm:-mt-[96px] mb-1 sm:mb-0">
+                    <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white dark:bg-[#0d1628] border border-slate-300 dark:border-slate-700 rounded-full flex items-center justify-center overflow-hidden select-none shadow-lg ring-2 ring-white dark:ring-[#0d1628]">
+                      {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
+                        <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                      ) : (
+                        <span className="text-4xl sm:text-5xl">{profileAvatar || '😎'}</span>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex flex-col items-center sm:items-start">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                      Hello, {profileName}!
+                  {/* Profile Info Details */}
+                  <div className="space-y-1 sm:pt-1">
+                    <span className="text-[11px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 block">
+                      Welcome Back
                     </span>
-                    <button
-                      id="edit-profile-trigger"
-                      type="button"
-                      onClick={() => setIsEditingProfile(true)}
-                      className="p-1 px-2 text-slate-405 hover:text-indigo-550 hover:bg-slate-100 dark:hover:bg-slate-855 rounded-lg transition-all flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider cursor-pointer"
-                      title="Edit profile name & avatar"
-                    >
-                      <Edit3 className="w-3 h-3" />
-                      <span>Edit</span>
-                    </button>
+
+                    <div className="flex items-center justify-center sm:justify-start gap-2">
+                      <h2 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                        <span>Hello, {profileName}!</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setRequestedNewName(profileName);
+                            setIsEditingProfile(true);
+                          }}
+                          className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 rounded-xl transition-all hover:scale-110 cursor-pointer"
+                          title="Edit display name"
+                        >
+                          <Edit3 className="w-5 h-5" />
+                        </button>
+                      </h2>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1.5">
+                      <span className="bg-slate-100 dark:bg-slate-800/90 px-3 py-1 rounded-xl text-xs text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 font-mono font-bold flex items-center gap-1.5">
+                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">ID:</span>
+                        <span className="text-blue-600 dark:text-blue-400">{currentUser.id}</span>
+                      </span>
+
+                      <span className="inline-flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-3 py-1 rounded-xl text-xs font-extrabold" title="Account Verified">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Verified Publisher</span>
+                      </span>
+                    </div>
                   </div>
-                  
-                  <p className="text-xs text-slate-450 dark:text-slate-400 mt-1.5 font-bold flex flex-wrap items-center justify-center sm:justify-start gap-x-2.5 gap-y-1">
-                    <span className="bg-slate-100/90 dark:bg-slate-900/90 px-2 py-0.5 rounded text-[10px] text-slate-500 dark:text-slate-450 border border-slate-200 dark:border-slate-800 font-mono">
-                      ID: <span className="text-indigo-505 dark:text-indigo-400 font-extrabold">{currentUser.id}</span>
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-450 bg-emerald-500/10 dark:bg-emerald-555/5 px-2 py-0.5 rounded text-[10px]" title="Account Verified">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-555 animate-ping"></span>
-                      <span>Verified Publisher</span>
-                    </span>
-                  </p>
                 </div>
               </div>
             ) : (
-              /* Inline Edit Profile Form inside the Card flow, so height is automatically adjusted and no button is hidden! */
-              <form onSubmit={handleProfileSave} className="relative z-10 flex flex-col gap-3 animate-fade-up w-full">
+              /* Inline Edit Profile Form */
+              <form onSubmit={handleProfileSave} className="relative z-10 flex flex-col gap-3.5 animate-fade-up w-full text-left">
                 <div className="flex flex-col gap-1 w-full">
-                  <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Select Avatar / Photo</span>
+                  <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Select Avatar / Upload Photo</span>
+
                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
                     {['😎', '👩', '👨', '🦁', '🦊', '🐨', '🐼'].map(av => (
                       <button
                         key={av}
                         type="button"
-                        onClick={() => setProfileAvatar(av)}
-                        className={`text-lg p-1.5 rounded-lg hover:bg-slate-150 dark:hover:bg-slate-855 transition-all ${profileAvatar === av ? 'bg-indigo-100/80 dark:bg-indigo-950/60 border border-indigo-500' : 'border border-transparent'}`}
+                        onClick={() => {
+                          setProfileAvatar(av);
+                          handleSavePhoto(av);
+                        }}
+                        className={`text-lg p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all ${profileAvatar === av ? 'bg-blue-100 dark:bg-blue-950/60 border-2 border-blue-500' : 'border border-transparent'}`}
                       >
                         {av}
                       </button>
                     ))}
                     
-                    <label className="cursor-pointer flex items-center justify-center p-1.5 px-2.5 rounded-lg border border-dashed border-indigo-555/60 hover:bg-indigo-50 dark:hover:bg-indigo-950/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold transition-all" title="Upload custom image">
+                    <label className="cursor-pointer flex items-center justify-center p-1.5 px-2.5 rounded-lg border border-dashed border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/20 text-blue-600 dark:text-blue-400 text-xs font-bold transition-all" title="Upload custom image">
                       <span className="flex items-center gap-1 text-[10px]">
                         <Camera className="w-3 h-3" />
-                        <span>Upload</span>
+                        <span>Upload Photo</span>
                       </span>
                       <input
                         type="file"
@@ -1070,12 +1152,14 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                             const reader = new FileReader();
                             reader.onloadend = async () => {
                               const base64String = reader.result as string;
+                              let finalAvatar = base64String;
                               try {
-                                const compressed = await compressImageBase64(base64String, 200, 200, 0.8);
-                                setProfileAvatar(compressed);
+                                finalAvatar = await compressImageBase64(base64String, 200, 200, 0.8);
                               } catch (err) {
-                                setProfileAvatar(base64String);
+                                finalAvatar = base64String;
                               }
+                              setProfileAvatar(finalAvatar);
+                              handleSavePhoto(finalAvatar);
                             };
                             reader.readAsDataURL(file);
                           }
@@ -1085,36 +1169,41 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   </div>
                 </div>
                 
-                <div className="w-full relative">
-                  <span className="text-[9px] font-black text-slate-400 uppercase block mb-1">Display Name</span>
-                  <div 
-                    onClick={() => setShowLockPopup(true)}
-                    className="relative cursor-pointer group"
-                  >
-                    <input
-                      type="text"
-                      required
-                      readOnly
-                      value={profileName}
-                      className="w-full text-xs p-2 pr-8 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none cursor-pointer text-slate-505 dark:text-slate-400 font-semibold"
-                    />
-                    <div className="absolute inset-y-0 right-2 flex items-center text-slate-405 group-hover:text-amber-500 transition-colors">
-                      <Lock className="w-3.5 h-3.5" />
-                    </div>
+                <div className="w-full space-y-1">
+                  <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block">New Display Name</span>
+                  <input
+                    type="text"
+                    required
+                    value={requestedNewName}
+                    onChange={(e) => setRequestedNewName(e.target.value)}
+                    placeholder="Type new display name here..."
+                    className="w-full text-sm p-2.5 bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded-xl outline-none focus:border-blue-500 text-slate-900 dark:text-white font-bold"
+                  />
+                </div>
+
+                {/* Notice in English regarding ₹99 name replacement fee */}
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-300/60 dark:border-amber-800/40 rounded-xl text-left space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-800 dark:text-amber-300">
+                    <HelpCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span>Name Replacement Charge: ₹99</span>
                   </div>
+                  <p className="text-[11px] text-slate-700 dark:text-slate-300 leading-normal font-medium">
+                    Note: A <strong>₹99 fee</strong> is required to replace your display name. Clicking submit will open WhatsApp to send your name change request with your Publisher UID (<strong className="font-mono text-blue-600 dark:text-blue-400">{currentUser.id}</strong>) and details.
+                  </p>
                 </div>
                 
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 pt-1">
                   <button
                      type="submit"
-                     className="flex-1 py-1.5 bg-indigo-600 text-white font-extrabold text-[10px] uppercase rounded-lg hover:bg-indigo-700 transition cursor-pointer"
+                     className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl transition flex items-center justify-center gap-2 cursor-pointer shadow-sm"
                   >
-                     Save
+                     <Edit3 className="w-4 h-4" />
+                     <span>Send Request on WhatsApp (₹99 Fee)</span>
                   </button>
                   <button
                      type="button"
                      onClick={() => setIsEditingProfile(false)}
-                     className="px-2.5 py-1.5 bg-slate-105 dark:bg-slate-805 text-slate-600 dark:text-slate-300 font-extrabold text-[10px] uppercase rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition cursor-pointer"
+                     className="px-4 py-2.5 bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-xs uppercase rounded-xl hover:bg-slate-300 dark:hover:bg-slate-700 transition cursor-pointer"
                   >
                      Cancel
                   </button>
@@ -1282,7 +1371,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             
             {/* Card 1: All time total */}
-            <div className="bg-gradient-to-br from-brand-primary to-blue-750 text-white rounded-3xl p-6 shadow-md border border-blue-400/20">
+            <div className="bg-gradient-to-br from-brand-primary to-blue-750 text-white rounded-3xl p-6 shadow-md border-2 border-slate-900 dark:border-slate-700">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-black uppercase tracking-widest text-blue-200">All-Time Earnings</span>
                 <IndianRupee className="w-5 h-5 text-amber-300 fill-amber-300 animate-bounce" />
@@ -1292,9 +1381,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
 
             {/* Card 2: Last 7 Days */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80">
+            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-slate-900 dark:border-slate-700 shadow-md">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Last 7 Days</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Last 7 Days</span>
                 <Calendar className="w-5 h-5 text-emerald-500" />
               </div>
               <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4">₹{publisherEarningStats.last7}</h3>
@@ -1302,9 +1391,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
 
             {/* Card 3: Last 30 Days */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80">
+            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-slate-900 dark:border-slate-700 shadow-md">
               <div className="flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-400">Last 30 Days</span>
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Last 30 Days</span>
                 <Coins className="w-5 h-5 text-blue-500" />
               </div>
               <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4">₹{publisherEarningStats.last30}</h3>
@@ -1337,7 +1426,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Card 3: Right Dynamic Income Desk Card */}
-            <div className="relative bg-gradient-to-b from-white/75 to-emerald-50/20 dark:from-[#0d1628]/65 dark:to-emerald-950/5 border border-slate-200/85 dark:border-emerald-500/15 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-md hover:border-emerald-500/35 group overflow-hidden min-h-[140px]">
+            <div className="relative bg-gradient-to-b from-white/90 to-emerald-50/30 dark:from-[#0d1628] dark:to-emerald-950/20 border-2 border-slate-900 dark:border-slate-700 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-lg group overflow-hidden min-h-[140px] shadow-sm">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />
               
               <div className="flex items-center justify-between">
@@ -1364,7 +1453,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
 
             {/* Total Work Box Card */}
-            <div className="relative bg-white dark:bg-[#0d1628] border border-slate-205 dark:border-slate-800/85 rounded-3xl p-6 transition-all duration-300 hover:shadow-md hover:border-indigo-500/35 overflow-hidden flex flex-col justify-between min-h-[140px]">
+            <div className="relative bg-white dark:bg-[#0d1628] border-2 border-slate-900 dark:border-slate-700 rounded-3xl p-6 transition-all duration-300 hover:shadow-lg overflow-hidden flex flex-col justify-between min-h-[140px] shadow-sm">
               <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
               
               <div className="flex items-center justify-between">
@@ -1402,69 +1491,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
           </div>
 
-          {/* Lead Counting Sync & Help Banner - Executive Pro Card */}
-          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-[#0d1629] to-indigo-950 text-white p-6 sm:p-7 border border-indigo-500/30 dark:border-indigo-500/40 shadow-xl text-left">
-            {/* Ambient Background Glow Effect */}
-            <div className="absolute -top-24 -right-24 w-60 h-60 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-            <div className="relative z-10 space-y-4">
-              {/* Top Meta Badges & Title Header */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800/80">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-2.5 rounded-xl bg-blue-500/20 text-blue-400 border border-blue-500/30 shrink-0">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-white tracking-wide uppercase">Lead Counting & Syncing Protocol</span>
-                      <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        24-48 Hours Audit Window
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 font-medium mt-0.5">Automated Advertiser Verification & Manual Mis-Tracking Support</p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('mistracking')}
-                  className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white font-black text-xs rounded-xl shadow-lg shadow-blue-600/25 transition-all flex items-center gap-2 cursor-pointer border border-blue-400/30 shrink-0"
-                >
-                  <HelpCircle className="w-4 h-4 text-sky-200" />
-                  <span>Report Missing Lead</span>
-                  <ChevronRight className="w-4 h-4 text-sky-200" />
-                </button>
-              </div>
-
-              {/* Instructions Content Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                {/* English Guidelines */}
-                <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 space-y-1.5">
-                  <div className="flex items-center gap-2 text-xs font-extrabold text-sky-400 uppercase tracking-wider">
-                    <CheckCircle2 className="w-4 h-4 text-sky-400" />
-                    <span>English Guidance</span>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed font-normal">
-                    Conversions are processed automatically via client webhooks within <strong>24–48 hours</strong>. 
-                    If any lead fails to reflect in your dashboard, submit a claim under <strong className="text-amber-300">MIS Lead Report</strong> for priority manual reconciliation.
-                  </p>
-                </div>
-
-                {/* Hindi Guidelines */}
-                <div className="p-4 rounded-2xl bg-slate-800/40 border border-slate-700/50 space-y-1.5">
-                  <div className="flex items-center gap-2 text-xs font-extrabold text-amber-400 uppercase tracking-wider">
-                    <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                    <span>हिंदी दिशानिर्देश</span>
-                  </div>
-                  <p className="text-xs text-slate-300 leading-relaxed font-normal">
-                    सभी सबमिट की गई लीड्स <strong>24 से 48 घंटे</strong> के भीतर एडवरटाइज़र द्वारा वेरीफाई होती हैं। यदि आपकी कोई लीड काउंट नहीं दिख रही है, तो <strong className="text-sky-300">MIS Lead Report</strong> सेक्शन में टिकट रेज करें।
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
 
         </div>
       )}
@@ -1962,7 +1989,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
       {/* TAB G: Bank Update */}
       {activeTab === 'bankupdate' && (
-        <div id="tabPanel-bankUpdate" className="max-w-2xl mx-auto animate-fade-up">
+        <div id="tabPanel-bankUpdate" className="max-w-2xl mx-auto animate-fade-up space-y-6">
           <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-10 border border-slate-200/80 dark:border-slate-800/80 shadow-md">
             
             <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-6 text-center">
@@ -2097,6 +2124,69 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </button>
 
             </form>
+          </div>
+
+          {/* Payout History Section (Last 5 Only) */}
+          <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 border-2 border-slate-900 dark:border-slate-700 shadow-md">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4 mb-5">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                  <span>Payout History</span>
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                  Previous successful UPI settlements for your account
+                </p>
+              </div>
+              <span className="text-[10px] font-black uppercase px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                Last 5 Only
+              </span>
+            </div>
+
+            {userPayoutHistory.length === 0 ? (
+              <div className="text-center py-8 px-4 border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl">
+                <Coins className="w-8 h-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+                <p className="text-xs font-bold text-slate-600 dark:text-slate-300">No UPI settlements recorded yet</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                  When campaign conversions are processed and paid out, your successful settlements will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      <th className="pb-3 px-2">Campaign / ID</th>
+                      <th className="pb-3 px-2">Settlement UPI</th>
+                      <th className="pb-3 px-2 text-right">Payout Amount</th>
+                      <th className="pb-3 px-2 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-xs font-semibold">
+                    {userPayoutHistory.map((item) => (
+                      <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 transition-colors">
+                        <td className="py-3 px-2">
+                          <span className="font-extrabold text-slate-900 dark:text-slate-100 block">{item.campaignName}</span>
+                          <span className="text-[10px] text-slate-400 font-mono">{item.id} • {item.date}</span>
+                        </td>
+                        <td className="py-3 px-2 text-slate-600 dark:text-slate-300 font-mono text-[11px]">
+                          {item.upi}
+                        </td>
+                        <td className="py-3 px-2 text-right font-black text-emerald-600 dark:text-emerald-400 font-mono text-sm">
+                          ₹{item.amount}
+                        </td>
+                        <td className="py-3 px-2 text-center">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                            <span>Paid Done</span>
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

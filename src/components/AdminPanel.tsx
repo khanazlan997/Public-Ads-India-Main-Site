@@ -157,6 +157,106 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [staffRole, setStaffRole] = useState<'Payment' | 'MIS'>('MIS');
   const [staffMsg, setStaffMsg] = useState('');
 
+  // Pagination states (50 entries per page)
+  const [subPage, setSubPage] = useState(1);
+  const [pubPage, setPubPage] = useState(1);
+  const [activityLogPage, setActivityLogPage] = useState(1);
+
+  useEffect(() => {
+    setSubPage(1);
+  }, [misFilter]);
+
+  useEffect(() => {
+    setPubPage(1);
+  }, [pubSearchQuery]);
+
+  useEffect(() => {
+    setActivityLogPage(1);
+  }, [activityQuery, activityCategory]);
+
+  const renderPaginationControls = (
+    currentPage: number,
+    totalPages: number,
+    totalItems: number,
+    onPageChange: (page: number) => void
+  ) => {
+    if (totalItems === 0) return null;
+    const startIdx = (currentPage - 1) * 50 + 1;
+    const endIdx = Math.min(currentPage * 50, totalItems);
+
+    const pages: number[] = [];
+    const maxButtons = 5;
+    let startPage = Math.max(1, currentPage - 2);
+    let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+    if (endPage - startPage + 1 < maxButtons) {
+      startPage = Math.max(1, endPage - maxButtons + 1);
+    }
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+
+    return (
+      <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+        <div>
+          Showing <span className="font-extrabold text-slate-900 dark:text-white">{startIdx}</span> to{' '}
+          <span className="font-extrabold text-slate-900 dark:text-white">{endIdx}</span> of{' '}
+          <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{totalItems}</span> entries (Page {currentPage} of {totalPages})
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(1)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all uppercase text-[10px]"
+          >
+            « First
+          </button>
+          <button
+            type="button"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all text-xs"
+          >
+            ‹ Prev
+          </button>
+
+          {pages.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onPageChange(p)}
+              className={`w-8 h-8 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                p === currentPage
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            disabled={currentPage === totalPages}
+            onClick={() => onPageChange(currentPage + 1)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all text-xs"
+          >
+            Next ›
+          </button>
+          <button
+            type="button"
+            disabled={currentPage === totalPages}
+            onClick={() => onPageChange(totalPages)}
+            className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all uppercase text-[10px]"
+          >
+            Last »
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   // Synchronize local edit states when database values load or update
   useEffect(() => {
     if (offer) {
@@ -1154,12 +1254,30 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {submissions
-                          .filter(sub => {
-                            const f = misFilter.toLowerCase();
-                            return sub.clientName.toLowerCase().includes(f) || sub.publisherName.toLowerCase().includes(f) || sub.campaignName.toLowerCase().includes(f);
-                          })
-                          .map(sub => (
+                        {(() => {
+                          const filtered = submissions
+                            .filter(sub => {
+                              const f = misFilter.toLowerCase();
+                              return (
+                                sub.clientName.toLowerCase().includes(f) ||
+                                sub.publisherName.toLowerCase().includes(f) ||
+                                sub.publisherId.toLowerCase().includes(f) ||
+                                sub.campaignName.toLowerCase().includes(f) ||
+                                sub.id.toLowerCase().includes(f) ||
+                                (sub.clientPhone && sub.clientPhone.includes(f)) ||
+                                (sub.clientCode && sub.clientCode.toLowerCase().includes(f))
+                              );
+                            })
+                            .sort((a, b) => {
+                              const keyA = (a.submitDate || '') + '_' + (a.id || '');
+                              const keyB = (b.submitDate || '') + '_' + (b.id || '');
+                              return keyB.localeCompare(keyA);
+                            });
+
+                          const totalPages = Math.ceil(filtered.length / 50) || 1;
+                          const currentSlice = filtered.slice((subPage - 1) * 50, subPage * 50);
+
+                          return currentSlice.map(sub => (
                             <tr key={sub.id} className="hover:bg-slate-50/50">
                               <td className="p-4">
                                 <span className="font-extrabold text-slate-900 block">{sub.id.substring(0, 8)}</span>
@@ -1301,20 +1419,40 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 </div>
                               </td>
                             </tr>
-                          ))}
+                          ));
+                        })()}
                       </tbody>
                     </table>
                   </div>
-                  {hasMoreSubmissions && (
-                    <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-center">
-                      <button
-                        type="button"
-                        onClick={loadMoreSubmissions}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs tracking-wider uppercase transition-all shadow-sm cursor-pointer"
-                      >
-                        Load More Submissions
-                      </button>
-                    </div>
+                  {renderPaginationControls(
+                    subPage,
+                    Math.ceil(
+                      submissions.filter(sub => {
+                        const f = misFilter.toLowerCase();
+                        return (
+                          sub.clientName.toLowerCase().includes(f) ||
+                          sub.publisherName.toLowerCase().includes(f) ||
+                          sub.publisherId.toLowerCase().includes(f) ||
+                          sub.campaignName.toLowerCase().includes(f) ||
+                          sub.id.toLowerCase().includes(f) ||
+                          (sub.clientPhone && sub.clientPhone.includes(f)) ||
+                          (sub.clientCode && sub.clientCode.toLowerCase().includes(f))
+                        );
+                      }).length / 50
+                    ) || 1,
+                    submissions.filter(sub => {
+                      const f = misFilter.toLowerCase();
+                      return (
+                        sub.clientName.toLowerCase().includes(f) ||
+                        sub.publisherName.toLowerCase().includes(f) ||
+                        sub.publisherId.toLowerCase().includes(f) ||
+                        sub.campaignName.toLowerCase().includes(f) ||
+                        sub.id.toLowerCase().includes(f) ||
+                        (sub.clientPhone && sub.clientPhone.includes(f)) ||
+                        (sub.clientCode && sub.clientCode.toLowerCase().includes(f))
+                      );
+                    }).length,
+                    setSubPage
                   )}
                 </div>
               )}
@@ -1453,125 +1591,151 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
-                      {publishers
-                        .filter(p => !pubSearchQuery || p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()))
-                        .map(pub => (
-                        <tr key={pub.id} className="hover:bg-slate-50/50">
-                          <td className="p-3 text-lg select-none">
-                            {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http')) ? (
-                              <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-slate-100">
-                                <img 
-                                  src={pub.avatar} 
-                                  alt="Avatar" 
-                                  className="w-full h-full object-cover" 
-                                  referrerPolicy="no-referrer" 
-                                  id={`pub-avatar-img-${pub.id}`}
-                                />
-                              </div>
-                            ) : (
-                              pub.avatar || '😎'
-                            )}
-                          </td>
-                          <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
-                          <td className="p-3 font-extrabold text-slate-800">{pub.name}</td>
-                          <td className="p-3 font-medium text-slate-650">{pub.phone}</td>
-                          <td className="p-3">
-                            {(() => {
-                              const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
-                              const totalSum = pubEarnings.reduce((acc, e) => acc + (e.amount || 0), 0);
-                              return (
-                                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-450 font-black text-xs border border-indigo-100/50">
-                                  ₹{totalSum}
-                                </span>
-                              );
-                            })()}
-                          </td>
-                          <td className="p-3 text-slate-405">{pub.joinedDate}</td>
-                          <td className="p-3 text-right">
-                            <div className="flex justify-end gap-2 items-center">
-                              <button
-                                id={`view-bank-pub-${pub.id}`}
-                                onClick={async () => {
-                                  let bank = bankDetailsMap[pub.id] || null;
-                                  if (!bank) {
-                                    try {
-                                      const docRef = doc(db, 'bank_details', pub.id);
-                                      const docSnap = await getDoc(docRef);
-                                      if (docSnap.exists()) {
-                                        bank = docSnap.data() as any;
+                      {(() => {
+                        const filtered = publishers
+                          .filter(p => 
+                            !pubSearchQuery || 
+                            p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || 
+                            p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()) ||
+                            (p.phone && p.phone.includes(pubSearchQuery)) ||
+                            (p.email && p.email.toLowerCase().includes(pubSearchQuery.toLowerCase()))
+                          )
+                          .sort((a, b) => {
+                            const keyA = (a.joinedDate || '') + '_' + (a.id || '');
+                            const keyB = (b.joinedDate || '') + '_' + (b.id || '');
+                            return keyB.localeCompare(keyA);
+                          });
+
+                        const totalPages = Math.ceil(filtered.length / 50) || 1;
+                        const currentSlice = filtered.slice((pubPage - 1) * 50, pubPage * 50);
+
+                        return currentSlice.map(pub => (
+                          <tr key={pub.id} className="hover:bg-slate-50/50">
+                            <td className="p-3 text-lg select-none">
+                              {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http')) ? (
+                                <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-slate-100">
+                                  <img 
+                                    src={pub.avatar} 
+                                    alt="Avatar" 
+                                    className="w-full h-full object-cover" 
+                                    referrerPolicy="no-referrer" 
+                                    id={`pub-avatar-img-${pub.id}`}
+                                  />
+                                </div>
+                              ) : (
+                                pub.avatar || '😎'
+                              )}
+                            </td>
+                            <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
+                            <td className="p-3 font-extrabold text-slate-800">{pub.name}</td>
+                            <td className="p-3 font-medium text-slate-650">{pub.phone}</td>
+                            <td className="p-3">
+                              {(() => {
+                                const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
+                                const totalSum = pubEarnings.reduce((acc, e) => acc + (e.amount || 0), 0);
+                                return (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-450 font-black text-xs border border-indigo-100/50">
+                                    ₹{totalSum}
+                                  </span>
+                                );
+                              })()}
+                            </td>
+                            <td className="p-3 text-slate-405">{pub.joinedDate}</td>
+                            <td className="p-3 text-right">
+                              <div className="flex justify-end gap-2 items-center">
+                                <button
+                                  id={`view-bank-pub-${pub.id}`}
+                                  onClick={async () => {
+                                    let bank = bankDetailsMap[pub.id] || null;
+                                    if (!bank) {
+                                      try {
+                                        const docRef = doc(db, 'bank_details', pub.id);
+                                        const docSnap = await getDoc(docRef);
+                                        if (docSnap.exists()) {
+                                          bank = docSnap.data() as any;
+                                        }
+                                      } catch (error) {
+                                        console.error("Error fetching bank on-demand:", error);
                                       }
-                                    } catch (error) {
-                                      console.error("Error fetching bank on-demand:", error);
                                     }
-                                  }
-                                  setViewingBankDetails({
-                                    id: pub.id,
-                                    name: pub.name,
-                                    bank: bank
-                                  });
-                                }}
-                                className="px-2.5 py-1 text-[10px] font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg border border-emerald-150 transition-colors cursor-pointer flex items-center gap-1"
-                                title="View Publisher Bank Ledger Details"
-                              >
-                                🏦 View Bank
-                              </button>
-                              <button
-                                id={`edit-earnings-${pub.id}`}
-                                onClick={() => {
-                                  setEditingEarningsPubId(pub.id);
-                                  const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
-                                  const values: { [key: string]: string } = {};
-                                  pubEarnings.forEach(e => {
-                                    values[e.id] = String(e.amount);
-                                  });
-                                  setEditingEarningItemValues(values);
-                                }}
-                                className="px-2.5 py-1 text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-800 rounded-lg border border-indigo-150 transition-colors cursor-pointer flex items-center gap-1"
-                                title="Edit earning amounts or delete last 5 transactions"
-                              >
-                                💰 Edit Amount
-                              </button>
-                              <button
-                                id={`block-unblock-${pub.id}`}
-                                onClick={() => toggleBlockPublisher(pub.id)}
-                                className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-colors cursor-pointer ${
-                                  pub.blocked 
-                                    ? 'bg-rose-100 text-rose-700 hover:bg-emerald-100 hover:text-emerald-700' 
-                                    : 'bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-700'
-                                }`}
-                                title={pub.blocked ? 'Unlock publisher account' : 'Block publisher account'}
-                              >
-                                {pub.blocked ? '🔴 Unblock' : '🟢 Block'}
-                              </button>
-                              <button
-                                id={`delete-pub-${pub.id}`}
-                                onClick={() => {
-                                  if (window.confirm(`Are you absolutely sure you want to permanently delete publisher account for ${pub.name} (${pub.id})? This is irreversible.`)) {
-                                    deletePublisher(pub.id);
-                                  }
-                                }}
-                                className="px-2.5 py-1 text-[10px] font-black bg-red-100 hover:bg-red-200 text-red-650 hover:text-red-750 rounded-lg transition-colors cursor-pointer"
-                                title="Permanently Delete Creator"
-                              >
-                                🗑️ Delete
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                    setViewingBankDetails({
+                                      id: pub.id,
+                                      name: pub.name,
+                                      bank: bank
+                                    });
+                                  }}
+                                  className="px-2.5 py-1 text-[10px] font-black bg-emerald-50 hover:bg-emerald-100 text-emerald-700 hover:text-emerald-800 rounded-lg border border-emerald-150 transition-colors cursor-pointer flex items-center gap-1"
+                                  title="View Publisher Bank Ledger Details"
+                                >
+                                  🏦 View Bank
+                                </button>
+                                <button
+                                  id={`edit-earnings-${pub.id}`}
+                                  onClick={() => {
+                                    setEditingEarningsPubId(pub.id);
+                                    const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
+                                    const values: { [key: string]: string } = {};
+                                    pubEarnings.forEach(e => {
+                                      values[e.id] = String(e.amount);
+                                    });
+                                    setEditingEarningItemValues(values);
+                                  }}
+                                  className="px-2.5 py-1 text-[10px] font-black bg-indigo-50 hover:bg-indigo-100 text-indigo-600 hover:text-indigo-800 rounded-lg border border-indigo-150 transition-colors cursor-pointer flex items-center gap-1"
+                                  title="Edit earning amounts or delete last 5 transactions"
+                                >
+                                  💰 Edit Amount
+                                </button>
+                                <button
+                                  id={`block-unblock-${pub.id}`}
+                                  onClick={() => toggleBlockPublisher(pub.id)}
+                                  className={`px-2.5 py-1 text-[10px] font-black rounded-lg transition-colors cursor-pointer ${
+                                    pub.blocked 
+                                      ? 'bg-rose-100 text-rose-700 hover:bg-emerald-100 hover:text-emerald-700' 
+                                      : 'bg-slate-100 text-slate-500 hover:bg-rose-100 hover:text-rose-700'
+                                  }`}
+                                  title={pub.blocked ? 'Unlock publisher account' : 'Block publisher account'}
+                                >
+                                  {pub.blocked ? '🔴 Unblock' : '🟢 Block'}
+                                </button>
+                                <button
+                                  id={`delete-pub-${pub.id}`}
+                                  onClick={() => {
+                                    if (window.confirm(`Are you absolutely sure you want to permanently delete publisher account for ${pub.name} (${pub.id})? This is irreversible.`)) {
+                                      deletePublisher(pub.id);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 text-[10px] font-black bg-red-100 hover:bg-red-200 text-red-650 hover:text-red-750 rounded-lg transition-colors cursor-pointer"
+                                  title="Permanently Delete Creator"
+                                >
+                                  🗑️ Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ));
+                      })()}
                     </tbody>
                   </table>
                 </div>
-                {hasMorePublishers && (
-                  <div className="p-4 border-t border-slate-100 bg-slate-50 flex justify-center rounded-b-2xl">
-                    <button
-                      type="button"
-                      onClick={loadMorePublishers}
-                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-xs tracking-wider uppercase transition-all shadow-sm cursor-pointer"
-                    >
-                      Load More Publishers
-                    </button>
-                  </div>
+                {renderPaginationControls(
+                  pubPage,
+                  Math.ceil(
+                    publishers.filter(p => 
+                      !pubSearchQuery || 
+                      p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || 
+                      p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()) ||
+                      (p.phone && p.phone.includes(pubSearchQuery)) ||
+                      (p.email && p.email.toLowerCase().includes(pubSearchQuery.toLowerCase()))
+                    ).length / 50
+                  ) || 1,
+                  publishers.filter(p => 
+                    !pubSearchQuery || 
+                    p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || 
+                    p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()) ||
+                    (p.phone && p.phone.includes(pubSearchQuery)) ||
+                    (p.email && p.email.toLowerCase().includes(pubSearchQuery.toLowerCase()))
+                  ).length,
+                  setPubPage
                 )}
               </div>
               </div>
@@ -2363,35 +2527,53 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-mono text-[11px] text-slate-700">
-                      {activityLogs
-                        .filter(log => {
-                          const matchQuery = 
-                            log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                            log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                            log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                            log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                            log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                            log.details.toLowerCase().includes(activityQuery.toLowerCase());
+                      {(() => {
+                        const filtered = activityLogs
+                          .filter(log => {
+                            const matchQuery = 
+                              log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                              log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                              log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                              log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                              log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                              log.details.toLowerCase().includes(activityQuery.toLowerCase());
 
-                          if (!matchQuery) return false;
+                            if (!matchQuery) return false;
 
-                          if (activityCategory === 'ALL') return true;
-                          if (activityCategory === 'ADMIN') {
-                            return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
-                          }
-                          if (activityCategory === 'SECURITY') {
-                            return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
-                          }
-                          if (activityCategory === 'PUBLISHER') {
-                            return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
-                          }
-                          if (activityCategory === 'SYSTEM') {
-                            return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
-                          }
-                          return true;
-                        })
-                        .map(log => {
-                          // Dynamic badge coloring
+                            if (activityCategory === 'ALL') return true;
+                            if (activityCategory === 'ADMIN') {
+                              return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
+                            }
+                            if (activityCategory === 'SECURITY') {
+                              return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
+                            }
+                            if (activityCategory === 'PUBLISHER') {
+                              return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
+                            }
+                            if (activityCategory === 'SYSTEM') {
+                              return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
+                            }
+                            return true;
+                          })
+                          .sort((a, b) => {
+                            const keyA = (a.timestamp || '') + '_' + (a.id || '');
+                            const keyB = (b.timestamp || '') + '_' + (b.id || '');
+                            return keyB.localeCompare(keyA);
+                          });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={4} className="p-8 text-center text-slate-400 font-medium font-mono text-xs">
+                                No auditable trails found matching selection parameters.
+                              </td>
+                            </tr>
+                          );
+                        }
+
+                        const currentSlice = filtered.slice((activityLogPage - 1) * 50, activityLogPage * 50);
+
+                        return currentSlice.map(log => {
                           let badgeStyle = 'bg-slate-100 text-slate-800 border-slate-200';
                           const act = log.action.toUpperCase();
                           if (act.includes('DELETE') || act.includes('REMOVE') || act.includes('BLOCKED')) {
@@ -2419,45 +2601,70 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                               <td className="p-4 text-slate-600 font-medium leading-relaxed max-w-sm break-words">{log.details}</td>
                             </tr>
                           );
-                        })
-                      }
-                      {activityLogs.filter(log => {
-                        const matchQuery = 
-                          log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                          log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                          log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                          log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                          log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
-                          log.details.toLowerCase().includes(activityQuery.toLowerCase());
-
-                        if (!matchQuery) return false;
-
-                        if (activityCategory === 'ALL') return true;
-                        if (activityCategory === 'ADMIN') {
-                          return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
-                        }
-                        if (activityCategory === 'SECURITY') {
-                          return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
-                        }
-                        if (activityCategory === 'PUBLISHER') {
-                          return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
-                        }
-                        if (activityCategory === 'SYSTEM') {
-                          return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
-                        }
-                        return true;
-                      }).length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-8 text-center text-slate-400 font-medium font-mono text-xs">
-                            No auditable trails found matching selection parameters.
-                          </td>
-                        </tr>
-                      )}
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
-              </div>
+                {renderPaginationControls(
+                  activityLogPage,
+                  Math.ceil(
+                    activityLogs.filter(log => {
+                      const matchQuery = 
+                        log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                        log.details.toLowerCase().includes(activityQuery.toLowerCase());
 
+                      if (!matchQuery) return false;
+
+                      if (activityCategory === 'ALL') return true;
+                      if (activityCategory === 'ADMIN') {
+                        return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
+                      }
+                      if (activityCategory === 'SECURITY') {
+                        return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
+                      }
+                      if (activityCategory === 'PUBLISHER') {
+                        return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
+                      }
+                      if (activityCategory === 'SYSTEM') {
+                        return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
+                      }
+                      return true;
+                    }).length / 50
+                  ) || 1,
+                  activityLogs.filter(log => {
+                    const matchQuery = 
+                      log.id.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                      log.timestamp.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                      log.userName.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                      log.userId.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                      log.action.toLowerCase().includes(activityQuery.toLowerCase()) ||
+                      log.details.toLowerCase().includes(activityQuery.toLowerCase());
+
+                    if (!matchQuery) return false;
+
+                    if (activityCategory === 'ALL') return true;
+                    if (activityCategory === 'ADMIN') {
+                      return ['CAMPAIGN_CREATE', 'CAMPAIGN_UPDATE', 'CAMPAIGN_DELETE', 'OFFER_UPDATE', 'STAFF_REMOVED', 'STAFF_CREATED'].includes(log.action);
+                    }
+                    if (activityCategory === 'SECURITY') {
+                      return ['ADMIN_AUTH', 'PASSWORD_RESET', 'BLOCKED', 'UNBLOCKED', 'PUBLISHER_LOGIN'].includes(log.action);
+                    }
+                    if (activityCategory === 'PUBLISHER') {
+                      return ['PUBLISHER_SIGNUP', 'SUBMIT_LEADS', 'SUBMIT_LEAD', 'LEAD_SUBMITTED', 'BANK_UPDATE'].includes(log.action);
+                    }
+                    if (activityCategory === 'SYSTEM') {
+                      return ['AUTO_BACKUP', 'INTEGRITY_RESTORE'].includes(log.action) || log.userId === 'SYSTEM';
+                    }
+                    return true;
+                  }).length,
+                  setActivityLogPage
+                )}
+              </div>
             </div>
           )}
 

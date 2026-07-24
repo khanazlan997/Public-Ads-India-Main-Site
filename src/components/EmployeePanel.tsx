@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAppState, db } from '../context/AppContext';
 import { doc, getDoc } from 'firebase/firestore';
 import { Lock, Eye, EyeOff, ShieldCheck, UserCheck, Search, Users, Banknote, ListTodo, LogOut, CheckCircle2, Download } from 'lucide-react';
@@ -28,6 +28,13 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [viewingBankDetails, setViewingBankDetails] = useState<{ id: string; name: string; bank: any } | null>(null);
 
+  // Pagination state (50 items per page)
+  const [empSubPage, setEmpSubPage] = useState(1);
+
+  useEffect(() => {
+    setEmpSubPage(1);
+  }, [filterQuery]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
@@ -48,15 +55,25 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
   };
 
   // Filter data submissions
-  const filteredSubmissions = submissions.filter(sub => {
-    const q = filterQuery.toLowerCase();
-    return (
-      sub.clientName.toLowerCase().includes(q) ||
-      sub.campaignName.toLowerCase().includes(q) ||
-      sub.publisherName.toLowerCase().includes(q) ||
-      sub.publisherId.toLowerCase().includes(q)
-    );
-  });
+  const sortedAndFilteredSubmissions = submissions
+    .filter(sub => {
+      const q = filterQuery.toLowerCase();
+      return (
+        sub.clientName.toLowerCase().includes(q) ||
+        sub.campaignName.toLowerCase().includes(q) ||
+        sub.publisherName.toLowerCase().includes(q) ||
+        sub.publisherId.toLowerCase().includes(q) ||
+        sub.id.toLowerCase().includes(q)
+      );
+    })
+    .sort((a, b) => {
+      const keyA = (a.submitDate || '') + '_' + (a.id || '');
+      const keyB = (b.submitDate || '') + '_' + (b.id || '');
+      return keyB.localeCompare(keyA);
+    });
+
+  const totalEmpSubPages = Math.ceil(sortedAndFilteredSubmissions.length / 50) || 1;
+  const paginatedEmpSubmissions = sortedAndFilteredSubmissions.slice((empSubPage - 1) * 50, empSubPage * 50);
 
   // If not logged in as employee, display direct login form
   if (!currentUser || currentUser.type !== 'employee') {
@@ -216,12 +233,12 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
             </div>
 
             {/* List Table */}
-            {filteredSubmissions.length === 0 ? (
+            {sortedAndFilteredSubmissions.length === 0 ? (
               <div className="text-center py-10 text-slate-400 text-xs">
                 No matching campaign leads located in system registries.
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#0d1628]">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-wider bg-slate-50 dark:bg-slate-900/20">
@@ -235,7 +252,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {filteredSubmissions.map((sub) => (
+                    {paginatedEmpSubmissions.map((sub) => (
                       <tr key={sub.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-850/20">
                         <td className="p-4">
                           <span className="font-extrabold text-slate-900 dark:text-white block">{sub.id.substring(0, 8)}</span>
@@ -343,6 +360,70 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                     ))}
                   </tbody>
                 </table>
+
+                {/* Pagination Controls */}
+                {sortedAndFilteredSubmissions.length > 0 && (
+                  <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
+                    <div>
+                      Showing <span className="font-extrabold text-slate-900 dark:text-white">{(empSubPage - 1) * 50 + 1}</span> to{' '}
+                      <span className="font-extrabold text-slate-900 dark:text-white">{Math.min(empSubPage * 50, sortedAndFilteredSubmissions.length)}</span> of{' '}
+                      <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{sortedAndFilteredSubmissions.length}</span> entries (Page {empSubPage} of {totalEmpSubPages})
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        disabled={empSubPage === 1}
+                        onClick={() => setEmpSubPage(1)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all uppercase text-[10px]"
+                      >
+                        « First
+                      </button>
+                      <button
+                        type="button"
+                        disabled={empSubPage === 1}
+                        onClick={() => setEmpSubPage(empSubPage - 1)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all text-xs"
+                      >
+                        ‹ Prev
+                      </button>
+
+                      {Array.from({ length: totalEmpSubPages }, (_, i) => i + 1)
+                        .filter(p => Math.abs(p - empSubPage) <= 2 || p === 1 || p === totalEmpSubPages)
+                        .map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            onClick={() => setEmpSubPage(p)}
+                            className={`w-8 h-8 rounded-lg font-black text-xs transition-all cursor-pointer ${
+                              p === empSubPage
+                                ? 'bg-indigo-600 text-white shadow-md'
+                                : 'border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {p}
+                          </button>
+                        ))}
+
+                      <button
+                        type="button"
+                        disabled={empSubPage === totalEmpSubPages}
+                        onClick={() => setEmpSubPage(empSubPage + 1)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all text-xs"
+                      >
+                        Next ›
+                      </button>
+                      <button
+                        type="button"
+                        disabled={empSubPage === totalEmpSubPages}
+                        onClick={() => setEmpSubPage(totalEmpSubPages)}
+                        className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition-all uppercase text-[10px]"
+                      >
+                        Last »
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

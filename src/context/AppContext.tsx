@@ -293,21 +293,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [quotaError, setQuotaError] = useState<string | null>(null);
 
   // Pagination states for lazy loading and O(1) reads
-  const [submissionsLimit, setSubmissionsLimit] = useState(50);
+  const [submissionsLimit, setSubmissionsLimit] = useState(5000);
   const [hasMoreSubmissions, setHasMoreSubmissions] = useState(true);
-  const loadMoreSubmissions = () => setSubmissionsLimit(prev => prev + 50);
+  const loadMoreSubmissions = () => setSubmissionsLimit(prev => prev + 1000);
 
-  const [earningsLimit, setEarningsLimit] = useState(50);
+  const [earningsLimit, setEarningsLimit] = useState(5000);
   const [hasMoreEarnings, setHasMoreEarnings] = useState(true);
-  const loadMoreEarnings = () => setEarningsLimit(prev => prev + 50);
+  const loadMoreEarnings = () => setEarningsLimit(prev => prev + 1000);
 
-  const [publishersLimit, setPublishersLimit] = useState(50);
+  const [publishersLimit, setPublishersLimit] = useState(5000);
   const [hasMorePublishers, setHasMorePublishers] = useState(true);
-  const loadMorePublishers = () => setPublishersLimit(prev => prev + 50);
+  const loadMorePublishers = () => setPublishersLimit(prev => prev + 1000);
 
-  const [partnersLimit, setPartnersLimit] = useState(30);
+  const [partnersLimit, setPartnersLimit] = useState(5000);
   const [hasMorePartners, setHasMorePartners] = useState(true);
-  const loadMorePartners = () => setPartnersLimit(prev => prev + 30);
+  const loadMorePartners = () => setPartnersLimit(prev => prev + 1000);
 
   // Dynamically track the active location hash/route to prevent loading the entire database on public home page
   useEffect(() => {
@@ -465,6 +465,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as Publisher);
         });
+        list.sort((a, b) => {
+          const keyA = (a.joinedDate || '') + '_' + (a.id || '');
+          const keyB = (b.joinedDate || '') + '_' + (b.id || '');
+          return keyB.localeCompare(keyA);
+        });
         setPublishers(list);
         
         // Expose pagination indicators
@@ -561,6 +566,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as EarningRecord);
         });
+        list.sort((a, b) => {
+          const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
+          const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
+          return keyB.localeCompare(keyA);
+        });
         setEarnings(list);
         setHasMoreEarnings(snapshot.docs.length >= earningsLimit);
       }
@@ -606,6 +616,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const list: DataSubmission[] = [];
         snapshot.forEach((docSnap) => {
           list.push(docSnap.data() as DataSubmission);
+        });
+        list.sort((a, b) => {
+          const keyA = (a.submitDate || '') + '_' + (a.id || '');
+          const keyB = (b.submitDate || '') + '_' + (b.id || '');
+          return keyB.localeCompare(keyA);
         });
         setSubmissions(list);
         setHasMoreSubmissions(snapshot.docs.length >= submissionsLimit);

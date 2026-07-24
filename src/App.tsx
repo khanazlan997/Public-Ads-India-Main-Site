@@ -8,6 +8,7 @@ import DashboardView from './components/DashboardView';
 import PartnerPanel from './components/PartnerPanel';
 import EmployeePanel from './components/EmployeePanel';
 import AdminPanel from './components/AdminPanel';
+import AdsEarningView from './components/AdsEarningView';
 import NotFoundView from './components/NotFoundView';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -39,15 +40,21 @@ function AppContent() {
       if (hash && hash !== '#') {
         // Support both '#/Dashboard' and '#Dashboard' styles
         const cleanHash = hash.replace(/^#\/?/, '/');
-        if (['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(cleanHash)) {
-          path = cleanHash;
+        const lowerHash = cleanHash.toLowerCase();
+        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning'].includes(lowerHash)) {
+          if (lowerHash === '/ads-earning') {
+            path = cleanHash; // preserve exact case or allow /Ads-earning
+          } else {
+            path = cleanHash;
+          }
         } else {
           path = '/404';
         }
       } else {
         // Fallback or migration: if user is on a clean pathname, translate it to hash so refresh is saved
         const pathname = window.location.pathname;
-        if (['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(pathname)) {
+        const lowerPath = pathname.toLowerCase();
+        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning'].includes(lowerPath)) {
           path = pathname;
           window.location.hash = `#${pathname}`;
           window.history.replaceState(null, '', '/');
@@ -182,7 +189,8 @@ function AppContent() {
             {route === '/Admin' && <AdminPanel onNavigate={navigateTo} />}
             {route === '/Partner' && <PartnerPanel onNavigate={navigateTo} />}
             {route === '/Employee' && <EmployeePanel onNavigate={navigateTo} />}
-            {!['/Home', '/Dashboard', '/Admin', '/Partner', '/Employee'].includes(route) && (
+            {route.toLowerCase() === '/ads-earning' && <AdsEarningView onNavigate={navigateTo} />}
+            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning'].includes(route.toLowerCase()) && (
               <NotFoundView onNavigate={navigateTo} />
             )}
           </motion.div>

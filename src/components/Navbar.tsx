@@ -100,6 +100,18 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
               Home
             </button>
 
+            <button 
+              id="nav-link-ads-earning"
+              onClick={() => onNavigate('/Ads-earning')}
+              className={`text-sm font-semibold tracking-wide transition-colors ${
+                currentRoute.toLowerCase() === '/ads-earning' 
+                  ? 'text-brand-primary dark:text-amber-400' 
+                  : 'text-slate-600 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400'
+              }`}
+            >
+              Ads Earning
+            </button>
+
             {/* Certificates Dropdown */}
             <div className="relative">
               <button 
@@ -272,6 +284,13 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
             className="text-left py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-brand-accent transition-colors"
           >
             Home
+          </button>
+
+          <button 
+            onClick={() => { onNavigate('/Ads-earning'); setMobileMenuOpen(false); }}
+            className="text-left py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-brand-accent transition-colors"
+          >
+            Ads Earning
           </button>
           
           <div className="flex flex-col gap-2">

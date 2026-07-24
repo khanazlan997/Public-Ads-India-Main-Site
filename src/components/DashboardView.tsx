@@ -310,6 +310,15 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const [bankQrCode, setBankQrCode] = useState('');
   const [bankFormMsg, setBankFormMsg] = useState('');
 
+  // Bank Popup & Validation States
+  const [showBankConfirmModal, setShowBankConfirmModal] = useState(false);
+  const [showBankSuccessModal, setShowBankSuccessModal] = useState(false);
+  const [showBankWarningModal, setShowBankWarningModal] = useState(false);
+  const [bankWarningMsg, setBankWarningMsg] = useState('');
+  const [missingFieldsList, setMissingFieldsList] = useState<string[]>([]);
+  const [isSavingBank, setIsSavingBank] = useState(false);
+  const [showMaskedAccount, setShowMaskedAccount] = useState(true);
+
   // Leader submissions inputs
   const [selectedCampaignId, setSelectedCampaignId] = useState('');
   const [leadClientName, setLeadClientName] = useState('');
@@ -535,29 +544,88 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     }
   };
 
-  // Bank Save
-  const handleBankSubmit = async (e: React.FormEvent) => {
+  // Utility to mask bank account numbers
+  const getMaskedAccount = (acc: string) => {
+    if (!acc) return '••••';
+    if (acc.length <= 4) return acc;
+    const lastFour = acc.slice(-4);
+    const masked = '•'.repeat(Math.min(acc.length - 4, 8));
+    return `${masked} ${lastFour}`;
+  };
+
+  // Validate Bank Form & Open Review Modal or Warning Modal
+  const handleBankFormReview = (e: React.FormEvent) => {
     e.preventDefault();
     setBankFormMsg('');
+    setBankWarningMsg('');
+    const missing: string[] = [];
 
-    if (!bankAccount || !bankIfsc || !bankUpi) {
-      setBankFormMsg('Account No, IFSC, and UPI ID are strictly mandatory.');
+    if (!bankHolderName || bankHolderName.trim().length < 2) {
+      missing.push('Account Holder Name');
+    }
+    if (!bankPhone || bankPhone.trim().length < 10) {
+      missing.push('Contact Phone Number (10 digits)');
+    }
+    if (!bankAccount || bankAccount.trim().length < 8) {
+      missing.push('Bank Account Number (minimum 8 digits)');
+    }
+    if (!bankIfsc || bankIfsc.trim().length < 4) {
+      missing.push('Valid IFSC Code (e.g. SBIN0001092)');
+    }
+    if (!bankUpi || !bankUpi.includes('@') || bankUpi.trim().length < 3) {
+      missing.push('Valid UPI ID Address (e.g. name@okaxis)');
+    }
+
+    if (missing.length > 0) {
+      setMissingFieldsList(missing);
+      setBankWarningMsg('Incomplete Banking Information');
+      setShowBankWarningModal(true);
       return;
     }
 
-    const details: BankDetails = {
-      publisherId: currentUser!.id,
-      holderName: bankHolderName,
-      phone: bankPhone,
-      email: bankEmail,
-      accountNumber: bankAccount,
-      ifsc: bankIfsc,
-      upi: bankUpi,
-      qrCode: bankQrCode
-    };
+    // Open Checkout / Confirmation Modal
+    setShowBankConfirmModal(true);
+  };
 
-    const res = await submitBankDetails(details);
-    setBankFormMsg(res.message);
+  // Final Bank Details Save
+  const handleConfirmBankSave = async () => {
+    setIsSavingBank(true);
+    try {
+      const details: BankDetails = {
+        publisherId: currentUser!.id,
+        holderName: bankHolderName.trim(),
+        phone: bankPhone.trim(),
+        email: bankEmail.trim(),
+        accountNumber: bankAccount.trim(),
+        ifsc: bankIfsc.toUpperCase().trim(),
+        upi: bankUpi.trim(),
+        qrCode: bankQrCode
+      };
+
+      const res = await submitBankDetails(details);
+      setShowBankConfirmModal(false);
+
+      if (res.success) {
+        setBankFormMsg('Banking Ledger Updated Successfully');
+        setShowBankSuccessModal(true);
+        confetti({
+          particleCount: 80,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      } else {
+        setBankWarningMsg(res.message || 'Failed to update bank details.');
+        setMissingFieldsList([]);
+        setShowBankWarningModal(true);
+      }
+    } catch (err: any) {
+      setShowBankConfirmModal(false);
+      setBankWarningMsg(err.message || 'An unexpected error occurred while saving.');
+      setMissingFieldsList([]);
+      setShowBankWarningModal(true);
+    } finally {
+      setIsSavingBank(false);
+    }
   };
 
   // Copy clip
@@ -1993,8 +2061,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-10 border border-slate-200/80 dark:border-slate-800/80 shadow-md">
             
             <div className="border-b border-slate-100 dark:border-slate-800 pb-4 mb-6 text-center">
-              <h3 className="text-lg font-extrabold text-slate-900 dark:text-white uppercase tracking-wide">Update Banking Ledger</h3>
-              <p className="text-xs text-slate-405 mt-1">Provide correct account or UPI coordinates. All details are safely encrypted and private.</p>
+              <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-wide flex items-center justify-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-emerald-500" />
+                <span>Payout & Banking Ledger Setup</span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Provide correct bank account or UPI coordinates. All financial data is 256-bit encrypted.</p>
             </div>
 
             {bankFormMsg && (
@@ -2003,32 +2074,40 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
             )}
 
-            <form onSubmit={handleBankSubmit} className="space-y-4">
+            <form onSubmit={handleBankFormReview} className="space-y-4">
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 
                 {/* Holder Name */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Holder Name</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <span>Account Holder Name</span>
+                    <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input
                     type="text"
                     required
+                    placeholder="Full name as per bank passbook"
                     value={bankHolderName}
                     onChange={(e) => setBankHolderName(e.target.value)}
-                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-slate-850 dark:text-white font-medium"
+                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-850 dark:text-white font-medium"
                   />
                 </div>
 
                 {/* Phone */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Contact Phone No</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <span>Contact Phone Number</span>
+                    <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input
                     type="tel"
                     required
                     maxLength={10}
+                    placeholder="10-digit mobile number"
                     value={bankPhone}
-                    onChange={(e) => setBankPhone(e.target.value)}
-                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-slate-850 dark:text-white font-medium"
+                    onChange={(e) => setBankPhone(e.target.value.replace(/\D/g, ''))}
+                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-850 dark:text-white font-mono"
                   />
                 </div>
 
@@ -2038,27 +2117,33 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 
                 {/* Account Number */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Account Number</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <span>Bank Account Number</span>
+                    <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input
                     type="text"
                     required
-                    placeholder="Enter bank Account Number"
+                    placeholder="Enter bank account number"
                     value={bankAccount}
-                    onChange={(e) => setBankAccount(e.target.value)}
-                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-205 dark:border-slate-800 rounded-xl outline-none text-slate-850 dark:text-white font-mono"
+                    onChange={(e) => setBankAccount(e.target.value.replace(/\s/g, ''))}
+                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-850 dark:text-white font-mono"
                   />
                 </div>
 
                 {/* IFSC Code */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">IFSC Code</label>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                    <span>IFSC Code</span>
+                    <span className="text-rose-500 font-bold">*</span>
+                  </label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. SBIN0001092"
                     value={bankIfsc}
-                    onChange={(e) => setBankIfsc(e.target.value)}
-                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-205 dark:border-slate-800 rounded-xl outline-none text-slate-850 dark:text-white font-mono uppercase"
+                    onChange={(e) => setBankIfsc(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-850 dark:text-white font-mono uppercase"
                   />
                 </div>
 
@@ -2066,20 +2151,23 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
               {/* UPI ID */}
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">UPI ID address</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
+                  <span>UPI ID Address</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. upi_address@okaxis"
+                  placeholder="e.g. username@okaxis or 9876543210@paytm"
                   value={bankUpi}
-                  onChange={(e) => setBankUpi(e.target.value)}
-                  className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none text-slate-850 dark:text-white font-mono"
+                  onChange={(e) => setBankUpi(e.target.value.replace(/\s/g, ''))}
+                  className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-850 dark:text-white font-mono"
                 />
               </div>
 
               {/* UPI QR upload code */}
               <div className="flex flex-col gap-1.5 pt-2">
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Upload Personal UPI QR Code</label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Upload Personal UPI QR Code (Optional)</label>
                 
                 <div className="border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-5 text-center flex flex-col justify-center items-center hover:bg-slate-50 dark:hover:bg-slate-900/20 transition-colors relative">
                   <input
@@ -2118,9 +2206,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <button
                 type="submit"
                 id="submit-bank-details-btn"
-                className="mt-6 w-full py-4 bg-[#10b981] hover:bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md cursor-pointer"
+                className="mt-6 w-full py-4 bg-[#10b981] hover:bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md active:scale-98 cursor-pointer flex items-center justify-center gap-2"
               >
-                Save Banking details
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Save Banking Details</span>
               </button>
 
             </form>
@@ -2285,6 +2374,269 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
               >
                 Awesome, Got It!
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Dynamic Animated Bank Warning / Incomplete Info Modal */}
+      <AnimatePresence>
+        {showBankWarningModal && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
+            onClick={() => setShowBankWarningModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4, bounce: 0.2 }}
+              className="relative bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 max-w-md w-full border border-rose-200 dark:border-rose-900/50 shadow-2xl text-center overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-amber-500 via-rose-500 to-amber-500" />
+              
+              <div className="flex justify-center mb-5 mt-2">
+                <div className="w-16 h-16 bg-rose-50 dark:bg-rose-950/50 rounded-2xl flex items-center justify-center border border-rose-200 dark:border-rose-800/60 shadow-inner">
+                  <AlertCircle className="w-8 h-8 text-rose-500 animate-bounce" />
+                </div>
+              </div>
+
+              <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+                {bankWarningMsg || 'Incomplete Bank Information'}
+              </h3>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-4">
+                We could not save your bank details because some mandatory fields are missing or incomplete. Please review and fill out the details below:
+              </p>
+
+              {missingFieldsList.length > 0 && (
+                <div className="mb-6 p-4 bg-rose-50/80 dark:bg-rose-950/30 rounded-2xl border border-rose-200/80 dark:border-rose-900/40 text-left space-y-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 dark:text-rose-400 block mb-1">
+                    Required / Missing Fields:
+                  </span>
+                  {missingFieldsList.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs font-bold text-rose-800 dark:text-rose-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowBankWarningModal(false)}
+                className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white font-black text-xs tracking-wider uppercase rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Complete Required Fields
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Bank Details Review & Checkout Modal */}
+      <AnimatePresence>
+        {showBankConfirmModal && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
+            onClick={() => !isSavingBank && setShowBankConfirmModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.4 }}
+              className="relative bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 max-w-lg w-full border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                      Verify Banking Details
+                    </h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Confirm payout coordinates before saving
+                    </p>
+                  </div>
+                </div>
+                {!isSavingBank && (
+                  <button
+                    onClick={() => setShowBankConfirmModal(false)}
+                    className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Summary Checkout Card */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 rounded-2xl p-4 sm:p-5 border border-slate-200/80 dark:border-slate-800 space-y-3.5 mb-6">
+                
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Holder</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white">{bankHolderName}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Contact Phone</span>
+                  <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">{bankPhone}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Number</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">
+                      {showMaskedAccount ? getMaskedAccount(bankAccount) : bankAccount}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowMaskedAccount(!showMaskedAccount)}
+                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                    >
+                      {showMaskedAccount ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">IFSC Code</span>
+                  <span className="text-xs font-mono font-bold uppercase text-slate-800 dark:text-slate-200">{bankIfsc}</span>
+                </div>
+
+                <div className="flex items-center justify-between py-1">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">UPI ID Address</span>
+                  <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{bankUpi}</span>
+                </div>
+
+                {bankQrCode && (
+                  <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/80 flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Attached UPI QR Code</span>
+                    <div className="w-10 h-10 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700">
+                      <img src={bankQrCode} alt="Attached QR Code" className="w-full h-full object-cover" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/40 rounded-xl mb-6 text-[11px] text-amber-800 dark:text-amber-300 font-medium flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                <span>
+                  Please double check all digits carefully. Future payout disbursements will automatically be routed to these coordinates.
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  disabled={isSavingBank}
+                  onClick={() => setShowBankConfirmModal(false)}
+                  className="py-3 px-4 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs tracking-wider uppercase rounded-xl transition-all cursor-pointer"
+                >
+                  Edit Details
+                </button>
+                <button
+                  type="button"
+                  disabled={isSavingBank}
+                  onClick={handleConfirmBankSave}
+                  className="py-3 px-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs tracking-wider uppercase rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  {isSavingBank ? (
+                    <span>Saving Ledger...</span>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Confirm & Save</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Animated Bank Details Success Modal */}
+      <AnimatePresence>
+        {showBankSuccessModal && (
+          <div 
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md"
+            onClick={() => setShowBankSuccessModal(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 15 }}
+              transition={{ type: "spring", duration: 0.5, bounce: 0.3 }}
+              className="relative bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 max-w-md w-full border border-emerald-200 dark:border-emerald-900/50 shadow-2xl text-center overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Confetti effect container */}
+              <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-50">
+                <div className="absolute top-10 left-10 w-2.5 h-2.5 bg-emerald-400 rounded-full animate-ping" />
+                <div className="absolute top-24 right-12 w-2 h-2 bg-sky-400 rounded-full animate-pulse" />
+                <div className="absolute bottom-16 left-16 w-3 h-3 bg-amber-400 rounded-full animate-pulse" />
+              </div>
+
+              {/* Glowing animated check mark */}
+              <div className="flex justify-center mb-6">
+                <div className="relative">
+                  <div className="absolute inset-0 rounded-full bg-emerald-500/20 animate-ping" />
+                  <div className="w-20 h-20 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-full flex items-center justify-center shadow-lg relative z-10">
+                    <svg className="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3.5">
+                      <motion.path
+                        initial={{ pathLength: 0 }}
+                        animate={{ pathLength: 1 }}
+                        transition={{ duration: 0.5, ease: "easeInOut", delay: 0.1 }}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+                Bank Details Saved Successfully!
+              </h3>
+
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-6">
+                Your payout coordinates have been encrypted and saved. All future commission disbursements will be deposited directly to this verified account.
+              </p>
+
+              {/* Receipt Box */}
+              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 text-left space-y-2 mb-6">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Account Holder:</span>
+                  <span className="font-black text-slate-800 dark:text-slate-200">{bankHolderName}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">Account No:</span>
+                  <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400">{getMaskedAccount(bankAccount)}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">IFSC Code:</span>
+                  <span className="font-mono font-bold text-slate-800 dark:text-slate-200">{bankIfsc}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-slate-400 font-bold uppercase text-[10px]">UPI Address:</span>
+                  <span className="font-mono font-bold text-blue-600 dark:text-blue-400">{bankUpi}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowBankSuccessModal(false)}
+                className="w-full py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-xs tracking-wider uppercase rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+              >
+                Done / Return to Dashboard
               </button>
             </motion.div>
           </div>

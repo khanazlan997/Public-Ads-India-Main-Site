@@ -1544,10 +1544,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               {/* Status Breakdown badges */}
               <div className="flex items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-slate-800/60">
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200/50 dark:border-emerald-800/40">
-                  ✓ {pubSubmissions.filter(s => s.status === 'approved').length} Approved
+                  ✓ {pubSubmissions.filter(s => ['approved', 'Approved', 'Payment Done', 'Trade Done'].includes(s.status)).length} Approved
                 </span>
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/40">
-                  ⏳ {pubSubmissions.filter(s => s.status === 'pending').length} In Verification
+                  ⏳ {pubSubmissions.filter(s => ['pending', 'Process'].includes(s.status)).length} In Verification
                 </span>
               </div>
 

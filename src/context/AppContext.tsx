@@ -431,23 +431,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     fetchTestimonials();
   }, []);
 
-  // 2. Sync Publishers (Optimized with Role & Path Guards, and limit-based Pagination)
+  // 2. Sync Publishers (Optimized with limit-based Pagination)
   useEffect(() => {
     if (!currentUser) {
       setPublishers([]);
       return;
     }
     const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-    const isPublisher = currentUser.type === 'publisher';
-    
-    // Guard: Only fetch publishers if viewing the Admin/Employee workspace or the Publisher Dashboard
-    const deservesPublishers = 
-      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
-      (isPublisher && activePath === '/Dashboard');
-
-    if (!deservesPublishers) {
-      return;
-    }
 
     let q;
     if (isAdminOrEmployee) {
@@ -487,24 +477,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser, activePath, publishersLimit]);
+  }, [currentUser, publishersLimit]);
 
-  // 3. Sync Bank Details Map (Optimized with Path & Role Guards, and bound to Publishers limit to prevent orphan reads)
+  // 3. Sync Bank Details Map
   useEffect(() => {
     if (!currentUser) {
       setBankDetailsMap({});
       return;
     }
     const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-    const isPublisher = currentUser.type === 'publisher';
-    
-    const deservesBankDetails = 
-      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
-      (isPublisher && activePath === '/Dashboard');
-
-    if (!deservesBankDetails) {
-      return;
-    }
 
     let q;
     if (isAdminOrEmployee) {
@@ -531,24 +512,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser, activePath, publishersLimit]);
+  }, [currentUser, publishersLimit]);
 
-  // 4. Sync Earnings (Optimized with Path/Role Guards, and limit-based Pagination)
+  // 4. Sync Earnings
   useEffect(() => {
     if (!currentUser) {
       setEarnings([]);
       return;
     }
     const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-    const isPublisher = currentUser.type === 'publisher';
-    
-    const deservesEarnings = 
-      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
-      (isPublisher && activePath === '/Dashboard');
-
-    if (!deservesEarnings) {
-      return;
-    }
 
     let q;
     if (isAdminOrEmployee) {
@@ -582,24 +554,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser, activePath, earningsLimit]);
+  }, [currentUser, earningsLimit]);
 
-  // 5. Sync Submissions (Optimized with Path/Role Guards, and limit-based Pagination)
+  // 5. Sync Submissions (Always active when authenticated)
   useEffect(() => {
     if (!currentUser) {
       setSubmissions([]);
       return;
     }
     const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-    const isPublisher = currentUser.type === 'publisher';
-    
-    const deservesSubmissions = 
-      (isAdminOrEmployee && ['/Admin', '/Employee'].includes(activePath)) ||
-      (isPublisher && activePath === '/Dashboard');
-
-    if (!deservesSubmissions) {
-      return;
-    }
 
     let q;
     if (isAdminOrEmployee) {
@@ -633,16 +596,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [currentUser, activePath, submissionsLimit]);
+  }, [currentUser, submissionsLimit]);
 
-  // 6. Sync Employees (Optimized with Path Guard & limit check)
+  // 6. Sync Employees
   useEffect(() => {
-    const deservesEmployees = ['/Admin', '/Employee'].includes(activePath);
-    if (!deservesEmployees) {
+    if (!currentUser && !['/Admin', '/Employee', 'admin', 'employee'].some(p => activePath.toLowerCase().includes(p))) {
       setEmployees([]);
       return;
     }
-    const q = query(collection(db, 'employees'), limit(30));
+    const q = query(collection(db, 'employees'), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (snapshot.empty) {
         setEmployees([]);
@@ -655,12 +617,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [activePath]);
+  }, [currentUser, activePath]);
 
-  // 7. Sync Partner Applications (Optimized with Path Guard & limit-based Pagination)
+  // 7. Sync Partner Applications
   useEffect(() => {
-    const deservesPartners = ['/Admin', '/Partner'].includes(activePath);
-    if (!deservesPartners) {
+    if (!currentUser && !['/Admin', '/Partner', 'admin', 'partner'].some(p => activePath.toLowerCase().includes(p))) {
       setPartnerApplications([]);
       return;
     }
@@ -679,7 +640,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     });
     return unsubscribe;
-  }, [activePath, partnersLimit]);
+  }, [currentUser, activePath, partnersLimit]);
 
   // Sync Advertiser Inquiries (Removed to avoid Firestore logging as requested)
   useEffect(() => {
@@ -1289,6 +1250,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       await setDoc(doc(db, 'submissions', subId), newSub);
+      setSubmissions(prev => {
+        const exists = prev.some(s => s.id === subId);
+        if (exists) return prev;
+        const list = [newSub, ...prev];
+        list.sort((a, b) => {
+          const keyA = (a.submitDate || '') + '_' + (a.id || '');
+          const keyB = (b.submitDate || '') + '_' + (b.id || '');
+          return keyB.localeCompare(keyA);
+        });
+        return list;
+      });
       await addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
       return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
     } catch (err: any) {

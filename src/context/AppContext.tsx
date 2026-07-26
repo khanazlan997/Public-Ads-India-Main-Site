@@ -62,7 +62,7 @@ interface AppContextType {
   
   // Actions
   loginPublisher: (phoneOrEmail: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
-  signupPublisher: (name: string, email: string, phone: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
+  signupPublisher: (name: string, email: string, phone: string, password: string, inviteCode?: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
   logout: () => void;
   updatePublisherProfile: (name: string, avatar: string) => void;
   sendPasswordReset: (phone: string, email: string) => { success: boolean; found: boolean; message: string };
@@ -789,7 +789,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const signupPublisher = async (name: string, email: string, phone: string, password: string) => {
+  const signupPublisher = async (name: string, email: string, phone: string, password: string, inviteCode?: string) => {
     try {
       // 1. Check if email or phone is already registered in local state
       let existing = publishers.find(p => p.email === email || p.phone === phone);
@@ -844,6 +844,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const newId = `PUB${nextNum}`;
 
+      const formattedInviteCode = inviteCode ? inviteCode.trim().toUpperCase() : undefined;
+
       const newPub: Publisher = {
         id: newId,
         name,
@@ -852,7 +854,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         password,
         avatar: '👤',
         blocked: false,
-        joinedDate: new Date().toISOString().substring(0, 10)
+        joinedDate: new Date().toISOString().substring(0, 10),
+        ...(formattedInviteCode ? { inviteCode: formattedInviteCode } : {})
       };
 
       // 4. Save to Firestore (await to ensure durable database write completes!)

@@ -100,6 +100,7 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
               Home
             </button>
 
+            {/* Hidden temporarily as requested:
             <button 
               id="nav-link-ads-earning"
               onClick={() => onNavigate('/Ads-earning')}
@@ -110,7 +111,8 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
               }`}
             >
               Ads Earning
-            </button>
+            </button> 
+            */}
 
             {/* Certificates Dropdown */}
             <div className="relative">
@@ -286,12 +288,14 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
             Home
           </button>
 
+          {/* Hidden temporarily as requested:
           <button 
             onClick={() => { onNavigate('/Ads-earning'); setMobileMenuOpen(false); }}
             className="text-left py-2 text-sm font-bold text-slate-700 dark:text-slate-200 hover:text-brand-accent transition-colors"
           >
             Ads Earning
           </button>
+          */}
           
           <div className="flex flex-col gap-2">
             <span className="text-[10px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-widest font-mono">Certificates</span>

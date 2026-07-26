@@ -7,7 +7,7 @@ import {
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
   Camera, UploadCloud, Edit3, Sparkles, LogOut, Check, ChevronDown, ChevronRight,
-  Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck
+  Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck, Gift
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
 
@@ -277,6 +277,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const [authName, setAuthName] = useState('');
   const [authEmail, setAuthEmail] = useState('');
   const [authPhone, setAuthPhone] = useState('');
+  const [authInviteCode, setAuthInviteCode] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
@@ -397,7 +398,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         setAuthError('All registration fields are required.');
         return;
       }
-      const res = await signupPublisher(authName, authEmail, authPhone, authPassword);
+      const res = await signupPublisher(authName, authEmail, authPhone, authPassword, authInviteCode);
       if (!res.success) {
         setAuthError(res.message);
       }
@@ -792,7 +793,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <button
                   type="button"
                   id="tab-login"
-                  onClick={() => { setIsSignupMode(false); setAuthError(''); }}
+                  onClick={() => { setIsSignupMode(false); setAuthError(''); setAuthInviteCode(''); }}
                   className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${!isSignupMode ? 'bg-white dark:bg-[#0d1628] text-brand-primary dark:text-white shadow-sm' : 'text-slate-500'}`}
                 >
                   Sign In
@@ -800,7 +801,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <button
                   type="button"
                   id="tab-signup"
-                  onClick={() => { setIsSignupMode(true); setAuthError(''); }}
+                  onClick={() => { setIsSignupMode(true); setAuthError(''); setAuthInviteCode(''); }}
                   className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${isSignupMode ? 'bg-white dark:bg-[#0d1628] text-brand-primary dark:text-white shadow-sm' : 'text-slate-500'}`}
                 >
                   Register Account
@@ -849,6 +850,21 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     value={authPhone}
                     onChange={(e) => setAuthPhone(e.target.value)}
                     className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-brand-accent text-slate-900 dark:text-white font-medium"
+                  />
+                </div>
+              )}
+
+              {isSignupMode && (
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    Enter Invite Code <span className="text-slate-400 dark:text-slate-500 font-normal normal-case">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="PUB***"
+                    value={authInviteCode}
+                    onChange={(e) => setAuthInviteCode(e.target.value)}
+                    className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-brand-accent text-slate-900 dark:text-white font-medium uppercase placeholder:normal-case"
                   />
                 </div>
               )}
@@ -1557,7 +1573,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
             </div>
 
-          </div>
+            </div>
 
 
 

@@ -25,6 +25,7 @@ export interface Publisher {
   avatar: string; // Base64 or icon code
   blocked: boolean;
   joinedDate: string;
+  inviteCode?: string;
 }
 
 export interface EarningRecord {

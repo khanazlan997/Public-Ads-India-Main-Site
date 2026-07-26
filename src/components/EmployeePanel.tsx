@@ -365,9 +365,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                 {sortedAndFilteredSubmissions.length > 0 && (
                   <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-bold text-slate-600 dark:text-slate-300">
                     <div>
-                      Showing <span className="font-extrabold text-slate-900 dark:text-white">{(empSubPage - 1) * 50 + 1}</span> to{' '}
-                      <span className="font-extrabold text-slate-900 dark:text-white">{Math.min(empSubPage * 50, sortedAndFilteredSubmissions.length)}</span> of{' '}
-                      <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{sortedAndFilteredSubmissions.length}</span> entries (Page {empSubPage} of {totalEmpSubPages})
+                      Page <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{empSubPage}</span> of <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{totalEmpSubPages}</span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-1.5">

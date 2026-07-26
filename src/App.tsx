@@ -9,8 +9,10 @@ import PartnerPanel from './components/PartnerPanel';
 import EmployeePanel from './components/EmployeePanel';
 import AdminPanel from './components/AdminPanel';
 import AdsEarningView from './components/AdsEarningView';
+import SponsorshipOffer from './components/SponsorshipOffer';
 import NotFoundView from './components/NotFoundView';
 import { motion, AnimatePresence } from 'motion/react';
+import { Gift, Sparkles, ChevronRight } from 'lucide-react';
 
 // Sub App content receiver that utilizes state context
 function AppContent() {
@@ -41,9 +43,9 @@ function AppContent() {
         // Support both '#/Dashboard' and '#Dashboard' styles
         const cleanHash = hash.replace(/^#\/?/, '/');
         const lowerHash = cleanHash.toLowerCase();
-        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning'].includes(lowerHash)) {
-          if (lowerHash === '/ads-earning') {
-            path = cleanHash; // preserve exact case or allow /Ads-earning
+        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer'].includes(lowerHash)) {
+          if (lowerHash === '/ads-earning' || lowerHash === '/sponsorship-offer') {
+            path = cleanHash; // preserve exact case or allow /sponsorship-offer
           } else {
             path = cleanHash;
           }
@@ -54,7 +56,7 @@ function AppContent() {
         // Fallback or migration: if user is on a clean pathname, translate it to hash so refresh is saved
         const pathname = window.location.pathname;
         const lowerPath = pathname.toLowerCase();
-        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning'].includes(lowerPath)) {
+        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer'].includes(lowerPath)) {
           path = pathname;
           window.location.hash = `#${pathname}`;
           window.history.replaceState(null, '', '/');
@@ -190,12 +192,43 @@ function AppContent() {
             {route === '/Partner' && <PartnerPanel onNavigate={navigateTo} />}
             {route === '/Employee' && <EmployeePanel onNavigate={navigateTo} />}
             {route.toLowerCase() === '/ads-earning' && <AdsEarningView onNavigate={navigateTo} />}
-            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning'].includes(route.toLowerCase()) && (
+            {route.toLowerCase() === '/sponsorship-offer' && <SponsorshipOffer onNavigate={navigateTo} />}
+            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer'].includes(route.toLowerCase()) && (
               <NotFoundView onNavigate={navigateTo} />
             )}
           </motion.div>
         </AnimatePresence>
       </main>
+
+      {/* Floating Sponsor Offer Overlay Widget (Bottom Left - Fixed to Viewport) */}
+      {currentUser?.type === 'publisher' && route.toLowerCase() !== '/sponsorship-offer' && (
+        <div className="fixed bottom-3 left-3 sm:bottom-5 sm:left-5 z-50">
+          <button
+            id="sponsor-offer-floating-trigger"
+            onClick={() => navigateTo('/sponsorship-offer')}
+            className="group relative flex items-center gap-2 sm:gap-2.5 bg-white/95 dark:bg-[#0c162c]/95 backdrop-blur-md text-slate-900 dark:text-white p-1.5 px-3 sm:p-2.5 sm:px-4 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer border border-sky-500/80 dark:border-sky-400/80 hover:border-sky-500"
+            title="Open Sponsor Reward Offer"
+          >
+            {/* Clean Compact Icon Container with Gift Icon */}
+            <div className="relative w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-brand-primary text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+              {/* Active Badge Dot */}
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#0c162c]" />
+            </div>
+
+            {/* Clean Compact Text Labels */}
+            <div className="flex flex-col text-left">
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-brand-primary dark:text-sky-400 leading-none">
+                Special Offer
+              </span>
+              <span className="text-[10px] sm:text-xs font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5 mt-0.5">
+                <span>Sponsor Reward</span>
+                <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 group-hover:text-brand-primary group-hover:translate-x-0.5 transition-all" />
+              </span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Floating WhatsApp Widget */}
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-2">

@@ -86,6 +86,14 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
   // Hero 5-person slider auto-play state (7s stay duration)
   const [heroSlideIndex, setHeroSlideIndex] = useState(0);
 
+  // Preload all hero slide images immediately on mount for zero delay display
+  useEffect(() => {
+    heroSlides.forEach((slide) => {
+      const img = new Image();
+      img.src = slide.img;
+    });
+  }, []);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setHeroSlideIndex((prev) => (prev + 1) % heroSlides.length);
@@ -174,7 +182,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
     <div id="home-view" className="bg-[#f8faff] dark:bg-[#060d1f] text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-300">
       
       {/* 1. Hero Section */}
-      <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28 px-4 max-w-7xl mx-auto">
+      <section className="relative overflow-hidden pt-4 pb-14 md:pt-8 md:pb-20 px-4 max-w-7xl mx-auto">
         {/* Dynamic Geometric background animation */}
         <GeometricBackground />
 
@@ -190,7 +198,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             {/* Pill Badge */}
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded-full font-bold text-xs uppercase tracking-wider mb-6 border border-blue-200/50 dark:border-blue-900/40">
               <TrendingUp className="w-4 h-4 text-brand-accent animate-bounce" />
-              India's #1 Fintech Ad Network
+              India's #1 Fintech Publishers Network
             </div>
 
             {/* Shimmer/Gradient Hero Heading */}
@@ -241,8 +249,15 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             </div>
           </div>
 
-          {/* Right Column: Hero Ring Graphic with 3D Pop-Out Image (PC / Desktop Only) */}
-          <div className="hidden lg:flex lg:col-span-5 relative items-center justify-center min-h-[460px]">
+          {/* Right Column: Hero Ring Graphic with 3D Pop-Out Image */}
+          <div className="flex lg:col-span-5 relative items-center justify-center min-h-[420px] lg:min-h-[460px] mt-2 lg:mt-0">
+            {/* Hidden preloader cache container to keep all slide images warm in GPU memory */}
+            <div className="hidden pointer-events-none opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true">
+              {heroSlides.map((slide) => (
+                <img key={slide.id} src={slide.img} alt="" loading="eager" />
+              ))}
+            </div>
+
             {/* Grid Pattern Background */}
             <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] dark:bg-[radial-gradient(#334155_1.2px,transparent_1.2px)] [background-size:20px_20px] opacity-70 rounded-3xl pointer-events-none" />
 
@@ -267,14 +282,14 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                 <div className="w-[280px] h-[280px] rounded-full border-2 border-white/20" />
               </div>
 
-              {/* SLIDING 3D POP-OUT IMAGE CONTAINER (Right to Left soft slide, 7s stay) */}
-              <AnimatePresence mode="wait">
+              {/* SLIDING 3D POP-OUT IMAGE CONTAINER (Instant cross-fade slide, 7s stay) */}
+              <AnimatePresence initial={false}>
                 <motion.div
                   key={heroSlideIndex}
-                  initial={{ x: 80, opacity: 0 }}
+                  initial={{ x: 50, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: -80, opacity: 0 }}
-                  transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1] }}
+                  exit={{ x: -50, opacity: 0 }}
+                  transition={{ duration: 0.35, ease: "easeOut" }}
                   className="absolute bottom-0 w-[340px] h-[410px] flex items-end justify-center pointer-events-none"
                 >
                   {/* LAYER A: Image base clipped inside the circle at bottom */}
@@ -282,6 +297,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                     <img 
                       src={heroSlides[heroSlideIndex].img} 
                       alt={heroSlides[heroSlideIndex].alt}
+                      loading="eager"
                       className="w-[320px] h-[380px] object-cover max-w-none transform translate-y-2 rounded-b-[150px]"
                       referrerPolicy="no-referrer"
                     />
@@ -292,6 +308,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                     <img 
                       src={heroSlides[heroSlideIndex].img} 
                       alt={heroSlides[heroSlideIndex].alt}
+                      loading="eager"
                       className="w-[320px] h-[380px] object-cover max-w-none transform translate-y-2 filter drop-shadow-2xl"
                       style={{
                         clipPath: 'polygon(0% 0%, 100% 0%, 100% 50%, 0% 50%)'

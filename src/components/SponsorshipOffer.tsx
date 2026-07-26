@@ -15,8 +15,6 @@ import {
   Calendar,
   Award,
   AlertCircle,
-  HelpCircle,
-  UserCheck,
   Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -68,11 +66,13 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
 
   const [activeSlide, setActiveSlide] = useState(0);
   const [copiedCode, setCopiedCode] = useState(false);
-  const [selectedBoxModal, setSelectedBoxModal] = useState<{
-    boxNum: number;
-    isCompleted: boolean;
-    clientDetail?: ReferralDetail;
-  } | null>(null);
+
+  // Scroll to top immediately on component mount
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, []);
 
   // Automatic slideshow timer every 3.5 seconds
   useEffect(() => {
@@ -374,7 +374,7 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
               </h3>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Click on any green box to inspect the client who unlocked that referral task.
+              Track your 20 AngelOne client referrals. Joined clients display their Name and User ID in green.
             </p>
           </div>
 
@@ -394,19 +394,12 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
             const clientDetail = isCompleted ? currentMonthReferrals[index] : undefined;
 
             return (
-              <button
+              <div
                 key={boxNum}
-                onClick={() =>
-                  setSelectedBoxModal({
-                    boxNum,
-                    isCompleted,
-                    clientDetail
-                  })
-                }
-                className={`group relative p-2 py-2.5 rounded-xl border transition-all duration-200 flex flex-col items-center justify-between gap-1 cursor-pointer min-h-[72px] ${
+                className={`relative p-2 py-2.5 rounded-xl border transition-all duration-200 flex flex-col items-center justify-between gap-1 min-h-[74px] ${
                   isCompleted
-                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-sm hover:scale-[1.04] active:scale-95'
-                    : 'bg-rose-50/80 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400 hover:border-rose-400 hover:bg-rose-100/50 dark:hover:bg-rose-950/40 hover:scale-[1.03] active:scale-95'
+                    ? 'bg-gradient-to-br from-emerald-500 to-teal-600 border-emerald-400 text-white shadow-sm'
+                    : 'bg-rose-50/80 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 text-rose-600 dark:text-rose-400'
                 }`}
               >
                 <div className="flex items-center justify-between w-full text-[9px] font-black uppercase tracking-tight opacity-90">
@@ -418,10 +411,10 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
                   )}
                 </div>
 
-                <div className="w-full text-center my-auto">
+                <div className="w-full text-center my-auto px-0.5">
                   {isCompleted ? (
-                    <span className="text-[10px] font-black block truncate text-white leading-tight">
-                      {clientDetail?.clientName || 'Done'}
+                    <span className="text-[10px] font-black block truncate text-white leading-tight" title={clientDetail?.clientName}>
+                      {clientDetail?.clientName || 'Joined Client'}
                     </span>
                   ) : (
                     <span className="text-[10px] font-bold block text-rose-600/90 dark:text-rose-400/90 leading-tight">
@@ -430,10 +423,10 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
                   )}
                 </div>
 
-                <div className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-md bg-black/10 dark:bg-white/10 w-full text-center">
-                  {isCompleted ? 'Done' : 'Pending'}
+                <div className="text-[8px] font-black uppercase tracking-wider px-1 py-0.5 rounded-md bg-black/10 dark:bg-white/10 w-full text-center truncate font-mono">
+                  {isCompleted ? (clientDetail?.clientId || 'User ID') : 'Pending'}
                 </div>
-              </button>
+              </div>
             );
           })}
         </div>
@@ -497,73 +490,6 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
           ))}
         </div>
       </div>
-
-      {/* Tooltip / Modal for Box Click */}
-      {selectedBoxModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#0d1628] border-2 border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 shadow-2xl relative text-center animate-fade-up space-y-4">
-            
-            <button
-              onClick={() => setSelectedBoxModal(null)}
-              className="absolute top-4 right-4 p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              <XCircle className="w-5 h-5" />
-            </button>
-
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto text-2xl ${
-              selectedBoxModal.isCompleted ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600' : 'bg-rose-100 dark:bg-rose-950/50 text-rose-600'
-            }`}>
-              {selectedBoxModal.isCompleted ? <UserCheck className="w-7 h-7" /> : <HelpCircle className="w-7 h-7" />}
-            </div>
-
-            <div>
-              <h4 className="text-base font-black text-slate-900 dark:text-white uppercase">
-                Task Box #{selectedBoxModal.boxNum}
-              </h4>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {selectedBoxModal.isCompleted ? 'AngelOne Client Referral Verified' : 'Task Slot Locked'}
-              </p>
-            </div>
-
-            {selectedBoxModal.isCompleted && selectedBoxModal.clientDetail ? (
-              <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 text-left space-y-2 text-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Client Name</span>
-                  <span className="font-extrabold text-slate-900 dark:text-white text-sm">
-                    {selectedBoxModal.clientDetail.clientName}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Client UID</span>
-                  <span className="font-mono font-bold text-sky-500">
-                    {selectedBoxModal.clientDetail.clientId}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">First AngelOne Earning Date</span>
-                  <span className="font-mono text-emerald-600 dark:text-emerald-400 font-extrabold">
-                    {selectedBoxModal.clientDetail.firstAngelOneDate}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 bg-rose-50 dark:bg-rose-950/30 rounded-2xl border border-rose-200 dark:border-rose-900/40 text-left space-y-1 text-xs">
-                <span className="font-bold text-rose-600 dark:text-rose-400 block">Pending Task</span>
-                <p className="text-slate-600 dark:text-slate-300 text-[11px]">
-                  Invite a client using your Sponsor ID (<strong className="font-mono">{currentUser.id}</strong>). Once they complete their first AngelOne earning, this slot turns GREEN!
-                </p>
-              </div>
-            )}
-
-            <button
-              onClick={() => setSelectedBoxModal(null)}
-              className="w-full py-3 bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs rounded-xl transition-colors uppercase tracking-widest"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
 
     </div>
   );

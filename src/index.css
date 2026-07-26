@@ -81,7 +81,6 @@
   animation-play-state: paused;
 }
 
-/* Custom visual utilities */
 .shimmer-text {
   background: linear-gradient(90deg, #1e40af, #3b82f6, #f59e0b, #1e40af);
   background-size: 300% 300%;

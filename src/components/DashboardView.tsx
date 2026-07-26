@@ -1455,33 +1455,42 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             
             {/* Card 1: All time total */}
-            <div className="bg-gradient-to-br from-brand-primary to-blue-750 text-white rounded-3xl p-6 shadow-md border-2 border-slate-900 dark:border-slate-700">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-black uppercase tracking-widest text-blue-200">All-Time Earnings</span>
-                <IndianRupee className="w-5 h-5 text-amber-300 fill-amber-300 animate-bounce" />
+            <div className="bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-800 text-white rounded-3xl p-6 shadow-xl shadow-indigo-500/10 border border-indigo-400/30 dark:border-indigo-500/30 relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
+              <div className="flex justify-between items-center relative z-10">
+                <span className="text-xs font-black uppercase tracking-widest text-indigo-100">All-Time Earnings</span>
+                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-inner">
+                  <IndianRupee className="w-5 h-5 fill-amber-300 animate-bounce" />
+                </div>
               </div>
-              <h3 className="text-3xl font-black font-mono mt-4">₹{publisherEarningStats.total}</h3>
-              <p className="text-[10px] text-blue-200 font-bold mt-2.5">Total payout successfully consolidated.</p>
+              <h3 className="text-3xl font-black font-mono mt-4 text-white tracking-tight relative z-10">₹{publisherEarningStats.total}</h3>
+              <p className="text-[11px] text-indigo-100 font-medium mt-2.5 relative z-10">Total payout successfully consolidated.</p>
             </div>
 
             {/* Card 2: Last 7 Days */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-slate-900 dark:border-slate-700 shadow-md">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Last 7 Days</span>
-                <Calendar className="w-5 h-5 text-emerald-500" />
+            <div className="bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-emerald-500/25 dark:border-emerald-500/30 shadow-xl shadow-emerald-500/5 relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
+              <div className="flex justify-between items-center relative z-10">
+                <span className="text-xs font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-400">Last 7 Days</span>
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Calendar className="w-5 h-5" />
+                </div>
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4">₹{publisherEarningStats.last7}</h3>
-              <p className="text-[10px] text-[#10b981] font-bold mt-2.5">Recent payout logs checked.</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4 tracking-tight relative z-10">₹{publisherEarningStats.last7}</h3>
+              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-2.5 relative z-10">Recent payout logs checked.</p>
             </div>
 
             {/* Card 3: Last 30 Days */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-slate-900 dark:border-slate-700 shadow-md">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Last 30 Days</span>
-                <Coins className="w-5 h-5 text-blue-500" />
+            <div className="bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-transparent bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-sky-500/25 dark:border-sky-500/30 shadow-xl shadow-sky-500/5 relative overflow-hidden">
+              <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-sky-500/10 rounded-full blur-xl pointer-events-none" />
+              <div className="flex justify-between items-center relative z-10">
+                <span className="text-xs font-black uppercase tracking-widest text-sky-800 dark:text-sky-400">Last 30 Days</span>
+                <div className="w-10 h-10 rounded-2xl bg-sky-500/15 dark:bg-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <Coins className="w-5 h-5" />
+                </div>
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4">₹{publisherEarningStats.last30}</h3>
-              <p className="text-[10px] text-slate-400 font-medium mt-2.5">Evaluated active lead cycles.</p>
+              <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4 tracking-tight relative z-10">₹{publisherEarningStats.last30}</h3>
+              <p className="text-[11px] text-sky-600 dark:text-sky-400 font-bold mt-2.5 relative z-10">Evaluated active lead cycles.</p>
             </div>
 
           </div>

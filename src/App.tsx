@@ -35,6 +35,9 @@ function AppContent() {
   useEffect(() => {
     const handleLocationChange = () => {
       setIsPageNavigating(true);
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       // Prioritize hash routing to prevent 404 on refresh in any cloud runtime
       const hash = window.location.hash;
       let path = '/Home';
@@ -68,6 +71,9 @@ function AppContent() {
 
       // Smooth page loading animation finish
       const navTimer = setTimeout(() => {
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
         setIsPageNavigating(false);
       }, 650);
       return () => clearTimeout(navTimer);
@@ -90,7 +96,13 @@ function AppContent() {
     setIsPageNavigating(true);
     setRoute(newRoute);
     window.location.hash = `#${newRoute}`;
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
     setTimeout(() => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
       setIsPageNavigating(false);
     }, 650);
   };

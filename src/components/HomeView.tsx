@@ -47,7 +47,7 @@ const heroSlides = [
     img: agencyFounderImg,
     alt: "Official Ad Agency Founder & Executive",
     role: "Agency Founder / CEO",
-    earning: "Earned ₹45,200/mo"
+    earning: "Earned ₹3,00,000/mo"
   }
 ];
 

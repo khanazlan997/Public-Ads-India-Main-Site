@@ -211,7 +211,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             </h1>
 
             {/* Subtext */}
-            <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-medium max-w-2xl mx-auto lg:mx-0">
+            <p className="mt-6 text-xs sm:text-sm md:text-base text-slate-600 dark:text-slate-300 leading-relaxed font-medium max-w-2xl mx-auto lg:mx-0">
               Public Ads India connects publishers and advertisers to build powerful campaigns. 
               No investment needed — just your network, dedication, and a smartphone.
             </p>

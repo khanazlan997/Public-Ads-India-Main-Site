@@ -249,8 +249,8 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             </div>
           </div>
 
-          {/* Right Column: Hero Ring Graphic with 3D Pop-Out Image */}
-          <div className="flex lg:col-span-5 relative items-center justify-center min-h-[420px] lg:min-h-[460px] mt-2 lg:mt-0">
+          {/* Right Column: Hero Ring Graphic with 3D Pop-Out Image (PC / Desktop Only) */}
+          <div className="hidden lg:flex lg:col-span-5 relative items-center justify-center min-h-[420px] lg:min-h-[460px] mt-2 lg:mt-0">
             {/* Hidden preloader cache container to keep all slide images warm in GPU memory */}
             <div className="hidden pointer-events-none opacity-0 h-0 w-0 overflow-hidden" aria-hidden="true">
               {heroSlides.map((slide) => (

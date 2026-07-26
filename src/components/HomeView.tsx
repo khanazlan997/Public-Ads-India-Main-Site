@@ -944,7 +944,10 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       {/* 7. Footer */}
       <footer className="py-8 text-center bg-slate-905 border-t border-slate-200/50 dark:border-slate-800/50 select-none">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400">
-          <span>&copy; 2025 Public Ads India | Fintech Lead Acquirement Corporation</span>
+          <div className="flex flex-col items-center sm:items-start gap-0.5">
+            <span>&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
+            <span className="text-[11px] text-slate-500 font-medium">Established in 2023</span>
+          </div>
           <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold">
             Design by. BharatX Web Agency
           </a>

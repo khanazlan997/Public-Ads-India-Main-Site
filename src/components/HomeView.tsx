@@ -7,6 +7,49 @@ import {
 import { useAppState } from '../context/AppContext';
 import GeometricBackground from './GeometricBackground';
 import { motion, AnimatePresence } from 'motion/react';
+import heroPersonImg from '../assets/images/hero_publisher_person_1785087912325.jpg';
+import studentBoyImg from '../assets/images/publisher_student_boy_1785088634433.jpg';
+import hijabGirlImg from '../assets/images/publisher_niqab_female_1785089088_1785089935267.jpg';
+import housewifeImg from '../assets/images/publisher_housewife_1785088658120.jpg';
+import agencyFounderImg from '../assets/images/publisher_agency_founder_1785089070901.jpg';
+
+const heroSlides = [
+  {
+    id: 1,
+    img: heroPersonImg,
+    alt: "College Student Girl with Laptop",
+    role: "College Student",
+    earning: "Earned ₹18,400/mo"
+  },
+  {
+    id: 2,
+    img: studentBoyImg,
+    alt: "Young College Student Boy",
+    role: "Youth & Student",
+    earning: "Earned ₹14,200/mo"
+  },
+  {
+    id: 3,
+    img: hijabGirlImg,
+    alt: "Muslim Digital Creator working on Tablet",
+    role: "Digital Creator",
+    earning: "Earned ₹26,500/mo"
+  },
+  {
+    id: 4,
+    img: housewifeImg,
+    alt: "Housewife in Saree with Smartphone",
+    role: "Homemaker",
+    earning: "Earned ₹16,500/mo"
+  },
+  {
+    id: 5,
+    img: agencyFounderImg,
+    alt: "Official Ad Agency Founder & Executive",
+    role: "Agency Founder / CEO",
+    earning: "Earned ₹45,200/mo"
+  }
+];
 
 interface HomeViewProps {
   onNavigate: (route: string) => void;
@@ -39,6 +82,16 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
   const [activePubs, setActivePubs] = useState(0);
   const [totalPaidOut, setTotalPaidOut] = useState(0);
   const [liveCamps, setLiveCamps] = useState(0);
+
+  // Hero 5-person slider auto-play state (7s stay duration)
+  const [heroSlideIndex, setHeroSlideIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroSlideIndex((prev) => (prev + 1) % heroSlides.length);
+    }, 7000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Dynamic calculation for Fintech Trusted Years — increments every year on June 5th (Started June 5, 2023)
   const getFintechYears = () => {
@@ -121,7 +174,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
     <div id="home-view" className="bg-[#f8faff] dark:bg-[#060d1f] text-slate-900 dark:text-slate-100 min-h-screen transition-colors duration-300">
       
       {/* 1. Hero Section */}
-      <section className="relative overflow-hidden pt-16 pb-24 md:pt-24 md:pb-36 px-4 max-w-7xl mx-auto">
+      <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28 px-4 max-w-7xl mx-auto">
         {/* Dynamic Geometric background animation */}
         <GeometricBackground />
 
@@ -129,97 +182,231 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         <div className="absolute top-1/4 left-1/10 w-96 h-96 bg-blue-400/10 dark:bg-blue-600/5 rounded-full blur-3xl pointer-events-none z-0" />
         <div className="absolute bottom-1/5 right-1/10 w-80 h-80 bg-amber-400/10 dark:bg-amber-500/5 rounded-full blur-3xl pointer-events-none z-0" />
         
-        <div className="text-center max-w-4xl mx-auto animate-fade-up relative z-10">
-          {/* Pill Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded-full font-bold text-xs uppercase tracking-wider mb-6 border border-blue-200/50 dark:border-blue-900/40">
-            <TrendingUp className="w-4 h-4 text-brand-accent animate-bounce" />
-            India's #1 Fintech Ad Network
+        {/* Responsive Grid Layout: Left Content, Right Hero Ring Graphic (PC) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center relative z-10 max-w-7xl mx-auto">
+          
+          {/* Left Column: Headline, subtext & CTAs */}
+          <div className="lg:col-span-7 text-center lg:text-left animate-fade-up">
+            {/* Pill Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded-full font-bold text-xs uppercase tracking-wider mb-6 border border-blue-200/50 dark:border-blue-900/40">
+              <TrendingUp className="w-4 h-4 text-brand-accent animate-bounce" />
+              India's #1 Fintech Ad Network
+            </div>
+
+            {/* Shimmer/Gradient Hero Heading */}
+            <h1 className="text-4xl sm:text-6xl lg:text-6xl xl:text-7xl font-extrabold tracking-tight leading-tight select-none">
+              <span className="block text-slate-800 dark:text-white">Earn Money.</span>
+              <span className="block bg-gradient-to-r from-blue-700 via-blue-500 to-amber-500 bg-clip-text text-transparent shimmer-text my-2">
+                Zero Investment.
+              </span>
+              <span className="block text-slate-900 dark:text-slate-100">100% Real Work.</span>
+            </h1>
+
+            {/* Subtext */}
+            <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-medium max-w-2xl mx-auto lg:mx-0">
+              Public Ads India connects publishers and advertisers to build powerful campaigns. 
+              No investment needed — just your network, dedication, and a smartphone.
+            </p>
+
+            {/* Green Pill Badge */}
+            <div className="mt-8 inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold text-xs sm:text-sm border border-emerald-200/50 dark:border-emerald-900/30 whitespace-nowrap max-w-full shadow-sm">
+              <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping shrink-0" />
+              <span className="truncate">₹0 Investment Required — Start Earning Today</span>
+            </div>
+
+            {/* Two CTA Buttons */}
+            <div className="mt-8 sm:mt-10 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 max-w-lg mx-auto lg:mx-0">
+              <button 
+                id="hero-btn-publisher"
+                onClick={() => onNavigate('/Dashboard')}
+                className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-[0_10px_25px_-5px_rgba(59,130,246,0.4)] transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer font-sans"
+              >
+                <Newspaper className="w-5 h-5 shrink-0" />
+                Publisher Login
+              </button>
+              <button 
+                id="hero-btn-advertiser"
+                onClick={() => {
+                  setAdvFormOpen(true);
+                  setTimeout(() => {
+                    const formElement = document.getElementById('advertiser-inquiry-box');
+                    if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
+                  }, 100);
+                }}
+                className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-[#0d1628] hover:bg-amber-500/10 text-slate-800 dark:text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-lg border-2 border-amber-500 hover:border-amber-600 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer font-sans"
+              >
+                <Megaphone className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
+                Advertiser Inquiry
+              </button>
+            </div>
           </div>
 
-          {/* Shimmer/Gradient Hero Heading */}
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-tight select-none">
-            <span className="block text-slate-800 dark:text-white">Earn Money.</span>
-            <span className="block bg-gradient-to-r from-blue-700 via-blue-500 to-amber-500 bg-clip-text text-transparent shimmer-text my-2">
-              Zero Investment.
-            </span>
-            <span className="block text-slate-900 dark:text-slate-100">100% Real Work.</span>
-          </h1>
+          {/* Right Column: Hero Ring Graphic with 3D Pop-Out Image (PC / Desktop Only) */}
+          <div className="hidden lg:flex lg:col-span-5 relative items-center justify-center min-h-[460px]">
+            {/* Grid Pattern Background */}
+            <div className="absolute inset-0 bg-[radial-gradient(#cbd5e1_1.2px,transparent_1.2px)] dark:bg-[radial-gradient(#334155_1.2px,transparent_1.2px)] [background-size:20px_20px] opacity-70 rounded-3xl pointer-events-none" />
 
-          {/* Subtext */}
-          <p className="mt-6 text-base sm:text-lg md:text-xl text-slate-600 dark:text-slate-300 leading-relaxed font-medium max-w-2xl mx-auto">
-            Public Ads India connects publishers and advertisers to build powerful campaigns. 
-            No investment needed — just your network, dedication, and a smartphone.
-          </p>
+            {/* Floating Colorful Accent Dots */}
+            <span className="absolute top-4 right-10 w-3.5 h-3.5 rounded-full bg-blue-500 animate-ping pointer-events-none" />
+            <span className="absolute top-16 left-6 w-3 h-3 rounded-full bg-rose-500 pointer-events-none" />
+            <span className="absolute bottom-12 left-4 w-3.5 h-3.5 rounded-full bg-amber-400 pointer-events-none" />
+            <span className="absolute bottom-8 right-12 w-3 h-3 rounded-full bg-emerald-400 pointer-events-none" />
 
-          {/* Green Pill Badge */}
-          <div className="mt-8 inline-flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 rounded-xl font-bold text-xs sm:text-sm border border-emerald-200/50 dark:border-emerald-900/30 whitespace-nowrap max-w-full shadow-sm">
-            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-ping shrink-0" />
-            <span className="truncate">₹0 Investment Required — Start Earning Today</span>
-          </div>
+            {/* MAIN RING & 3D POP-OUT IMAGE CONTAINER WITH 5-PERSON SLIDER */}
+            <div className="relative w-[340px] h-[410px] flex items-end justify-center">
+              
+              {/* Current Featured Role Pill at top of Ring */}
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-30 bg-slate-900/90 text-white dark:bg-white/95 dark:text-slate-900 backdrop-blur-md px-3.5 py-1.5 rounded-full text-[11px] font-black tracking-wide shadow-xl border border-white/20 flex items-center gap-2 whitespace-nowrap">
+                <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shrink-0" />
+                <span>{heroSlides[heroSlideIndex].role}</span>
+                <span className="text-emerald-400 dark:text-emerald-600 font-extrabold font-mono text-[10px]">{heroSlides[heroSlideIndex].earning}</span>
+              </div>
 
-          {/* Two CTA Buttons - Floating Anim */}
-          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center justify-center gap-4 max-w-lg mx-auto">
-            <button 
-              id="hero-btn-publisher"
-              onClick={() => onNavigate('/Dashboard')}
-              className="w-full sm:w-auto px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-[0_10px_25px_-5px_rgba(59,130,246,0.4)] transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer font-sans"
-            >
-              <Newspaper className="w-5 h-5 shrink-0" />
-              Publisher Login
-            </button>
-            <button 
-              id="hero-btn-advertiser"
-              onClick={() => {
-                setAdvFormOpen(true);
-                setTimeout(() => {
-                  const formElement = document.getElementById('advertiser-inquiry-box');
-                  if (formElement) formElement.scrollIntoView({ behavior: 'smooth' });
-                }, 100);
-              }}
-              className="w-full sm:w-auto px-8 py-4 bg-white dark:bg-[#0d1628] hover:bg-amber-500/10 text-slate-800 dark:text-white font-black rounded-2xl flex items-center justify-center gap-3 shadow-lg border-2 border-amber-500 hover:border-amber-600 transition-all duration-300 hover:scale-[1.03] hover:-translate-y-0.5 active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer font-sans"
-            >
-              <Megaphone className="w-5 h-5 text-amber-500 shrink-0 animate-pulse" />
-              Advertiser Inquiry
-            </button>
-          </div>
+              {/* Big Solid Bright Pink Ring Background */}
+              <div className="absolute bottom-0 w-[300px] h-[300px] rounded-full bg-gradient-to-tr from-[#ec4899] via-[#f43f5e] to-[#fb7185] dark:from-[#db2777] dark:to-[#e11d48] shadow-[0_20px_60px_rgba(244,63,94,0.35)] flex items-center justify-center overflow-hidden">
+                <div className="w-[280px] h-[280px] rounded-full border-2 border-white/20" />
+              </div>
 
-          {/* Stats Row with count-ups */}
-          <div className="mt-16 sm:mt-24 grid grid-cols-2 md:grid-cols-4 gap-6 text-center border-t border-slate-200/60 dark:border-slate-800/60 pt-10">
-            <div className="flex flex-col">
-              <span className="text-3xl sm:text-4xl font-extrabold text-blue-600 dark:text-blue-400">
-                {activePubs >= 2000 ? "2000+" : `${activePubs}+`}
-              </span>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
-                Active Publishers
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">
-                ₹{totalPaidOut >= 50000000 ? "5Cr+" : `${(totalPaidOut / 10000000).toFixed(1)}Cr+`}
-              </span>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
-                Total Paid Out
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-3xl sm:text-4xl font-extrabold text-amber-500">
-                {liveCamps >= 50 ? "50+" : `${liveCamps}`}
-              </span>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
-                Live Campaigns
-              </span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-3xl sm:text-4xl font-extrabold text-[#10b981]">
-                {getFintechYears()}+ Years
-              </span>
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
-                Trusted in Fintech
-              </span>
+              {/* SLIDING 3D POP-OUT IMAGE CONTAINER (Right to Left soft slide, 7s stay) */}
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={heroSlideIndex}
+                  initial={{ x: 80, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: -80, opacity: 0 }}
+                  transition={{ duration: 0.7, ease: [0.25, 1, 0.5, 1] }}
+                  className="absolute bottom-0 w-[340px] h-[410px] flex items-end justify-center pointer-events-none"
+                >
+                  {/* LAYER A: Image base clipped inside the circle at bottom */}
+                  <div className="absolute bottom-0 w-[300px] h-[300px] rounded-full overflow-hidden z-10 flex items-end justify-center">
+                    <img 
+                      src={heroSlides[heroSlideIndex].img} 
+                      alt={heroSlides[heroSlideIndex].alt}
+                      className="w-[320px] h-[380px] object-cover max-w-none transform translate-y-2 rounded-b-[150px]"
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+
+                  {/* LAYER B: Upper half of Image (Head) popping OUT of the top ring edge */}
+                  <div className="relative z-20 w-[320px] h-[380px] flex items-end justify-center overflow-visible">
+                    <img 
+                      src={heroSlides[heroSlideIndex].img} 
+                      alt={heroSlides[heroSlideIndex].alt}
+                      className="w-[320px] h-[380px] object-cover max-w-none transform translate-y-2 filter drop-shadow-2xl"
+                      style={{
+                        clipPath: 'polygon(0% 0%, 100% 0%, 100% 50%, 0% 50%)'
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </motion.div>
+              </AnimatePresence>
+
+              {/* Slider Dots & Manual Arrow Controls */}
+              <div className="absolute -bottom-9 left-0 right-0 flex items-center justify-center gap-2 z-30">
+                <button 
+                  onClick={() => setHeroSlideIndex((prev) => (prev - 1 + heroSlides.length) % heroSlides.length)}
+                  className="w-5 h-5 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-pink-500 hover:text-white flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all cursor-pointer text-xs font-black select-none"
+                  title="Previous slide"
+                >
+                  ‹
+                </button>
+                {heroSlides.map((slide, idx) => (
+                  <button
+                    key={slide.id}
+                    onClick={() => setHeroSlideIndex(idx)}
+                    className={`h-2 rounded-full transition-all duration-500 cursor-pointer ${
+                      idx === heroSlideIndex ? 'w-8 bg-pink-500' : 'w-2 bg-slate-300 dark:bg-slate-700 hover:bg-slate-400'
+                    }`}
+                    title={`${slide.role} (${slide.earning})`}
+                  />
+                ))}
+                <button 
+                  onClick={() => setHeroSlideIndex((prev) => (prev + 1) % heroSlides.length)}
+                  className="w-5 h-5 rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700 hover:bg-pink-500 hover:text-white flex items-center justify-center text-slate-600 dark:text-slate-300 transition-all cursor-pointer text-xs font-black select-none"
+                  title="Next slide"
+                >
+                  ›
+                </button>
+              </div>
+
+              {/* FLOATING BADGE 1: Left Card (2,000+ Active Publishers) */}
+              <motion.div 
+                initial={{ x: -20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.2, duration: 0.5 }}
+                className="absolute top-36 -left-16 xl:-left-20 z-30 bg-white/95 dark:bg-[#0d1628]/95 backdrop-blur-md p-2.5 px-3 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.12)] border border-slate-200/80 dark:border-slate-800 flex items-center gap-2.5 animate-float-slow"
+              >
+                <div className="w-8 h-8 rounded-lg bg-pink-500 text-white flex items-center justify-center shadow-md shrink-0">
+                  <Users className="w-4 h-4" />
+                </div>
+                <div className="text-left">
+                  <span className="block text-sm font-black text-slate-900 dark:text-white leading-none">2,000+</span>
+                  <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mt-0.5">Active Publishers</span>
+                </div>
+              </motion.div>
+
+              {/* FLOATING BADGE 2: Right Card (Our Online Community) */}
+              <motion.div 
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="absolute bottom-2 -right-6 xl:-right-10 z-30 bg-white/95 dark:bg-[#0d1628]/95 backdrop-blur-md p-2.5 px-3.5 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.12)] border border-slate-200/80 dark:border-slate-800 flex flex-col items-center text-center gap-1 min-w-[145px] sm:min-w-[160px]"
+              >
+                <div className="-mt-5 w-7 h-7 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                  <Award className="w-3.5 h-3.5 fill-white" />
+                </div>
+                <span className="text-[11px] font-black text-slate-900 dark:text-white leading-tight">Our Online Community</span>
+                <div className="flex -space-x-1.5 my-0.5 items-center">
+                  <div className="w-5 h-5 rounded-full bg-blue-500 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">A</div>
+                  <div className="w-5 h-5 rounded-full bg-amber-500 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">R</div>
+                  <div className="w-5 h-5 rounded-full bg-emerald-500 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900">P</div>
+                  <div className="px-1.5 h-5 rounded-full bg-indigo-600 text-white text-[8px] font-black flex items-center justify-center ring-2 ring-white dark:ring-slate-900 shadow-sm">2000+</div>
+                </div>
+                <span className="text-[8.5px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full">₹5Cr+ Disbursed</span>
+              </motion.div>
+
             </div>
           </div>
 
         </div>
+
+        {/* Stats Row with count-ups */}
+        <div className="mt-16 sm:mt-24 grid grid-cols-2 md:grid-cols-4 gap-6 text-center border-t border-slate-200/60 dark:border-slate-800/60 pt-10 relative z-10 max-w-7xl mx-auto">
+          <div className="flex flex-col">
+            <span className="text-3xl sm:text-4xl font-extrabold text-blue-600 dark:text-blue-400">
+              {activePubs >= 2000 ? "2000+" : `${activePubs}+`}
+            </span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
+              Active Publishers
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-3xl sm:text-4xl font-extrabold text-slate-900 dark:text-white">
+              ₹{totalPaidOut >= 50000000 ? "5Cr+" : `${(totalPaidOut / 10000000).toFixed(1)}Cr+`}
+            </span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
+              Total Paid Out
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-3xl sm:text-4xl font-extrabold text-amber-500">
+              {liveCamps >= 50 ? "50+" : `${liveCamps}`}
+            </span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
+              Live Campaigns
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span className="text-3xl sm:text-4xl font-extrabold text-[#10b981]">
+              {getFintechYears()}+ Years
+            </span>
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1.5 font-sans">
+              Trusted in Fintech
+            </span>
+          </div>
+        </div>
+
       </section>
 
 

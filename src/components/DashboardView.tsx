@@ -265,8 +265,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     hasMoreSubmissions,
     loadMoreSubmissions,
     hasMoreEarnings,
-    loadMoreEarnings,
-    getLatestClientPaymentEmail
+    loadMoreEarnings
   } = useAppState();
 
   // Active Tab representation
@@ -1451,76 +1450,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       {/* TAB A: Dashboard */}
       {activeTab === 'dashboard' && (
         <div id="tabPanel-dashboard" className="space-y-8 animate-fade-up">
-          
-          {/* Latest Payment Confirmation Details */}
-          {(() => {
-            const latestEmailRec = getLatestClientPaymentEmail(currentUser?.id, currentUser?.email);
-            return (
-              <div className="bg-white dark:bg-[#0d1628] border-2 border-indigo-500/30 rounded-3xl p-6 sm:p-8 shadow-xl relative overflow-hidden">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-100 dark:border-slate-800 mb-6 gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-bold text-lg">
-                      💳
-                    </div>
-                    <div>
-                      <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Latest Payment Confirmation</h3>
-                      <p className="text-xs text-slate-400">Official dispatch status and transaction details</p>
-                    </div>
-                  </div>
-                  {latestEmailRec && (
-                    <span className={`px-3 py-1 text-xs font-bold rounded-full ${
-                      latestEmailRec.emailStatus === 'Delivered' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' :
-                      latestEmailRec.emailStatus === 'Failed' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300' :
-                      latestEmailRec.emailStatus === 'Processing' ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300' :
-                      'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                    }`}>
-                      {latestEmailRec.emailStatus === 'Delivered' ? '🟢 Delivered' :
-                       latestEmailRec.emailStatus === 'Failed' ? '🔴 Failed' :
-                       latestEmailRec.emailStatus === 'Processing' ? '🔵 Processing' : '🟡 Sending'}
-                    </span>
-                  )}
-                </div>
-
-                {latestEmailRec ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Customer Name</span>
-                      <span className="text-sm font-extrabold text-slate-900 dark:text-white mt-1 block">{latestEmailRec.customerName}</span>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Transaction ID</span>
-                      <span className="text-sm font-black font-mono text-indigo-600 dark:text-indigo-400 mt-1 block">{latestEmailRec.transactionId}</span>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Amount</span>
-                      <span className="text-lg font-black font-mono text-emerald-600 dark:text-emerald-400 mt-1 block">₹{latestEmailRec.amount}</span>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Payment Method</span>
-                      <span className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1 block">{latestEmailRec.paymentMethod || 'UPI / Instant Bank Transfer'}</span>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Date & Time</span>
-                      <span className="text-sm font-bold text-slate-800 dark:text-slate-200 mt-1 block">{latestEmailRec.sentTime}</span>
-                    </div>
-
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-2xl border border-slate-200/60 dark:border-slate-800">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Payment Status</span>
-                      <span className="text-sm font-extrabold text-emerald-600 dark:text-emerald-400 mt-1 block">🟢 Success</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-6 text-slate-400 text-xs font-medium">
-                    No payment confirmation email generated yet. Once sent by administrator/employee, details will appear here immediately.
-                  </div>
-                )}
-              </div>
-            );
-          })()}
 
           {/* Main cards display */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">

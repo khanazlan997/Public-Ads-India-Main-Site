@@ -6,7 +6,7 @@ import {
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
-  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Sparkles
+  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Sparkles, Mail
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -730,6 +730,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 {(() => {
                   const current = [
                     { tab: 'overview', label: 'Console Overview', icon: <Activity className="w-4.5 h-4.5 text-indigo-600 animate-pulse" /> },
+                    { tab: 'email_system', label: 'Email Confirmation System', icon: <Mail className="w-4.5 h-4.5 text-blue-500" /> },
                     { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
                     { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
@@ -762,6 +763,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1.5 animate-fade-up max-h-80 overflow-y-auto">
                   {[
                     { tab: 'overview', label: 'Console Overview', icon: <Activity className="w-4.5 h-4.5 text-indigo-600" /> },
+                    { tab: 'email_system', label: 'Email Confirmation System', icon: <Mail className="w-4.5 h-4.5 text-blue-500" /> },
                     { tab: 'campaigns', label: 'Campaign Manager', icon: <Flame className="w-4.5 h-4.5 text-orange-500" /> },
                     { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
@@ -828,7 +830,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
         {/* Right Active Workspace Container */}
         <main className="lg:col-span-9 bg-white rounded-3xl p-6 border border-slate-200 shadow-sm min-h-[60vh] space-y-6">
-          
+
           {/* TAB 0: Dashboard Overview */}
           {activeTab === 'overview' && (
             <div id="tabContent-overview" className="space-y-6 animate-fade-up">

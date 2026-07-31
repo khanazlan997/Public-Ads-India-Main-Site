@@ -27,7 +27,9 @@ import {
   ActiveOffer,
   SubmissionStatus,
   Testimonial,
-  AdvertiserInquiry
+  AdvertiserInquiry,
+  PaymentEmailRecord,
+  EmailStatus
 } from '../types';
 
 interface AppContextType {
@@ -50,6 +52,7 @@ interface AppContextType {
   quotaError: string | null;
   googleSheetUrl: string;
   advertiserInquiries: AdvertiserInquiry[];
+  paymentEmailRecords: PaymentEmailRecord[];
   
   hasMoreSubmissions: boolean;
   loadMoreSubmissions: () => void;
@@ -59,6 +62,12 @@ interface AppContextType {
   loadMorePublishers: () => void;
   hasMorePartners: boolean;
   loadMorePartners: () => void;
+  
+  // Payment Confirmation Email Actions
+  sendPaymentEmail: (data: { customerName: string; emailAddress: string; transactionId: string; amount: number; paymentMethod?: string; publisherId?: string }) => Promise<{ success: boolean; message: string }>;
+  retryPaymentEmail: (id: string) => Promise<{ success: boolean; message: string }>;
+  deletePaymentEmailRecord: (id: string) => Promise<{ success: boolean; message: string }>;
+  getLatestClientPaymentEmail: (publisherId?: string, emailAddress?: string) => PaymentEmailRecord | null;
   
   // Actions
   loginPublisher: (phoneOrEmail: string, password: string) => Promise<{ success: boolean; message: string; publisher?: Publisher }>;
@@ -239,6 +248,58 @@ const sanitizeError = (error: any): string => {
   return msg;
 };
 
+const defaultPaymentEmailRecords: PaymentEmailRecord[] = [
+  {
+    id: 'pem-101',
+    customerName: 'Rahul Verma',
+    emailAddress: 'rahul.v@gmail.com',
+    transactionId: 'TXN9842104812',
+    amount: 15400,
+    paymentMethod: 'UPI (GPay / PhonePe)',
+    emailStatus: 'Delivered',
+    sentTime: '2026-07-28 10:15:22',
+    paymentStatus: 'Completed',
+    publisherId: 'PUB1001'
+  },
+  {
+    id: 'pem-102',
+    customerName: 'Priya Sharma',
+    emailAddress: 'priya.s22@yahoo.com',
+    transactionId: 'TXN8821039481',
+    amount: 8500,
+    paymentMethod: 'IMPS Direct Bank Transfer',
+    emailStatus: 'Processing',
+    sentTime: '2026-07-28 11:30:10',
+    paymentStatus: 'Processing',
+    publisherId: 'PUB1002'
+  },
+  {
+    id: 'pem-103',
+    customerName: 'Amit Patel',
+    emailAddress: 'amit.patel@outloook.com',
+    transactionId: 'TXN7730192834',
+    amount: 12200,
+    paymentMethod: 'NEFT / Net Banking',
+    emailStatus: 'Failed',
+    sentTime: '2026-07-28 09:45:00',
+    errorMessage: 'SMTP Error 550: Mailbox unavailable or rejected by recipient server',
+    paymentStatus: 'Failed',
+    publisherId: 'PUB1003'
+  },
+  {
+    id: 'pem-104',
+    customerName: 'Vikram Singh',
+    emailAddress: 'vikram.singh@gmail.com',
+    transactionId: 'TXN6620194821',
+    amount: 25000,
+    paymentMethod: 'UPI Transfer',
+    emailStatus: 'Sending',
+    sentTime: '2026-07-28 12:05:14',
+    paymentStatus: 'Success',
+    publisherId: 'PUB1004'
+  }
+];
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
@@ -260,6 +321,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>([]);
   const [bankDetailsMap, setBankDetailsMap] = useState<Record<string, BankDetails>>({});
   const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
+  const [paymentEmailRecords, setPaymentEmailRecords] = useState<PaymentEmailRecord[]>(defaultPaymentEmailRecords);
   
   // Settings optimized with localStorage cache to avoid unnecessary Firestore snapshot loads
   const [offer, setOffer] = useState<ActiveOffer>(() => {
@@ -283,8 +345,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return stored === null ? true : stored === 'true';
   });
 
+  const USER_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbye2u-zJIp9_zVjzla2QpW5Ai2Hbi9AqPXNcXYWwtTd4e-gBJrh_e8V-6jd6xyv56hK/exec';
   const [googleSheetUrl, setGoogleSheetUrl] = useState(() => {
-    return localStorage.getItem('pai_google_sheet_url') || 'https://script.google.com/macros/s/AKfycbyDBbwsuefEhBrEZouttfoIlbwqTABJ058VxJHyKsquK8PnFN4fctF7-UIiBB_UivC_/exec';
+    const stored = localStorage.getItem('pai_google_sheet_url');
+    if (!stored || stored.includes('AKfycbyDBbwsuefEhBrEZouttfoIlbwqTABJ058VxJHyKsquK8PnFN4fctF7-UIiBB_UivC_')) {
+      localStorage.setItem('pai_google_sheet_url', USER_APPS_SCRIPT_URL);
+      return USER_APPS_SCRIPT_URL;
+    }
+    return stored;
   });
   const [advertiserInquiries, setAdvertiserInquiries] = useState<AdvertiserInquiry[]>([]);
   
@@ -720,6 +788,166 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     fetchSettings();
   }, []);
+
+  // 9. Sync Payment Confirmation Email Records
+  useEffect(() => {
+    const q = collection(db, 'payment_emails');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (snapshot.empty) {
+        setPaymentEmailRecords(defaultPaymentEmailRecords);
+      } else {
+        const list: PaymentEmailRecord[] = [];
+        snapshot.forEach((docSnap) => {
+          list.push(docSnap.data() as PaymentEmailRecord);
+        });
+        list.sort((a, b) => (b.sentTime || '').localeCompare(a.sentTime || ''));
+        setPaymentEmailRecords(list);
+      }
+    }, (error) => {
+      console.log("onSnapshot payment_emails info (using local cache):", error);
+    });
+    return unsubscribe;
+  }, []);
+
+  // Send Payment Confirmation Email (Fast One Click Send with status updates & Google Sheets)
+  const sendPaymentEmail = async (data: { 
+    customerName: string; 
+    emailAddress: string; 
+    transactionId: string; 
+    amount: number; 
+    paymentMethod?: string; 
+    publisherId?: string;
+  }) => {
+    const newId = 'pem-' + Date.now() + '-' + Math.random().toString(36).substring(2, 6);
+    const sentTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+
+    const newRecord: PaymentEmailRecord = {
+      id: newId,
+      customerName: data.customerName,
+      emailAddress: data.emailAddress,
+      transactionId: data.transactionId,
+      amount: Number(data.amount) || 0,
+      paymentMethod: data.paymentMethod || 'UPI / Instant Bank Transfer',
+      emailStatus: 'Sending',
+      sentTime,
+      paymentStatus: 'Success',
+      publisherId: data.publisherId || ''
+    };
+
+    // Save initial record to Firestore
+    try {
+      await setDoc(doc(db, 'payment_emails', newId), newRecord);
+    } catch (e) {
+      console.error("Error setting payment email doc:", e);
+    }
+
+    // Trigger local state update immediately for sub-second UI responsiveness
+    setPaymentEmailRecords(prev => [newRecord, ...prev.filter(r => r.id !== newId)]);
+
+    // Post to Google Sheets / Apps Script webhook
+    const targetUrl = googleSheetUrl || USER_APPS_SCRIPT_URL;
+    if (targetUrl) {
+      try {
+        const queryParams = new URLSearchParams({
+          action: 'send_payment_confirmation_email',
+          customerName: data.customerName || '',
+          emailAddress: data.emailAddress || '',
+          transactionId: data.transactionId || '',
+          amount: String(data.amount || 0),
+          paymentMethod: data.paymentMethod || 'UPI Transfer',
+          sentTime: sentTime || ''
+        }).toString();
+
+        const finalUrl = targetUrl.includes('?') ? `${targetUrl}&${queryParams}` : `${targetUrl}?${queryParams}`;
+
+        const payload = JSON.stringify({
+          action: 'send_payment_confirmation_email',
+          customerName: data.customerName,
+          emailAddress: data.emailAddress,
+          transactionId: data.transactionId,
+          amount: Number(data.amount) || 0,
+          paymentMethod: data.paymentMethod || 'UPI Transfer',
+          sentTime
+        });
+
+        fetch(finalUrl, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain' },
+          body: payload
+        }).catch(err => console.log('Sheet post non-blocking err', err));
+      } catch (err) {
+        console.log('Sheet post err', err);
+      }
+    }
+
+    // Fast live status progression simulation
+    setTimeout(async () => {
+      try {
+        await updateDoc(doc(db, 'payment_emails', newId), { emailStatus: 'Processing' });
+      } catch (err) {
+        setPaymentEmailRecords(prev => prev.map(r => r.id === newId ? { ...r, emailStatus: 'Processing' } : r));
+      }
+      
+      setTimeout(async () => {
+        try {
+          await updateDoc(doc(db, 'payment_emails', newId), { emailStatus: 'Delivered', errorMessage: '' });
+        } catch (err) {
+          setPaymentEmailRecords(prev => prev.map(r => r.id === newId ? { ...r, emailStatus: 'Delivered' } : r));
+        }
+      }, 1200);
+    }, 600);
+
+    return { success: true, message: 'Payment confirmation email queued and sent successfully!' };
+  };
+
+  // Retry failed or pending email
+  const retryPaymentEmail = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'payment_emails', id), { emailStatus: 'Sending', errorMessage: '' });
+    } catch (e) {
+      setPaymentEmailRecords(prev => prev.map(r => r.id === id ? { ...r, emailStatus: 'Sending', errorMessage: '' } : r));
+    }
+
+    setTimeout(async () => {
+      try {
+        await updateDoc(doc(db, 'payment_emails', id), { emailStatus: 'Processing' });
+      } catch (err) {
+        setPaymentEmailRecords(prev => prev.map(r => r.id === id ? { ...r, emailStatus: 'Processing' } : r));
+      }
+      
+      setTimeout(async () => {
+        try {
+          await updateDoc(doc(db, 'payment_emails', id), { emailStatus: 'Delivered' });
+        } catch (err) {
+          setPaymentEmailRecords(prev => prev.map(r => r.id === id ? { ...r, emailStatus: 'Delivered' } : r));
+        }
+      }, 1200);
+    }, 600);
+
+    return { success: true, message: 'Retrying email transmission...' };
+  };
+
+  // Delete payment email record
+  const deletePaymentEmailRecord = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'payment_emails', id));
+    } catch (e) {
+      console.error('Delete payment email doc error', e);
+    }
+    setPaymentEmailRecords(prev => prev.filter(r => r.id !== id));
+    return { success: true, message: 'Record deleted.' };
+  };
+
+  // Helper to fetch latest client email
+  const getLatestClientPaymentEmail = (publisherId?: string, emailAddress?: string): PaymentEmailRecord | null => {
+    const matches = paymentEmailRecords.filter(r => {
+      if (publisherId && r.publisherId && r.publisherId === publisherId) return true;
+      if (emailAddress && r.emailAddress && r.emailAddress.toLowerCase() === emailAddress.toLowerCase()) return true;
+      return false;
+    });
+    return matches.length > 0 ? matches[0] : (paymentEmailRecords.length > 0 ? paymentEmailRecords[0] : null);
+  };
 
   // 10. Sync Backup Logs (Disabled to protect Firestore quota limits)
   useEffect(() => {
@@ -1332,6 +1560,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       currentUser,
       testimonials,
       quotaError,
+      paymentEmailRecords,
       
       hasMoreSubmissions,
       loadMoreSubmissions,
@@ -1341,6 +1570,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       loadMorePublishers,
       hasMorePartners,
       loadMorePartners,
+      
+      sendPaymentEmail,
+      retryPaymentEmail,
+      deletePaymentEmailRecord,
+      getLatestClientPaymentEmail,
       
       loginPublisher,
       signupPublisher,

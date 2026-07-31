@@ -120,3 +120,19 @@ export interface AdvertiserInquiry {
   submittedAt: string;
 }
 
+export type EmailStatus = 'Sending' | 'Processing' | 'Delivered' | 'Failed';
+
+export interface PaymentEmailRecord {
+  id: string;
+  customerName: string;
+  emailAddress: string;
+  transactionId: string;
+  amount: number;
+  paymentMethod: string;
+  emailStatus: EmailStatus;
+  sentTime: string;
+  errorMessage?: string;
+  paymentStatus?: string; // e.g., 'Completed' | 'Success'
+  publisherId?: string;
+}
+

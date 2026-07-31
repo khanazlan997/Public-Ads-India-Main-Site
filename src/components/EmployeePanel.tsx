@@ -198,7 +198,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
         </button>
       </div>
 
-      {/* Role-based Instructions */}
+      {/* Role-based Instructions & MIS Lead Audit */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         
         <div className="lg:col-span-12 space-y-6">

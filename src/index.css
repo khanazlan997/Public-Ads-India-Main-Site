@@ -307,3 +307,248 @@ html, body, #root {
   50%  { width: 55%; margin-left: 20%; }
   100% { width: 0%; margin-left: 100%; }
 }
+
+/* =========================================================
+   LUXURY INDIAN FLAG & INDEPENDENCE DAY CELEBRATION DESIGN 🇮🇳
+   3-Step Loop: Flag shines (3s) -> Falling Flowers (2s) -> Loop
+   ========================================================= */
+
+@keyframes border-beam-spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Master 5s Loop: Step 1 & 3 Flag Phase (3 seconds) */
+@keyframes flag-phase-cycle {
+  0% {
+    opacity: 0.28;
+    transform: scale(1);
+    visibility: visible;
+  }
+  54% {
+    opacity: 0.28;
+    transform: scale(1);
+    visibility: visible;
+  }
+  60% {
+    opacity: 0;
+    transform: scale(0.98);
+    visibility: hidden;
+  }
+  94% {
+    opacity: 0;
+    transform: scale(0.98);
+    visibility: hidden;
+  }
+  100% {
+    opacity: 0.28;
+    transform: scale(1);
+    visibility: visible;
+  }
+}
+
+/* Master 5s Loop: Step 2 Flowers Phase (2 seconds) */
+@keyframes flower-phase-cycle {
+  0%, 54% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+  60% {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: none;
+  }
+  94% {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: none;
+  }
+  100% {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+@keyframes flag-shine-glow {
+  0% {
+    transform: translateX(-160%) skewX(-25deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.95;
+  }
+  50%, 100% {
+    transform: translateX(260%) skewX(-25deg);
+    opacity: 0;
+  }
+}
+
+/* Falling flower petals keyframes (staggered falling with swaying and 3D rotation) */
+@keyframes petal-fall-left {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(0deg) scale(0.7);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(60px) translateX(-12px) rotate(240deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes petal-fall-center {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(20deg) scale(0.85);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(60px) translateX(10px) rotate(320deg) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes petal-fall-right {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(-15deg) scale(0.75);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(60px) translateX(15px) rotate(190deg) scale(0.95);
+    opacity: 0;
+  }
+}
+
+@keyframes petal-fall-sway {
+  0% {
+    transform: translateY(-20px) translateX(0px) rotate(0deg) scale(0.65);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(12px) translateX(-8px) rotate(90deg) scale(0.9);
+  }
+  80% {
+    opacity: 1;
+    transform: translateY(40px) translateX(8px) rotate(200deg) scale(1);
+  }
+  100% {
+    transform: translateY(62px) translateX(-4px) rotate(290deg) scale(0.8);
+    opacity: 0;
+  }
+}
+
+.animate-flag-loop-phase {
+  animation: flag-phase-cycle 5s ease-in-out infinite;
+}
+
+.animate-flower-loop-phase {
+  animation: flower-phase-cycle 5s ease-in-out infinite;
+}
+
+.animate-flag-shine {
+  animation: flag-shine-glow 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-petal-1 {
+  animation: petal-fall-left 1.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) infinite;
+}
+
+.animate-petal-2 {
+  animation: petal-fall-center 1.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.25s infinite;
+}
+
+.animate-petal-3 {
+  animation: petal-fall-right 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.5s infinite;
+}
+
+.animate-petal-4 {
+  animation: petal-fall-sway 2s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.15s infinite;
+}
+
+.animate-petal-5 {
+  animation: petal-fall-left 1.6s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.7s infinite;
+}
+
+.animate-petal-6 {
+  animation: petal-fall-center 1.85s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.4s infinite;
+}
+
+.animate-petal-7 {
+  animation: petal-fall-right 1.75s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.85s infinite;
+}
+
+@keyframes patriotic-aura-breathe {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.98);
+    filter: blur(12px);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.03);
+    filter: blur(16px);
+  }
+}
+
+@keyframes chakra-silent-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes tricolor-flow-smooth {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-beam-spin {
+  animation: border-beam-spin 6s linear infinite;
+}
+
+.animate-patriotic-aura {
+  animation: patriotic-aura-breathe 4s ease-in-out infinite;
+}
+
+.animate-chakra-orbit {
+  animation: chakra-silent-orbit 14s linear infinite;
+}
+
+.animate-tricolor-flow-smooth {
+  background-size: 200% 200%;
+  animation: tricolor-flow-smooth 5s ease infinite;
+}
+
+

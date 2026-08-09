@@ -45,41 +45,179 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-15 items-center">
           
-          {/* Left Logo - Secured Image Logo from User */}
+          {/* Left Logo - Subtle Professional Independence Day Tricolor Animation */}
           <div 
             onClick={() => onNavigate('/Home')} 
-            className="flex items-center gap-2.5 cursor-pointer select-none"
+            className="flex items-center gap-3 cursor-pointer select-none group relative py-1"
             id="nav-logo"
           >
+            {/* Subtle Tricolor Ambient Glow */}
+            <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-[#FF671F]/15 via-white/5 to-[#046A38]/15 dark:from-[#FF671F]/20 dark:via-white/5 dark:to-[#046A38]/20 blur-sm pointer-events-none opacity-60 group-hover:opacity-90 transition-opacity animate-patriotic-aura" />
+
             {!logoError ? (
-              <div className="relative h-13 flex items-center select-none" style={{ userSelect: 'none', WebkitUserSelect: 'none' }}>
-                <img
-                  src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijSD_VcoYPOVgBiucO3HXuvw0_ZSsIwHThGbE2YvolhBQnY40fTjFgz8gl9Zv-sbSqPQlhmxbtMkMY-98lS41zLsFbPFe5pioxQWN8Ux88eNw37D78fFvIYyNmHrWZfKot-6Y0icFWU4x9KQdqmW82UPHjHyM0LE3q0o3T1Et0UJ3oqPbAQ0HxIMaRBLcM/s2560/1000182948.png"
-                  alt="Public Ads India Logo"
-                  className="h-11 w-auto object-contain select-none pointer-events-none rounded"
-                  draggable={false}
-                  onContextMenu={(e) => e.preventDefault()}
-                  onError={() => setLogoError(true)}
-                  referrerPolicy="no-referrer"
-                />
-                {/* Overlapping guard transparent div blocker to completely shield from right-click downloads */}
-                <div 
-                  className="absolute inset-0 bg-transparent z-10" 
-                  onContextMenu={(e) => e.preventDefault()}
-                  style={{ WebkitTouchCallout: 'none' }}
-                />
+              <div className="relative flex items-center gap-2.5">
+                {/* Logo Badge Container with 3-Step Continuous Loop (Flag 3s -> Falling Flowers 2s -> Loop) */}
+                <div className="relative px-2.5 py-1 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-amber-400/50 group-hover:shadow-md">
+                  
+                  {/* STEP 1: FULL-COVERAGE SHINING INDIAN FLAG OVERLAY (3 Seconds Phase) */}
+                  <div 
+                    className="absolute inset-0 w-full h-full flex flex-col pointer-events-none z-10 select-none overflow-hidden animate-flag-loop-phase"
+                  >
+                    {/* Top Stripe: Saffron / Kesariya */}
+                    <div className="h-1/3 w-full bg-[#FF671F]" />
+
+                    {/* Middle Stripe: White with Centered Ashok Chakra */}
+                    <div className="h-1/3 w-full bg-white relative flex items-center justify-center">
+                      {/* 24-Spoke Rotating Ashok Chakra in Deep Navy Blue */}
+                      <div className="absolute w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center">
+                        <svg 
+                          viewBox="0 0 24 24" 
+                          className="w-full h-full animate-chakra-orbit text-[#000080] dark:text-[#000080] drop-shadow-[0_0_1.5px_rgba(0,0,128,0.6)]"
+                        >
+                          {/* Outer Wheel */}
+                          <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="1.3" />
+                          {/* Central Hub */}
+                          <circle cx="12" cy="12" r="2.2" fill="currentColor" />
+                          {/* 24 Exact Spokes */}
+                          {Array.from({ length: 24 }).map((_, i) => {
+                            const angle = (i * 15 * Math.PI) / 180;
+                            const x2 = 12 + 10 * Math.cos(angle);
+                            const y2 = 12 + 10 * Math.sin(angle);
+                            return (
+                              <line
+                                key={i}
+                                x1="12"
+                                y1="12"
+                                x2={x2}
+                                y2={y2}
+                                stroke="currentColor"
+                                strokeWidth="0.85"
+                              />
+                            );
+                          })}
+                        </svg>
+                      </div>
+                    </div>
+
+                    {/* Bottom Stripe: India Green */}
+                    <div className="h-1/3 w-full bg-[#046A38]" />
+
+                    {/* Continuous Glossy Light Shine / Sheen Sweep across entire Flag */}
+                    <div 
+                      className="absolute inset-0 w-full h-full pointer-events-none animate-flag-shine"
+                      style={{
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.7) 45%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.7) 55%, transparent 100%)'
+                      }}
+                    />
+                  </div>
+
+                  {/* STEP 2: CELEBRATORY FALLING FLOWER PETALS OVERLAY (2 Seconds Phase) */}
+                  <div 
+                    className="absolute inset-0 w-full h-full pointer-events-none z-15 select-none overflow-hidden animate-flower-loop-phase"
+                  >
+                    {/* Petal 1: Saffron Marigold Petal (Left) */}
+                    <div className="absolute top-0 left-[8%] animate-petal-1">
+                      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#FF671F] fill-current drop-shadow-xs">
+                        <path d="M12 2C9 7 5 11 5 15a7 7 0 0014 0c0-4-4-8-7-13z" />
+                      </svg>
+                    </div>
+
+                    {/* Petal 2: Pure White Jasmine Blossom (Center Left) */}
+                    <div className="absolute top-0 left-[22%] animate-petal-2">
+                      <svg viewBox="0 0 24 24" className="w-3 h-3 text-white fill-current stroke-amber-200/50 stroke-1 drop-shadow-xs">
+                        <circle cx="12" cy="12" r="3" />
+                        <path d="M12 4c-1.5 2-2 4 0 5 2-1 1.5-3 0-5zM12 20c-1.5-2-2-4 0-5 2 1 1.5 3 0 5zM4 12c2-1.5 4-2 5 0-1 2-3 1.5-5 0zM20 12c-2-1.5-4-2-5 0 1 2 3 1.5 5 0z" />
+                      </svg>
+                    </div>
+
+                    {/* Petal 3: India Green Festive Leaf (Center) */}
+                    <div className="absolute top-0 left-[40%] animate-petal-3">
+                      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#046A38] fill-current drop-shadow-xs">
+                        <path d="M12 2C7 6 6 12 8 18c3 2 9 2 12-2 1-5-3-11-8-14z" />
+                      </svg>
+                    </div>
+
+                    {/* Petal 4: Golden Saffron Marigold Flower (Center Right) */}
+                    <div className="absolute top-0 left-[58%] animate-petal-4">
+                      <svg viewBox="0 0 24 24" className="w-4 h-4 text-[#FF9933] fill-current drop-shadow-xs">
+                        <path d="M12 2l2.5 5 5.5 1-4 4 1 5.5-5-2.5-5 2.5 1-5.5-4-4 5.5-1z" />
+                      </svg>
+                    </div>
+
+                    {/* Petal 5: White Mogra Petal (Right) */}
+                    <div className="absolute top-0 left-[75%] animate-petal-5">
+                      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white fill-current stroke-slate-300 stroke-1 drop-shadow-xs">
+                        <path d="M12 2C9 7 5 11 5 15a7 7 0 0014 0c0-4-4-8-7-13z" />
+                      </svg>
+                    </div>
+
+                    {/* Petal 6: Saffron Petal (Far Right) */}
+                    <div className="absolute top-0 left-[88%] animate-petal-6">
+                      <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-[#FF671F] fill-current drop-shadow-xs">
+                        <path d="M12 2C7 6 6 12 8 18c3 2 9 2 12-2 1-5-3-11-8-14z" />
+                      </svg>
+                    </div>
+
+                    {/* Petal 7: Green Petal (Far Left) */}
+                    <div className="absolute top-0 left-[2%] animate-petal-7">
+                      <svg viewBox="0 0 24 24" className="w-3 h-3 text-[#10b981] fill-current drop-shadow-xs">
+                        <path d="M12 2C9 7 5 11 5 15a7 7 0 0014 0c0-4-4-8-7-13z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Logo Image in Normal Proportions */}
+                  <div className="relative h-10 sm:h-11 flex items-center justify-center z-0">
+                    <img
+                      src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijSD_VcoYPOVgBiucO3HXuvw0_ZSsIwHThGbE2YvolhBQnY40fTjFgz8gl9Zv-sbSqPQlhmxbtMkMY-98lS41zLsFbPFe5pioxQWN8Ux88eNw37D78fFvIYyNmHrWZfKot-6Y0icFWU4x9KQdqmW82UPHjHyM0LE3q0o3T1Et0UJ3oqPbAQ0HxIMaRBLcM/s2560/1000182948.png"
+                      alt="Public Ads India"
+                      className="h-8.5 sm:h-10 w-auto object-contain select-none pointer-events-none transition-transform duration-300 group-hover:scale-[1.01]"
+                      draggable={false}
+                      onContextMenu={(e) => e.preventDefault()}
+                      onError={() => setLogoError(true)}
+                      referrerPolicy="no-referrer"
+                    />
+
+                    {/* Shield blocker to guard logo against right clicks */}
+                    <div 
+                      className="absolute inset-0 bg-transparent z-20" 
+                      onContextMenu={(e) => e.preventDefault()}
+                      style={{ WebkitTouchCallout: 'none' }}
+                    />
+                  </div>
+                </div>
+
+                {/* Minimalist Executive Patriotic Label */}
+                <div className="hidden md:flex flex-col justify-center border-l border-slate-200 dark:border-slate-800/80 pl-2.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="flex h-1.5 w-1.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF671F] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#FF671F]"></span>
+                    </span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-800 dark:text-slate-200">
+                      Independence Day
+                    </span>
+                    <span className="text-[11px] leading-none">🇮🇳</span>
+                  </div>
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      Special Edition
+                    </span>
+                  </div>
+                </div>
               </div>
             ) : (
               <>
-                <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white font-extrabold shadow-md border border-blue-400/20">
-                  <Landmark className="w-5.5 h-5.5 text-white animate-pulse" />
+                <div className="w-10 h-10 bg-brand-primary rounded-xl flex items-center justify-center text-white font-extrabold shadow-md border border-blue-400/20 relative overflow-hidden">
+                  <Landmark className="w-5.5 h-5.5 text-white animate-pulse relative z-10" />
+                  <div className="absolute inset-0 bg-gradient-to-b from-[#FF671F]/40 via-white/20 to-[#046A38]/40 animate-tricolor-flow-smooth" />
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
-                    Public Ads <span className="text-brand-accent">India</span>
+                  <span className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none flex items-center gap-1.5">
+                    Public Ads <span className="text-brand-accent">India</span> 🇮🇳
                   </span>
                   <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-widest mt-0.5 font-mono">
-                    Fintech Network
+                    Independence Day Edition
                   </span>
                 </div>
               </>

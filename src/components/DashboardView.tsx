@@ -2577,7 +2577,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirm & Save</span>
+                      <span>CONFIRM</span>
                     </>
                   )}
                 </button>

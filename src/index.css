@@ -12,6 +12,21 @@
 }
 
 /* Animations & Custom Utility Layers */
+@keyframes text-flip-fade {
+  0% {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-text-flip {
+  animation: text-flip-fade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 @keyframes ticker {
   0% { transform: translate3d(0, 0, 0); }
   100% { transform: translate3d(-50%, 0, 0); }

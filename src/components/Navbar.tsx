@@ -1,6 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sun, Moon, Database, ChevronDown, KeyRound, ExternalLink, ShieldCheck, Mail, LogOut, LayoutDashboard, Menu, X, Landmark, Users } from 'lucide-react';
 import { useAppState } from '../context/AppContext';
+
+// Multilingual 79th Independence Day Greetings (Hindi, Urdu, English)
+const INDEPENDENCE_DAY_GREETINGS = [
+  { text: '79वां स्वतंत्रता दिवस', code: 'HI' },
+  { text: '79واں یومِ آزادی', code: 'UR' },
+  { text: '79th Independence Day', code: 'EN' },
+];
 
 interface NavbarProps {
   onNavigate: (route: string) => void;
@@ -12,6 +19,16 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
   const [certDropdownOpen, setCertDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [greetingIndex, setGreetingIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setGreetingIndex((prev) => (prev + 1) % INDEPENDENCE_DAY_GREETINGS.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentGreeting = INDEPENDENCE_DAY_GREETINGS[greetingIndex];
 
   const toggleTheme = () => {
     setTheme(theme === 'light' ? 'dark' : 'light');
@@ -42,22 +59,22 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
 
   return (
     <nav className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#060d1f]/95 border-b border-slate-200/80 dark:border-slate-800/80 backdrop-blur-md transition-colors duration-305">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-15 items-center">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+        <div className="flex justify-between h-15 items-center gap-2">
           
           {/* Left Logo - Subtle Professional Independence Day Tricolor Animation */}
           <div 
             onClick={() => onNavigate('/Home')} 
-            className="flex items-center gap-3 cursor-pointer select-none group relative py-1"
+            className="flex items-center gap-1.5 sm:gap-2.5 cursor-pointer select-none group relative py-1 shrink-0 min-w-0"
             id="nav-logo"
           >
             {/* Subtle Tricolor Ambient Glow */}
             <div className="absolute -inset-1 rounded-xl bg-gradient-to-r from-[#FF671F]/15 via-white/5 to-[#046A38]/15 dark:from-[#FF671F]/20 dark:via-white/5 dark:to-[#046A38]/20 blur-sm pointer-events-none opacity-60 group-hover:opacity-90 transition-opacity animate-patriotic-aura" />
 
             {!logoError ? (
-              <div className="relative flex items-center gap-2.5">
+              <div className="relative flex items-center gap-1.5 sm:gap-2.5 shrink-0">
                 {/* Logo Badge Container with 3-Step Continuous Loop (Flag 3s -> Falling Flowers 2s -> Loop) */}
-                <div className="relative px-2.5 py-1 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-amber-400/50 group-hover:shadow-md">
+                <div className="relative px-2 sm:px-2.5 py-1 rounded-xl bg-white/95 dark:bg-slate-900/95 border border-slate-200/80 dark:border-slate-800 shadow-xs flex items-center justify-center overflow-hidden transition-all duration-300 group-hover:border-amber-400/50 group-hover:shadow-sm shrink-0">
                   
                   {/* STEP 1: FULL-COVERAGE SHINING INDIAN FLAG OVERLAY (3 Seconds Phase) */}
                   <div 
@@ -167,11 +184,11 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                   </div>
 
                   {/* Logo Image in Normal Proportions */}
-                  <div className="relative h-10 sm:h-11 flex items-center justify-center z-0">
+                  <div className="relative h-7 sm:h-8 flex items-center justify-center z-0 shrink-0">
                     <img
                       src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEijSD_VcoYPOVgBiucO3HXuvw0_ZSsIwHThGbE2YvolhBQnY40fTjFgz8gl9Zv-sbSqPQlhmxbtMkMY-98lS41zLsFbPFe5pioxQWN8Ux88eNw37D78fFvIYyNmHrWZfKot-6Y0icFWU4x9KQdqmW82UPHjHyM0LE3q0o3T1Et0UJ3oqPbAQ0HxIMaRBLcM/s2560/1000182948.png"
                       alt="Public Ads India"
-                      className="h-8.5 sm:h-10 w-auto object-contain select-none pointer-events-none transition-transform duration-300 group-hover:scale-[1.01]"
+                      className="h-6 sm:h-7.5 w-auto max-w-[110px] sm:max-w-none object-contain select-none pointer-events-none transition-transform duration-300 group-hover:scale-[1.01]"
                       draggable={false}
                       onContextMenu={(e) => e.preventDefault()}
                       onError={() => setLogoError(true)}
@@ -187,22 +204,25 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                   </div>
                 </div>
 
-                {/* Minimalist Executive Patriotic Label */}
-                <div className="hidden md:flex flex-col justify-center border-l border-slate-200 dark:border-slate-800/80 pl-2.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="flex h-1.5 w-1.5 relative">
+                {/* Multilingual 79th Independence Day Beside Logo (3 Languages: Hindi, Urdu, English) */}
+                <div className="flex items-center border-l border-slate-200 dark:border-slate-800/80 pl-1.5 sm:pl-2.5 select-none shrink-0 min-w-0">
+                  <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                    <span className="flex h-1.5 w-1.5 shrink-0 relative">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF671F] opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-[#FF671F]"></span>
                     </span>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-800 dark:text-slate-200">
-                      Independence Day
-                    </span>
-                    <span className="text-[11px] leading-none">🇮🇳</span>
-                  </div>
-                  <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                      Special Edition
-                    </span>
+                    
+                    {/* Active Softly Animated 79th Independence Day Text */}
+                    <div className="relative overflow-hidden flex items-center min-w-0 max-w-[100px] sm:max-w-[160px] md:max-w-none">
+                      <span 
+                        key={currentGreeting.code}
+                        className="text-[9.5px] sm:text-[11px] md:text-xs font-bold text-slate-800 dark:text-slate-200 tracking-tight whitespace-nowrap truncate animate-text-flip"
+                        title={currentGreeting.text}
+                      >
+                        {currentGreeting.text}
+                      </span>
+                    </div>
+                    <span className="text-[9.5px] sm:text-xs leading-none shrink-0">🇮🇳</span>
                   </div>
                 </div>
               </div>
@@ -212,24 +232,29 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                   <Landmark className="w-5.5 h-5.5 text-white animate-pulse relative z-10" />
                   <div className="absolute inset-0 bg-gradient-to-b from-[#FF671F]/40 via-white/20 to-[#046A38]/40 animate-tricolor-flow-smooth" />
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none flex items-center gap-1.5">
+                <div className="flex flex-col select-none">
+                  <span className="text-base sm:text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none flex items-center gap-1.5">
                     Public Ads <span className="text-brand-accent">India</span> 🇮🇳
                   </span>
-                  <span className="text-[10px] font-semibold text-amber-500 uppercase tracking-widest mt-0.5 font-mono">
-                    Independence Day Edition
-                  </span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span 
+                      key={currentGreeting.code} 
+                      className="text-[10px] font-semibold text-amber-500 uppercase tracking-wider animate-text-flip"
+                    >
+                      {currentGreeting.text}
+                    </span>
+                  </div>
                 </div>
               </>
             )}
           </div>
 
           {/* Center Links - Desktop */}
-          <div className="hidden md:flex items-center gap-7">
+          <div className="hidden md:flex items-center gap-4 lg:gap-7 shrink-0">
             <button 
               id="nav-link-home"
               onClick={() => onNavigate('/Home')}
-              className={`text-sm font-semibold tracking-wide transition-colors ${
+              className={`text-xs lg:text-sm font-semibold tracking-wide transition-colors ${
                 currentRoute === '/Home' 
                   ? 'text-brand-primary dark:text-amber-400' 
                   : 'text-slate-600 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400'
@@ -258,10 +283,10 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                 id="nav-btn-certificates"
                 onClick={() => setCertDropdownOpen(!certDropdownOpen)}
                 onBlur={() => setTimeout(() => setCertDropdownOpen(false), 200)}
-                className="flex items-center gap-1 text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400 transition-colors"
+                className="flex items-center gap-1 text-xs lg:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400 transition-colors"
               >
                 Certificates
-                <ChevronDown className={`w-4 h-4 transition-transform duration-250 ${certDropdownOpen ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 lg:w-4 lg:h-4 transition-transform duration-250 ${certDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
 
               {certDropdownOpen && (
@@ -306,35 +331,35 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
             <button 
               id="nav-link-contact"
               onClick={scrollToContact}
-              className="text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400 transition-colors"
+              className="text-xs lg:text-sm font-semibold text-slate-600 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400 transition-colors"
             >
               Contact Us
             </button>
           </div>
 
           {/* Right Controls - Desktop */}
-          <div className="hidden md:flex items-center gap-4">
+          <div className="hidden md:flex items-center gap-2 lg:gap-3.5 shrink-0">
             
             {/* Theme Toggle Button */}
             <button
               id="theme-toggle-nav"
               onClick={toggleTheme}
-              className="p-2.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/40 rounded-xl transition-all"
+              className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/40 rounded-xl transition-all"
               aria-label="Toggle Theme Mode"
             >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-amber-400" />}
+              {theme === 'light' ? <Moon className="w-4.5 h-4.5 lg:w-5 lg:h-5" /> : <Sun className="w-4.5 h-4.5 lg:w-5 lg:h-5 text-amber-400" />}
             </button>
 
             {currentUser ? (
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 lg:gap-3">
                 {/* Router Link based on role */}
                 {currentUser.type === 'publisher' && (
                   <button 
                     id="nav-dashboard-shortcut"
                     onClick={() => onNavigate('/Dashboard')}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-brand-primary hover:bg-blue-700 rounded-xl transition-all shadow-sm"
+                    className="flex items-center gap-1.5 lg:gap-2 px-3 py-1.5 lg:px-4 lg:py-2 text-xs lg:text-sm font-bold text-white bg-brand-primary hover:bg-blue-700 rounded-xl transition-all shadow-sm"
                   >
-                    <LayoutDashboard className="w-4 h-4" />
+                    <LayoutDashboard className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     My Dashboard
                   </button>
                 )}
@@ -342,9 +367,9 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                   <button 
                     id="nav-admin-shortcut"
                     onClick={() => onNavigate('/Admin')}
-                    className="flex items-center gap-2 px-4 py-2 text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all shadow-sm"
+                    className="flex items-center gap-1.5 lg:gap-2 px-3 py-1.5 lg:px-4 lg:py-2 text-[11px] lg:text-xs font-black text-amber-950 bg-amber-400 hover:bg-amber-500 rounded-xl transition-all shadow-sm"
                   >
-                    <Database className="w-4 h-4" />
+                    <Database className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     Admin Portal
                   </button>
                 )}
@@ -352,9 +377,9 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                   <button 
                     id="nav-emp-shortcut"
                     onClick={() => onNavigate('/Employee')}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-sm"
+                    className="flex items-center gap-1.5 lg:gap-2 px-3 py-1.5 lg:px-4 lg:py-2 text-xs lg:text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-sm"
                   >
-                    <Users className="w-4 h-4" />
+                    <Users className="w-3.5 h-3.5 lg:w-4 lg:h-4" />
                     Staff Console
                   </button>
                 )}
@@ -363,18 +388,18 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                 <button
                   id="nav-logout-btn"
                   onClick={() => { logout(); onNavigate('/Home'); }}
-                  className="p-2.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors"
+                  className="p-2 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-colors"
                   title="Logout Session"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4.5 h-4.5 lg:w-5 lg:h-5" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-1.5 lg:gap-2.5">
                 <button
                   id="nav-login-signin"
                   onClick={() => onNavigate('/Dashboard')}
-                  className="px-4 py-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400 hover:bg-slate-50 dark:hover:bg-slate-900/40 rounded-xl transition-all"
+                  className="px-2.5 py-1.5 lg:px-3.5 lg:py-2 text-xs lg:text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-brand-primary dark:hover:text-amber-400 hover:bg-slate-50 dark:hover:bg-slate-900/40 rounded-xl transition-all"
                 >
                   Sign In
                 </button>
@@ -387,7 +412,7 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
                       if (tab) tab.click();
                     }, 100);
                   }}
-                  className="px-4 py-2.5 text-sm font-extrabold text-white bg-brand-accent hover:bg-blue-600 rounded-xl transition-all shadow-inner border border-blue-400/20 hover:scale-[1.02]"
+                  className="px-3 py-1.5 lg:px-4 lg:py-2 text-xs lg:text-sm font-extrabold text-white bg-brand-accent hover:bg-blue-600 rounded-xl transition-all shadow-inner border border-blue-400/20 hover:scale-[1.02] whitespace-nowrap"
                 >
                   Partner Sign Up
                 </button>
@@ -396,20 +421,20 @@ export default function Navbar({ onNavigate, currentRoute }: NavbarProps) {
           </div>
 
           {/* Mobile responsive toggle */}
-          <div className="flex md:hidden items-center gap-3">
+          <div className="flex md:hidden items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               id="theme-toggle-nav-mobile"
               onClick={toggleTheme}
-              className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/40 rounded-lg"
+              className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/40 rounded-lg"
             >
-              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5 text-amber-400" />}
+              {theme === 'light' ? <Moon className="w-4.5 h-4.5" /> : <Sun className="w-4.5 h-4.5 text-amber-400" />}
             </button>
             <button
               id="mobile-menu-burger"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/40 rounded-lg"
+              className="p-1.5 sm:p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-900/40 rounded-lg"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5.5 h-5.5" /> : <Menu className="w-5.5 h-5.5" />}
             </button>
           </div>
 

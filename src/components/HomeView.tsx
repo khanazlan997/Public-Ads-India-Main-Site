@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, Newspaper, Megaphone, Users, Award, Flame, HeartHandshake, CheckCircle2,
   ShieldAlert, ShieldCheck, IndianRupee, ArrowRight, Eye, Mail, Phone, ExternalLink, Search,
-  ChevronLeft, ChevronRight, Star, Quote, MessageSquare
+  ChevronLeft, ChevronRight, Star, Quote, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, QrCode, X, Download
 } from 'lucide-react';
 import { useAppState } from '../context/AppContext';
 import GeometricBackground from './GeometricBackground';
@@ -60,6 +60,40 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
 
   // Testimonials compact toggling state
   const [showAllTestimonials, setShowAllTestimonials] = useState(false);
+
+  // Gama Investor 2.0 states
+  const [gamaAccordionOpen, setGamaAccordionOpen] = useState(false);
+  const [gamaModalOpen, setGamaModalOpen] = useState(false);
+  const [gamaStep, setGamaStep] = useState<'select_amount' | 'show_qr' | 'fill_form'>('select_amount');
+  const [gamaAmount, setGamaAmount] = useState<number>(1000);
+  const [gamaName, setGamaName] = useState('');
+  const [gamaPhone, setGamaPhone] = useState('');
+  const [gamaUtr, setGamaUtr] = useState('');
+
+  const handleGamaSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!gamaName.trim() || !gamaPhone.trim() || !gamaUtr.trim()) return;
+
+    const message = `*GAMA INVESTOR 2.0 PAYMENT SUBMISSION*\n\n` +
+      `*Name:* ${gamaName.trim()}\n` +
+      `*Number:* ${gamaPhone.trim()}\n` +
+      `*Investment Amount:* ₹${gamaAmount}\n` +
+      `*UTR / Transaction ID:* ${gamaUtr.trim()}\n\n` +
+      `_Submitted via Public Ads India_`;
+
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/919196344494?text=${encodedMessage}`;
+    
+    // Redirect securely
+    window.location.href = whatsappUrl;
+    
+    // Reset and close modal
+    setGamaModalOpen(false);
+    setGamaStep('select_amount');
+    setGamaName('');
+    setGamaPhone('');
+    setGamaUtr('');
+  };
 
   // Public registry search states
   const [registrySearchId, setRegistrySearchId] = useState('');
@@ -424,6 +458,294 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           </div>
         </div>
 
+      </section>
+
+      {/* Gama Investor 2.0 Premium Section */}
+      <section className="py-12 px-4 max-w-7xl mx-auto">
+        <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 sm:p-8 md:p-10 border border-slate-200/80 dark:border-slate-800/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_10px_40px_rgba(0,0,0,0.06)] transition-all duration-300 relative overflow-hidden">
+          {/* Subtle warning glow indicator */}
+          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600" />
+          
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 relative z-10">
+            <div className="space-y-3 max-w-3xl">
+              <div className="flex items-center gap-2">
+                <span className="px-3 py-1 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 rounded-full font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 border border-amber-200/40 dark:border-amber-900/40">
+                  <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />
+                  Risk Disclosure
+                </span>
+              </div>
+              
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">
+                GAMA INVESTOR 2.0
+              </h2>
+              <p className="text-sm font-black text-blue-600 dark:text-brand-accent">
+                Public Ads India Partnership
+              </p>
+              
+              <p className="text-sm text-slate-600 dark:text-slate-350 leading-relaxed font-semibold">
+                Gama Investor is a trading platform which is not SEBI registered. Kindly make your investments at your own risk. Following proper risk management protocols before investing is highly recommended.
+              </p>
+
+              {/* Collapsible Dropdown for Terms */}
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setGamaAccordionOpen(!gamaAccordionOpen)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 transition-colors focus:outline-none"
+                >
+                  <span>{gamaAccordionOpen ? 'Hide' : 'Show'} detailed investment and profit terms</span>
+                  {gamaAccordionOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                </button>
+
+                <AnimatePresence>
+                  {gamaAccordionOpen && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-3 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400 space-y-2 leading-relaxed font-medium">
+                        <p>
+                          Invest here at your own risk. We do not provide any guaranteed profits. Our trade accuracy is 80% profit and 20% loss.
+                        </p>
+                        <p>
+                          The minimum investment required is between ₹1,000 and ₹5,000. We strongly advise that you invest only 10% of your total income here.
+                        </p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            </div>
+
+            <div className="shrink-0 flex flex-col items-center md:items-end gap-3 w-full md:w-auto">
+              <button
+                type="button"
+                onClick={() => {
+                  setGamaStep('select_amount');
+                  setGamaModalOpen(true);
+                }}
+                className="w-full md:w-auto px-8 py-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-2xl flex items-center justify-center gap-2 shadow-[0_10px_20px_rgba(245,158,11,0.2)] hover:shadow-[0_12px_25px_rgba(245,158,11,0.3)] transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] text-sm md:text-base tracking-wide cursor-pointer uppercase font-sans"
+              >
+                Invest Now
+                <ArrowRight className="w-5 h-5" />
+              </button>
+
+              {/* Two small green buttons side by side */}
+              <div className="flex items-center gap-2.5 w-full md:w-auto">
+                <a
+                  href="https://docs.google.com/spreadsheets/d/1QJgDaIqXnGFajYty3RQfasRQAt60mNqOQQ00WAzqrJk/edit?usp=sharing"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 md:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Track Trade
+                </a>
+                <a
+                  href="https://play.google.com/store/apps/details?id=com.google.android.apps.docs.editors.sheets"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 md:flex-initial px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  Download App
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Investment Steps Modal */}
+        <AnimatePresence>
+          {gamaModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setGamaModalOpen(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs"
+              />
+
+              {/* Modal Box */}
+              <motion.div
+                initial={{ scale: 0.95, y: 15, opacity: 0 }}
+                animate={{ scale: 1, y: 0, opacity: 1 }}
+                exit={{ scale: 0.95, y: 15, opacity: 0 }}
+                transition={{ type: "spring", duration: 0.4 }}
+                className="bg-white dark:bg-[#0d1628] rounded-3xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 relative z-10 max-h-[90vh] flex flex-col"
+              >
+                {/* Header */}
+                <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-extrabold text-slate-900 dark:text-white text-base">GAMA INVESTOR 2.0</h3>
+                    <p className="text-[10px] font-bold text-slate-400">Public Ads India Partnership</p>
+                  </div>
+                  <button
+                    onClick={() => setGamaModalOpen(false)}
+                    className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-all focus:outline-none"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="p-6 overflow-y-auto space-y-5">
+                  {/* Step Progress indicators */}
+                  <div className="flex items-center justify-between px-6 text-[10px] font-bold text-slate-400">
+                    <span className={gamaStep === 'select_amount' ? 'text-amber-500' : 'text-emerald-500'}>1. Amount</span>
+                    <span className="h-px bg-slate-100 dark:bg-slate-800 flex-1 mx-3" />
+                    <span className={gamaStep === 'show_qr' ? 'text-amber-500' : gamaStep === 'fill_form' ? 'text-emerald-500' : ''}>2. Scan QR</span>
+                    <span className="h-px bg-slate-100 dark:bg-slate-800 flex-1 mx-3" />
+                    <span className={gamaStep === 'fill_form' ? 'text-amber-500' : ''}>3. UTR Proof</span>
+                  </div>
+
+                  {/* STEP 1: Select Amount */}
+                  {gamaStep === 'select_amount' && (
+                    <div className="space-y-4 animate-fade-up">
+                      <div className="text-center">
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
+                          Choose an investment tier to continue. Ensure proper risk management is followed.
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+                        {[1000, 2500, 4000, 5000].map((amount) => (
+                          <button
+                            key={amount}
+                            type="button"
+                            onClick={() => {
+                              setGamaAmount(amount);
+                              setGamaStep('show_qr');
+                            }}
+                            className="relative p-2.5 xs:p-3 sm:p-4 bg-gradient-to-br from-white to-slate-50 dark:from-[#0f192e] dark:to-[#081020] hover:from-emerald-50/30 hover:to-emerald-100/10 dark:hover:from-emerald-950/20 dark:hover:to-emerald-900/10 border border-slate-200/60 dark:border-slate-800/80 hover:border-emerald-500/50 dark:hover:border-emerald-500/40 rounded-2xl text-left flex items-center gap-2 sm:gap-3.5 transition-all duration-300 group active:scale-95 shadow-sm hover:shadow-md cursor-pointer min-w-0 overflow-hidden"
+                          >
+                            {/* Glowing Graphic Container with Rupee Icon */}
+                            <div className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 overflow-hidden transition-all duration-300 group-hover:bg-emerald-500 group-hover:text-white shadow-xs">
+                              {/* Soft Sweep animation on hover */}
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-shimmer" style={{ animationDuration: '1.5s' }} />
+                              <IndianRupee className="w-4 h-4 sm:w-5 sm:h-5 relative z-10 transition-transform duration-300 group-hover:scale-110" />
+                            </div>
+                            
+                            <div className="min-w-0 flex-1">
+                              <span className="block text-[8px] xs:text-[9px] sm:text-[10px] text-slate-400 dark:text-slate-500 font-extrabold uppercase tracking-wider group-hover:text-emerald-500 transition-colors truncate">
+                                Investment
+                              </span>
+                              <span className="block text-sm sm:text-base md:text-lg font-black text-slate-900 dark:text-white mt-0.5 leading-none truncate">
+                                ₹{amount.toLocaleString('en-IN')}
+                              </span>
+                            </div>
+
+                            {/* Accent Right Arrow on Hover (Only for desktop to avoid squeezing on mobile) */}
+                            <div className="hidden md:block absolute right-3.5 opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all duration-300">
+                              <ArrowRight className="w-4 h-4 text-emerald-500" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* STEP 2: Show QR Code */}
+                  {gamaStep === 'show_qr' && (
+                    <div className="space-y-5 animate-fade-up text-center">
+                      <div>
+                        <span className="inline-block text-[10px] font-black bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 px-3 py-1 rounded-full border border-amber-200/40 dark:border-amber-900/40">
+                          Amount selected: ₹{gamaAmount.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+
+                      {/* Custom mapped premium QR code */}
+                      <div className="bg-white p-3 rounded-3xl border border-slate-100 shadow-sm inline-block mx-auto overflow-hidden">
+                        <img
+                          src={
+                            gamaAmount === 1000
+                              ? "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEh6yi5sf9oCeQyKjzCEXIs9yvNa4-o9u8yHPmzd9v2W30tMYTwVNYX2IdSKw8BeGJMyfBgbkFj-TcrfY_I1krbeHYAvA11rbhP5yZXBFCl4pCfZd_44cbTtIQPHzKe1c-R2dvdAKx5fDQe7_XVjPC-mGNKu9A3jjzsnA4JdRpvTM63lqrDJaHCasEFfuYvs/s733/1000214029.jpg"
+                              : gamaAmount === 2500
+                              ? "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhMR7un6Coh-p4Y6GvvUpe7JlX5OUIY0_hd8Y9mBV4JgO-rNo4rRajSPckbYmdNpLbH7gYKZj8kOXzlYk8j-RHJk8zB6cshvbHq1KRJSZTSTieoATDXqGgHpCSlsC6TC_rAXTIG5ie2sBSndx-cRU0xzxOnfgnsYLraLYhDpHesA2xDFIHnLgtme1KC-SVu/s727/1000214030.jpg"
+                              : gamaAmount === 4000
+                              ? "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhXDonTP6yfvDh4sB2GZ5AxZWNXHHr4258bjOOjcTpGi25j1Mu_4OdY0XpT8WaL5C-C5GmwoIH9TQlCu6qI6q0Q_MlXQXKzR4IZkf59wU_wwYA6dt8t1TTarmK3srauoCfO_vmu0_y5vVeD3E0c5q-nAQWdbbegTsdjklooaxsReZZTUXCwz2TFZd7w4iy7/s730/1000214035.jpg"
+                              : "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhkhqUWNhPVTOepcacCZOfDTQqy7SUfIV7EAnIByGOiUdERGdhJljxnWZ3GNXVcK8YpV1NAlekmoKtzXde_Sv8khOUKr6ZSyejtTgMfnNDOgy0bJ8qHnhmx3W6HrpnfyK2kYedZzItmFkOulMDXPZpSNZpg8Md3AMDwLgL0jAtVa46yGzTTPizh12IrTRCP/s726/1000214040.jpg"
+                          }
+                          alt={`Payment QR Code for ₹${gamaAmount}`}
+                          className="w-[200px] h-[200px] object-contain rounded-2xl"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+
+                      <div className="flex flex-col items-center justify-center pt-1">
+                        <div className="flex items-center gap-2 px-4.5 py-2.5 bg-emerald-500/5 dark:bg-emerald-500/10 rounded-2xl border border-emerald-500/10 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                          <ShieldCheck className="w-4 h-4 shrink-0" />
+                          <span className="text-xs font-extrabold tracking-wide uppercase">All UPI Payments Securely Accepted</span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setGamaStep('fill_form')}
+                        className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-colors cursor-pointer text-xs sm:text-sm uppercase tracking-wider"
+                      >
+                        Paid Amount
+                      </button>
+                    </div>
+                  )}
+
+                  {/* STEP 3: Fill Form */}
+                  {gamaStep === 'fill_form' && (
+                    <form onSubmit={handleGamaSubmit} className="space-y-4 animate-fade-up">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Investor Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={gamaName}
+                          onChange={(e) => setGamaName(e.target.value)}
+                          placeholder="Enter your full name"
+                          className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">Mobile Number</label>
+                        <input
+                          type="tel"
+                          required
+                          value={gamaPhone}
+                          onChange={(e) => setGamaPhone(e.target.value)}
+                          placeholder="Enter your mobile number"
+                          className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider block">UTR / Transaction ID</label>
+                        <input
+                          type="text"
+                          required
+                          value={gamaUtr}
+                          onChange={(e) => setGamaUtr(e.target.value)}
+                          placeholder="Enter 12-digit transaction ID"
+                          className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl focus:border-amber-500 outline-none text-slate-900 dark:text-white"
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black rounded-2xl flex items-center justify-center gap-2 shadow-lg transition-colors cursor-pointer text-xs sm:text-sm uppercase tracking-wider"
+                      >
+                        Submit
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </section>
 
 
@@ -942,15 +1264,49 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       </section>
 
       {/* 7. Footer */}
-      <footer className="py-8 text-center bg-slate-905 border-t border-slate-200/50 dark:border-slate-800/50 select-none">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400">
-          <div className="flex flex-col items-center sm:items-start gap-0.5">
-            <span>&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
-            <span className="text-[11px] text-slate-500 font-medium">Established in 2023</span>
+      <footer className="py-10 text-center bg-slate-905 border-t border-slate-200/50 dark:border-slate-800/50 select-none">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-7">
+          
+          {/* Modern ISO 9001:2015 Certification Badge */}
+          <div
+            id="footer-iso-badge"
+            className="inline-flex items-center bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl px-4 sm:px-6 py-3.5 sm:py-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 max-w-full text-left"
+          >
+            {/* Left Section: CERTIFIED ISO 9001:2015 */}
+            <div className="flex flex-col justify-center shrink-0 pr-1">
+              <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase select-none">
+                CERTIFIED
+              </span>
+              <span className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mt-1 whitespace-nowrap">
+                ISO 9001:2015
+              </span>
+            </div>
+
+            {/* Vertical Divider */}
+            <div className="w-px h-8 sm:h-10 md:h-11 bg-slate-200 dark:bg-slate-800 mx-3.5 sm:mx-5 shrink-0" />
+
+            {/* Right Section: Certified quality management system */}
+            <div className="flex flex-col justify-center min-w-0 pl-0.5">
+              <span className="text-xs sm:text-sm md:text-[14.5px] font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
+                Certified quality<br className="hidden xs:inline" /> management system
+              </span>
+              <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 tracking-tight truncate">
+                Public Ads India Fintech
+              </span>
+            </div>
           </div>
-          <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold">
-            Design by. BharatX Web Agency
-          </a>
+
+          {/* Bottom Row: Copyright and Agency Credits */}
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400 border-t border-slate-200/30 dark:border-slate-800/30 pt-6">
+            <div className="flex flex-col items-center sm:items-start gap-0.5">
+              <span>&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
+              <span className="text-[11px] text-slate-500 font-medium">Established in 2023</span>
+            </div>
+            <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold">
+              Design by. BharatX Web Agency
+            </a>
+          </div>
+
         </div>
       </footer>
 

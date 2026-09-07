@@ -11,7 +11,6 @@ import AdminPanel from './components/AdminPanel';
 import AdsEarningView from './components/AdsEarningView';
 import SponsorshipOffer from './components/SponsorshipOffer';
 import NotFoundView from './components/NotFoundView';
-import DubaiBranchBadge from './components/DubaiBranchBadge';
 import { motion, AnimatePresence } from 'motion/react';
 import { Gift, Sparkles, ChevronRight } from 'lucide-react';
 
@@ -213,43 +212,33 @@ function AppContent() {
         </AnimatePresence>
       </main>
 
-      {/* Floating Bottom Left Widgets: Dubai Branch Announcement & Sponsor Offer */}
-      {!isAdminActive && (
-        <div className="fixed bottom-3 left-3 sm:bottom-5 sm:left-5 z-40 flex flex-col items-start gap-2.5 pointer-events-none max-w-[calc(100vw-24px)]">
-          {/* Dubai Branch Announcement Glassy Badge */}
-          <div className="pointer-events-auto">
-            <DubaiBranchBadge />
-          </div>
-
-          {/* Floating Sponsor Offer Overlay Widget */}
-          {currentUser?.type === 'publisher' && route.toLowerCase() !== '/sponsorship-offer' && (
-            <div className="pointer-events-auto">
-              <button
-                id="sponsor-offer-floating-trigger"
-                onClick={() => navigateTo('/sponsorship-offer')}
-                className="group relative flex items-center gap-2 sm:gap-2.5 bg-white/95 dark:bg-[#0c162c]/95 backdrop-blur-md text-slate-900 dark:text-white p-1.5 px-3 sm:p-2.5 sm:px-4 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer border border-sky-500/80 dark:border-sky-400/80 hover:border-sky-500"
-                title="Open Sponsor Reward Offer"
-              >
-                {/* Clean Compact Icon Container with Gift Icon */}
-                <div className="relative w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-brand-primary text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-                  <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-                  {/* Active Badge Dot */}
-                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#0c162c]" />
-                </div>
-
-                {/* Clean Compact Text Labels */}
-                <div className="flex flex-col text-left">
-                  <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-brand-primary dark:text-sky-400 leading-none">
-                    Special Offer
-                  </span>
-                  <span className="text-[10px] sm:text-xs font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5 mt-0.5">
-                    <span>Sponsor Reward</span>
-                    <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 group-hover:text-brand-primary group-hover:translate-x-0.5 transition-all" />
-                  </span>
-                </div>
-              </button>
+      {/* Floating Sponsor Offer Overlay Widget (Bottom Left - Fixed to Viewport) */}
+      {!isAdminActive && currentUser?.type === 'publisher' && route.toLowerCase() !== '/sponsorship-offer' && (
+        <div className="fixed bottom-3 left-3 sm:bottom-5 sm:left-5 z-50">
+          <button
+            id="sponsor-offer-floating-trigger"
+            onClick={() => navigateTo('/sponsorship-offer')}
+            className="group relative flex items-center gap-2 sm:gap-2.5 bg-white/95 dark:bg-[#0c162c]/95 backdrop-blur-md text-slate-900 dark:text-white p-1.5 px-3 sm:p-2.5 sm:px-4 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer border border-sky-500/80 dark:border-sky-400/80 hover:border-sky-500"
+            title="Open Sponsor Reward Offer"
+          >
+            {/* Clean Compact Icon Container with Gift Icon */}
+            <div className="relative w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-brand-primary text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
+              <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+              {/* Active Badge Dot */}
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#0c162c]" />
             </div>
-          )}
+
+            {/* Clean Compact Text Labels */}
+            <div className="flex flex-col text-left">
+              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-brand-primary dark:text-sky-400 leading-none">
+                Special Offer
+              </span>
+              <span className="text-[10px] sm:text-xs font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5 mt-0.5">
+                <span>Sponsor Reward</span>
+                <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 group-hover:text-brand-primary group-hover:translate-x-0.5 transition-all" />
+              </span>
+            </div>
+          </button>
         </div>
       )}
 

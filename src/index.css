@@ -64,15 +64,6 @@
   100% { background-position: 0% 50%; }
 }
 
-@keyframes shimmerSweep {
-  0% {
-    transform: translateX(-180%) rotate(45deg);
-  }
-  25%, 100% {
-    transform: translateX(280%) rotate(45deg);
-  }
-}
-
 .animate-pulse-logo {
   animation: pulse-logo 3s ease-in-out infinite;
 }

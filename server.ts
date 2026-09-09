@@ -204,9 +204,10 @@ async function startServer() {
       let newEarning: any = null;
       let removedEarningId: string | null = null;
 
-      // 2. Handle Earning Synchronization with 100% precision
+      // 2. Handle Earning Synchronization with 100% precision & STRICT IDEMPOTENCE (Single count per lead)
       if (isPaymentDone(status)) {
         const pubId = (sub?.publisherId || submissionData?.publisherId || '').trim();
+        // Check if an earning for this submission ALREADY exists (prevent multiple counts if clicked 4-5 times)
         const existingEarning = store.earnings.find(e => 
           e.id === `earning-${submissionId}` || 
           (e.publisherId?.trim().toLowerCase() === pubId.toLowerCase() && 
@@ -215,16 +216,18 @@ async function startServer() {
         );
 
         if (existingEarning) {
+          // STRICT IDEMPOTENCE: Already exists! Do NOT add or count again!
           newEarning = existingEarning;
         } else if (sub) {
+          // Exactly 1 earning record per client submission with deterministic ID
           newEarning = {
             id: `earning-${submissionId}`,
             publisherId: sub.publisherId,
             campaignId: sub.campaignId || '',
             campaignName: sub.campaignName || 'Campaign Payout',
             amount: Number(sub.payout) || 0,
-            date: new Date().toISOString().substring(0, 10),
-            time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+            date: (sub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+            time: (sub.submitDate || '').substring(11, 16) || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
           };
           store.earnings.unshift(newEarning);
         }
@@ -380,6 +383,154 @@ async function startServer() {
       });
     } catch (err: any) {
       console.error("Error in /api/realtime/payment-done:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4b. Dedicated Endpoint to DELETE an Earning Record & Revert Lead Status to 'Process' in MIS
+  // "Or MIS me agar payment done h to process me kr do jab bhi delet ho to"
+  app.post("/api/earning/delete", (req, res) => {
+    try {
+      const { earningId, publisherId, campaignId, amount, matchedSubmissionId } = req.body || {};
+      if (!earningId && !matchedSubmissionId) {
+        return res.status(400).json({ error: "Missing earningId or matchedSubmissionId" });
+      }
+
+      console.log(`[Earning Delete Request] earningId=${earningId}, matchedSubmissionId=${matchedSubmissionId}, pub=${publisherId}`);
+
+      // 1. Remove earning from store.earnings
+      let removedEarning: any = null;
+      if (earningId) {
+        const idx = store.earnings.findIndex(e => e.id === earningId);
+        if (idx !== -1) {
+          removedEarning = store.earnings.splice(idx, 1)[0];
+        }
+      }
+      // If not removed by exact ID, find matching earning by publisherId + campaignId + amount
+      if (!removedEarning && publisherId) {
+        const normPubId = (publisherId || '').trim().toLowerCase();
+        const idx = store.earnings.findIndex(e => 
+          (e.publisherId || '').trim().toLowerCase() === normPubId &&
+          (!campaignId || e.campaignId === campaignId) &&
+          (amount === undefined || Number(e.amount) === Number(amount))
+        );
+        if (idx !== -1) {
+          removedEarning = store.earnings.splice(idx, 1)[0];
+        }
+      }
+
+      // 2. CRITICAL USER SPECIFICATION: Revert corresponding lead submission status to 'Process'
+      let revertedSub: any = null;
+      const isPaymentDone = (st?: string) => {
+        const s = (st || '').toLowerCase().trim();
+        return s === 'payment done' || s === 'paymentdone' || s === 'paid';
+      };
+
+      if (matchedSubmissionId) {
+        revertedSub = store.submissions.find(s => s.id === matchedSubmissionId);
+      }
+      if (!revertedSub && earningId) {
+        const rawSubId = earningId.replace(/^earning-sub-/, '').replace(/^earning-/, '');
+        revertedSub = store.submissions.find(s => s.id === rawSubId);
+      }
+      if (!revertedSub && publisherId) {
+        const normPubId = (publisherId || '').trim().toLowerCase();
+        revertedSub = store.submissions.find(s => 
+          (s.publisherId || '').trim().toLowerCase() === normPubId &&
+          (!campaignId || s.campaignId === campaignId) &&
+          isPaymentDone(s.status) &&
+          (amount === undefined || Number(s.payout) === Number(amount))
+        );
+        if (!revertedSub) {
+          revertedSub = store.submissions.find(s => 
+            (s.publisherId || '').trim().toLowerCase() === normPubId &&
+            isPaymentDone(s.status)
+          );
+        }
+      }
+
+      if (revertedSub) {
+        revertedSub.status = 'Process';
+        console.log(`[Earning Delete] Reverted submission ${revertedSub.id} (${revertedSub.clientName}) from 'Payment Done' to 'Process'`);
+      }
+
+      scheduleSaveStore();
+
+      // 3. Broadcast real-time deletion & status reversion to all connected clients
+      broadcastRealtime({
+        type: "EARNING_DELETED",
+        payload: {
+          earningId: earningId || removedEarning?.id,
+          removedEarning,
+          revertedSubmissionId: revertedSub?.id,
+          revertedSubmissions: store.submissions,
+          earnings: store.earnings
+        }
+      });
+
+      // Also broadcast status updated event so MIS table refreshes to Process instantly
+      if (revertedSub) {
+        broadcastRealtime({
+          type: "SUBMISSION_STATUS_UPDATED",
+          payload: {
+            submissionId: revertedSub.id,
+            status: 'Process',
+            prevStatus: 'Payment Done',
+            submission: revertedSub,
+            removedEarningId: earningId || removedEarning?.id
+          }
+        });
+      }
+
+      res.json({
+        success: true,
+        deletedEarningId: earningId || removedEarning?.id,
+        revertedSubmissionId: revertedSub?.id,
+        earningsRemaining: store.earnings.length,
+        connectedClients: sseClients.length
+      });
+    } catch (err: any) {
+      console.error("Error in /api/earning/delete:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4c. Dedicated Endpoint to UPDATE an Earning Record Amount
+  app.post("/api/earning/update", (req, res) => {
+    try {
+      const { earningId, amount } = req.body || {};
+      if (!earningId || amount === undefined) {
+        return res.status(400).json({ error: "Missing earningId or amount" });
+      }
+
+      const newAmt = Number(amount);
+      const earning = store.earnings.find(e => e.id === earningId);
+      if (earning) {
+        earning.amount = newAmt;
+      }
+
+      // Also update matching submission payout in store if linked
+      const rawSubId = earningId.replace(/^earning-sub-/, '').replace(/^earning-/, '');
+      const sub = store.submissions.find(s => s.id === rawSubId);
+      if (sub) {
+        sub.payout = newAmt;
+      }
+
+      scheduleSaveStore();
+
+      broadcastRealtime({
+        type: "EARNING_UPDATED",
+        payload: {
+          earningId,
+          amount: newAmt,
+          submissionId: sub?.id,
+          earnings: store.earnings
+        }
+      });
+
+      res.json({ success: true, earningId, amount: newAmt });
+    } catch (err: any) {
+      console.error("Error in /api/earning/update:", err);
       res.status(500).json({ error: err.message });
     }
   });

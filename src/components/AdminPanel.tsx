@@ -534,8 +534,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
           if (docSnap.exists()) {
             bank = docSnap.data() as any;
           }
-        } catch (error) {
-          console.error("Error fetching bank on-demand:", error);
+        } catch (error: any) {
+          console.warn("Notice fetching bank on-demand:", error?.message || error);
         }
       }
       setScannedBankDetails({
@@ -1460,8 +1460,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                           if (docSnap.exists()) {
                                             bank = docSnap.data() as any;
                                           }
-                                        } catch (error) {
-                                          console.error("Error fetching bank on-demand:", error);
+                                        } catch (error: any) {
+                                          console.warn("Notice fetching bank on-demand:", error?.message || error);
                                         }
                                       }
                                       setViewingBankDetails({
@@ -1560,14 +1560,19 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                     Trade Done
                                   </button>
                                   <button
-                                    onClick={() => updateSubmissionStatus(sub.id, 'Payment Done')}
-                                    className={`px-2 py-1 text-[9px] font-extrabold uppercase rounded tracking-wider cursor-pointer border border-transparent transition-all ${
+                                    disabled={sub.status === 'Payment Done'}
+                                    onClick={() => {
+                                      if (sub.status === 'Payment Done') return;
+                                      updateSubmissionStatus(sub.id, 'Payment Done');
+                                    }}
+                                    className={`px-2 py-1 text-[9px] font-extrabold uppercase rounded tracking-wider border border-transparent transition-all ${
                                       sub.status === 'Payment Done' 
-                                        ? 'bg-emerald-600 text-white shadow-md font-black' 
-                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800'
+                                        ? 'bg-emerald-600 text-white shadow-md font-black cursor-not-allowed opacity-90' 
+                                        : 'bg-[#DBDBDB] hover:bg-slate-300 text-slate-800 cursor-pointer'
                                     }`}
+                                    title={sub.status === 'Payment Done' ? 'Payment already disbursed for this lead' : 'Click to disburse payment'}
                                   >
-                                    Payment Done
+                                    {sub.status === 'Payment Done' ? '✓ Paid Done' : 'Payment Done'}
                                   </button>
                                   <button
                                     onClick={() => {
@@ -1846,8 +1851,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                         if (docSnap.exists()) {
                                           bank = docSnap.data() as any;
                                         }
-                                      } catch (error) {
-                                        console.error("Error fetching bank on-demand:", error);
+                                      } catch (error: any) {
+                                        console.warn("Notice fetching bank on-demand:", error?.message || error);
                                       }
                                     }
                                     setViewingBankDetails({
@@ -1865,7 +1870,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                   id={`edit-earnings-${pub.id}`}
                                   onClick={() => {
                                     setEditingEarningsPubId(pub.id);
-                                    const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
+                                    const normId = (pub.id || '').trim().toLowerCase();
+                                    const pubEarnings = (earnings || []).filter(e => (e.publisherId || '').trim().toLowerCase() === normId);
                                     const values: { [key: string]: string } = {};
                                     pubEarnings.forEach(e => {
                                       values[e.id] = String(e.amount);
@@ -3528,10 +3534,15 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               {/* Earning Logs List */}
               <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
                 {(() => {
-                  const pubEarnings = (earnings || []).filter(e => e.publisherId === editingEarningsPubId);
-                  const last5Earnings = [...pubEarnings].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 5);
+                  const normEditPubId = (editingEarningsPubId || '').trim().toLowerCase();
+                  const pubEarnings = (earnings || []).filter(e => (e.publisherId || '').trim().toLowerCase() === normEditPubId);
+                  const sortedEarnings = [...pubEarnings].sort((a, b) => {
+                    const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
+                    const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
+                    return keyB.localeCompare(keyA);
+                  });
 
-                  if (last5Earnings.length === 0) {
+                  if (sortedEarnings.length === 0) {
                     return (
                       <div className="text-center py-6 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl text-slate-400 font-mono text-xs">
                         No earning disburse records found for this user.
@@ -3539,7 +3550,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     );
                   }
 
-                  return last5Earnings.map((earning) => {
+                  return sortedEarnings.map((earning) => {
                     const currentInputValue = editingEarningItemValues[earning.id] !== undefined 
                       ? editingEarningItemValues[earning.id] 
                       : String(earning.amount);
@@ -3601,7 +3612,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           {/* Delete Button */}
                           <button
                             onClick={() => {
-                              if (window.confirm(`Are you sure you want to permanently remove this ₹${earning.amount} earning record? This will reduce the user's total balance immediately.`)) {
+                              if (window.confirm(`Are you sure you want to permanently remove this ₹${earning.amount} earning record? This will immediately reduce the user's total balance and revert the client lead status in MIS to 'Process'.`)) {
                                 deleteEarningRecord(earning.id);
                                 // Remove from local value tracking as well
                                 setEditingEarningItemValues(prev => {

@@ -1355,51 +1355,6 @@
       "campaignName": "Angel One Demat & Trading"
     },
     {
-      "time": "18:48",
-      "publisherId": "PUB1004",
-      "campaignId": "camp-2",
-      "date": "2026-06-21",
-      "amount": 350,
-      "campaignName": "Angel One Demat & Trading",
-      "id": "earning-1782047916413"
-    },
-    {
-      "time": "18:48",
-      "publisherId": "PUB1004",
-      "campaignId": "camp-2",
-      "campaignName": "Angel One Demat & Trading",
-      "amount": 350,
-      "date": "2026-06-21",
-      "id": "earning-1782047915288"
-    },
-    {
-      "id": "earning-1782047913549",
-      "amount": 350,
-      "date": "2026-06-21",
-      "campaignName": "Angel One Demat & Trading",
-      "campaignId": "camp-2",
-      "publisherId": "PUB1004",
-      "time": "18:48"
-    },
-    {
-      "publisherId": "PUB1004",
-      "time": "18:48",
-      "id": "earning-1782047908478",
-      "amount": 350,
-      "date": "2026-06-21",
-      "campaignName": "Angel One Demat & Trading",
-      "campaignId": "camp-2"
-    },
-    {
-      "time": "18:48",
-      "publisherId": "PUB1004",
-      "campaignId": "camp-2",
-      "date": "2026-06-21",
-      "amount": 350,
-      "campaignName": "Angel One Demat & Trading",
-      "id": "earning-1782047896824"
-    },
-    {
       "amount": 350,
       "campaignId": "camp-2",
       "id": "earning-1782046165671",
@@ -3211,5 +3166,5 @@
       "submittedAt": "2026-09-09T17:30:00.000Z"
     }
   ],
-  "updatedAt": 1788977666314
+  "updatedAt": 1788978362439
 }

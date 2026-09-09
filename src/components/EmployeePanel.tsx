@@ -282,8 +282,8 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                                     if (docSnap.exists()) {
                                       bank = docSnap.data() as any;
                                     }
-                                  } catch (error) {
-                                    console.error("Error fetching bank on-demand:", error);
+                                  } catch (error: any) {
+                                    console.warn("Notice fetching bank on-demand:", error?.message || error);
                                   }
                                 }
                                 setViewingBankDetails({

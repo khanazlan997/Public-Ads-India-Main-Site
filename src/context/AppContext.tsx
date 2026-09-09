@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   collection, 
   doc, 
@@ -315,6 +315,8 @@ const broadcastSync = (type: string, payload: any) => {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<'light' | 'dark'>('light');
+  // Mutex lock to strictly prevent duplicate disbursement clicks (single count guarantee)
+  const inFlightDisbursementIds = useRef<Set<string>>(new Set());
   
   // Resilient cached state initialization: ensures data persists and displays even when Firestore quota is throttled
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
@@ -607,6 +609,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setPublishers(payload);
           } else if (type === 'SYNC_BANK_DETAILS' && payload) {
             setBankDetailsMap(payload);
+          } else if (type === 'EARNING_DELETED' && payload) {
+            const { earningId, matchedSubmissionId } = payload;
+            if (earningId) {
+              setEarnings(prev => {
+                const next = prev.filter(e => e.id !== earningId);
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+            if (matchedSubmissionId) {
+              setSubmissions(prev => {
+                const next = prev.map(s => s.id === matchedSubmissionId ? { ...s, status: 'Process' as SubmissionStatus } : s);
+                try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+          } else if (type === 'EARNING_UPDATED' && payload) {
+            const { earningId, amount, submissionId } = payload;
+            if (earningId && amount !== undefined) {
+              setEarnings(prev => {
+                const next = prev.map(e => e.id === earningId ? { ...e, amount } : e);
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+            if (submissionId && amount !== undefined) {
+              setSubmissions(prev => {
+                const next = prev.map(s => s.id === submissionId ? { ...s, payout: amount } : s);
+                try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
           }
         } catch (e) {}
       };
@@ -757,6 +791,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             console.log(`[Cross-Device Realtime] Payment Done received for ${submissionId}, state updated.`);
+          } else if (type === 'EARNING_DELETED' && payload) {
+            const { earningId, revertedSubmissionId, revertedSubmissions, earnings: updatedEarnings } = payload;
+            if (earningId) {
+              setEarnings(prev => {
+                const next = prev.filter(e => e.id !== earningId);
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            } else if (Array.isArray(updatedEarnings)) {
+              setEarnings(updatedEarnings);
+              try { localStorage.setItem('pai_cached_earnings', JSON.stringify(updatedEarnings)); } catch (e) {}
+            }
+            if (revertedSubmissionId) {
+              setSubmissions(prev => {
+                const next = prev.map(s => s.id === revertedSubmissionId ? { ...s, status: 'Process' as SubmissionStatus } : s);
+                try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            } else if (Array.isArray(revertedSubmissions)) {
+              setSubmissions(revertedSubmissions);
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(revertedSubmissions)); } catch (e) {}
+            }
+            console.log(`[Cross-Device Realtime] Earning ${earningId} deleted, submission reverted to Process.`);
+          } else if (type === 'EARNING_UPDATED' && payload) {
+            const { earningId, amount, submissionId } = payload;
+            if (earningId && amount !== undefined) {
+              setEarnings(prev => {
+                const next = prev.map(e => e.id === earningId ? { ...e, amount } : e);
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+            if (submissionId && amount !== undefined) {
+              setSubmissions(prev => {
+                const next = prev.map(s => s.id === submissionId ? { ...s, payout: amount } : s);
+                try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
           } else if (type === 'NEW_SUBMISSION' && payload) {
             setSubmissions(prev => {
               if (prev.some(s => s.id === payload.id)) return prev;
@@ -1151,7 +1224,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           list.push(docSnap.data() as Employee);
         });
         setEmployees(list);
+        try { localStorage.setItem('pai_cached_employees', JSON.stringify(list)); } catch (e) {}
       }
+    }, (error) => {
+      console.warn("onSnapshot employees notice (using local cache):", error.message);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
+        setQuotaError("maintenance");
+      }
+      try {
+        const cached = localStorage.getItem('pai_cached_employees');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setEmployees(parsed);
+          }
+        }
+      } catch (e) {}
     });
     return unsubscribe;
   }, [currentUser, activePath]);
@@ -1174,7 +1263,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         setPartnerApplications(list);
         setHasMorePartners(snapshot.docs.length >= partnersLimit);
+        try { localStorage.setItem('pai_cached_partners', JSON.stringify(list)); } catch (e) {}
       }
+    }, (error) => {
+      console.warn("onSnapshot partners notice (using local cache):", error.message);
+      const lower = error.message?.toLowerCase() || '';
+      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
+        setQuotaError("maintenance");
+      }
+      try {
+        const cached = localStorage.getItem('pai_cached_partners');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setPartnerApplications(parsed);
+          }
+        }
+      } catch (e) {}
     });
     return unsubscribe;
   }, [currentUser, activePath, partnersLimit]);
@@ -1202,7 +1307,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             googleSheetUrl: '',
             offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
           };
-          await setDoc(docRef, initialSettings);
+          await setDoc(docRef, initialSettings).catch(() => {});
           localStorage.setItem('pai_support_phone', initialSettings.supportPhone);
           localStorage.setItem('pai_support_email', initialSettings.supportEmail);
           localStorage.setItem('pai_hiring_active', String(initialSettings.partnerHiringActive));
@@ -1220,11 +1325,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Auto-upgrade legacy defaults in Firestore database to current permanent contact details
             if (phone === '+91 9110022334') {
               phone = '+91 8934932418';
-              updateDoc(docRef, { supportPhone: phone });
+              updateDoc(docRef, { supportPhone: phone }).catch(() => {});
             }
             if (email === 'support@publicadsindia.com') {
               email = 'publicadsnetwork@gmail.com';
-              updateDoc(docRef, { supportEmail: email });
+              updateDoc(docRef, { supportEmail: email }).catch(() => {});
             }
 
             setSupportPhone(phone);
@@ -1248,8 +1353,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           }
         }
-      } catch (err) {
-        console.error("Error loading settings config:", err);
+      } catch (err: any) {
+        console.warn("Notice loading settings config (using cached settings):", err?.message || err);
+        const cachedPhone = localStorage.getItem('pai_support_phone') || '+91 8934932418';
+        const cachedEmail = localStorage.getItem('pai_support_email') || 'publicadsnetwork@gmail.com';
+        const cachedHiring = localStorage.getItem('pai_hiring_active') !== 'false';
+        const cachedUrl = localStorage.getItem('pai_google_sheet_url') || '';
+        setSupportPhone(cachedPhone);
+        setSupportEmail(cachedEmail);
+        setPartnerHiringActive(cachedHiring);
+        if (cachedUrl) setGoogleSheetUrl(cachedUrl);
+        const cachedOffer = localStorage.getItem('pai_offer');
+        if (cachedOffer) {
+          try { setOffer(JSON.parse(cachedOffer)); } catch (e) {}
+        }
       }
     };
     fetchSettings();
@@ -1270,7 +1387,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPaymentEmailRecords(list);
       }
     }, (error) => {
-      console.log("onSnapshot payment_emails info (using local cache):", error);
+      console.warn("onSnapshot payment_emails info (using local cache):", error.message);
     });
     return unsubscribe;
   }, []);
@@ -1870,7 +1987,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const prevStatus = oldSub.status;
     const isNowPaid = status === 'Payment Done';
-    const wasPaid = prevStatus === 'Payment Done';
+    const wasPaid = prevStatus === 'Payment Done' || (prevStatus || '').toLowerCase().trim() === 'payment done';
+
+    // STRICT USER REQUIREMENT: Prevent multiple count if clicked 4-5 times
+    // "Or MIS me Payment Done pe 4/5 bar bhi click hoto ek bar hi count kre ek client ka 4/5 bar count kr leta h"
+    if (isNowPaid) {
+      // 1. Debounce mutex lock: reject rapid clicks within 3 seconds
+      if (inFlightDisbursementIds.current.has(submissionId)) {
+        console.warn(`[Lock Guard] Rapid duplicate click ignored for submission ${submissionId}`);
+        return;
+      }
+      inFlightDisbursementIds.current.add(submissionId);
+      setTimeout(() => {
+        inFlightDisbursementIds.current.delete(submissionId);
+      }, 3000);
+
+      // 2. If already marked as Payment Done, do NOT add or count again!
+      if (wasPaid) {
+        console.warn(`[Duplicate Guard] Submission ${submissionId} is already Payment Done. Multiple count blocked.`);
+        return;
+      }
+    }
 
     // 1. Optimistically update submission status in memory & localStorage
     const updatedSub = { ...oldSub, status };
@@ -1882,37 +2019,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'MIS_STATUS_UPDATE', `Updated lead status of [${oldSub.clientName}] from "${prevStatus}" to "${status}"`);
 
-    // 2. Handle Earning Record addition or reversal
+    // 2. Handle Earning Record addition or reversal with strict idempotence
     let newEarning: EarningRecord | null = null;
     let removedEarningId: string | null = null;
 
     if (isNowPaid) {
       const earningId = `earning-${submissionId}`;
-      newEarning = {
-        id: earningId,
-        publisherId: oldSub.publisherId,
-        campaignId: oldSub.campaignId,
-        campaignName: oldSub.campaignName,
-        amount: Number(oldSub.payout) || 0,
-        date: (oldSub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
-        time: (oldSub.submitDate || '').substring(11, 16) || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
-      };
-      
-      // Optimistically add to earnings immediately so Publisher Dashboard reflects payout instantly
-      setEarnings(prev => {
-        const next = [newEarning!, ...prev.filter(e => e.id !== earningId)];
-        try {
-          localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
-        } catch (e) {}
-        return next;
-      });
+      const normPubId = (oldSub.publisherId || '').trim().toLowerCase();
 
-      addLog('PAYMENT_SERVER', 'Automatic Ledger', 'EARNING_DISBURSE', `Disbursed ₹${oldSub.payout} campaign reward to ${oldSub.publisherId}`);
+      // Check if this submission or client already has an earning in state
+      const alreadyHasEarning = earnings.some(e => 
+        e.id === earningId || 
+        ((e.publisherId || '').trim().toLowerCase() === normPubId && 
+         e.campaignId === oldSub!.campaignId && 
+         Number(e.amount) === Number(oldSub!.payout))
+      );
+
+      if (alreadyHasEarning) {
+        console.log(`[Duplicate Guard] Earning record already exists for ${submissionId}, will not create duplicate.`);
+      } else {
+        newEarning = {
+          id: earningId,
+          publisherId: oldSub.publisherId,
+          campaignId: oldSub.campaignId,
+          campaignName: oldSub.campaignName,
+          amount: Number(oldSub.payout) || 0,
+          date: (oldSub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+          time: (oldSub.submitDate || '').substring(11, 16) || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+        };
+        
+        // Optimistically add to earnings immediately so Publisher Dashboard reflects payout instantly
+        setEarnings(prev => {
+          const next = [newEarning!, ...prev.filter(e => e.id !== earningId)];
+          try {
+            localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
+          } catch (e) {}
+          return next;
+        });
+
+        addLog('PAYMENT_SERVER', 'Automatic Ledger', 'EARNING_DISBURSE', `Disbursed ₹${oldSub.payout} campaign reward to ${oldSub.publisherId}`);
+      }
     } else if (wasPaid) {
-      // Reverted from Payment Done to another status - remove payment from earnings
+      // Reverted from Payment Done to another status (e.g. Process) - remove payment from earnings!
       removedEarningId = `earning-${submissionId}`;
+      const normPubId = (oldSub.publisherId || '').trim().toLowerCase();
       setEarnings(prev => {
-        const next = prev.filter(e => e.id !== removedEarningId && !(e.publisherId === oldSub!.publisherId && e.campaignId === oldSub!.campaignId && Number(e.amount) === Number(oldSub!.payout)));
+        const next = prev.filter(e => 
+          e.id !== removedEarningId && 
+          !((e.publisherId || '').trim().toLowerCase() === normPubId && e.campaignId === oldSub!.campaignId && Number(e.amount) === Number(oldSub!.payout))
+        );
         try {
           localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
         } catch (e) {}
@@ -1962,6 +2117,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const deleteSubmission = (id: string) => {
+    // Also clean up any associated earning for this submission
+    const earningId = `earning-${id}`;
+    setEarnings(prev => {
+      const next = prev.filter(e => e.id !== earningId);
+      try {
+        localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+    try {
+      deleteDoc(doc(db, 'earnings', earningId)).catch(() => {});
+    } catch (err) {}
+
     setSubmissions(prev => {
       const next = prev.filter(s => s.id !== id);
       try {
@@ -1988,8 +2156,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateEarningAmount = (earningId: string, amount: number) => {
+    const newAmt = Number(amount);
     setEarnings(prev => {
-      const next = prev.map(e => e.id === earningId ? { ...e, amount } : e);
+      const next = prev.map(e => e.id === earningId ? { ...e, amount: newAmt } : e);
       try {
         localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
         broadcastSync('SYNC_EARNINGS', next);
@@ -1997,15 +2166,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
+    // Also update corresponding submission payout in memory if linked
+    const rawSubId = earningId.replace(/^earning-sub-/, '').replace(/^earning-/, '');
+    const matchedSub = submissions.find(s => s.id === rawSubId);
+    if (matchedSub) {
+      setSubmissions(prev => {
+        const next = prev.map(s => s.id === matchedSub.id ? { ...s, payout: newAmt } : s);
+        try {
+          localStorage.setItem('pai_cached_submissions', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+      try {
+        updateDoc(doc(db, 'submissions', matchedSub.id), { payout: newAmt }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // Persist to server store
+    fetch('/api/earning/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ earningId, amount: newAmt })
+    }).catch(err => console.warn("Server earning update notice:", err));
+
     try {
-      updateDoc(doc(db, 'earnings', earningId), { amount }).catch(err => {
+      updateDoc(doc(db, 'earnings', earningId), { amount: newAmt }).catch(err => {
         console.warn("Firestore updateDoc earning notice:", err.message);
       });
     } catch (err) {}
-    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'UPDATE_EARNING_AMOUNT', `Updated earning ID ${earningId} amount to ₹${amount}`);
+
+    broadcastSync('EARNING_UPDATED', { earningId, amount: newAmt, submissionId: matchedSub?.id });
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'UPDATE_EARNING_AMOUNT', `Updated earning ID ${earningId} amount to ₹${newAmt}`);
   };
 
   const deleteEarningRecord = (earningId: string) => {
+    const targetEarning = earnings.find(e => e.id === earningId);
+
+    // 1. Remove from local earnings state & cache immediately
     setEarnings(prev => {
       const next = prev.filter(e => e.id !== earningId);
       try {
@@ -2015,12 +2212,108 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
+    // 2. CRITICAL USER SPECIFICATION:
+    // "Or MIS me agar payment done h to process me kr do jab bhi delet ho to"
+    // "Edit amount se Jo delet kr diya h uska amount abhi bhi show kr rha h Jab delet kr diya hai to Uska amount kyu show ho rha hai"
+    // Locate the corresponding lead submission in MIS and revert its status to 'Process'!
+    let matchedSub: DataSubmission | null = null;
+
+    if (targetEarning) {
+      const normPubId = (targetEarning.publisherId || '').trim().toLowerCase();
+      const isPaymentDone = (st?: string) => {
+        const s = (st || '').toLowerCase().trim();
+        return s === 'payment done' || s === 'paymentdone' || s === 'paid';
+      };
+
+      // Check A: Direct ID match
+      const rawSubId = earningId.replace(/^earning-sub-/, '').replace(/^earning-/, '');
+      matchedSub = submissions.find(s => s.id === rawSubId) || null;
+
+      // Check B: Publisher + Campaign + Payment Done + Amount
+      if (!matchedSub) {
+        matchedSub = submissions.find(s => 
+          (s.publisherId || '').trim().toLowerCase() === normPubId &&
+          s.campaignId === targetEarning.campaignId &&
+          isPaymentDone(s.status) &&
+          Number(s.payout) === Number(targetEarning.amount)
+        ) || null;
+      }
+
+      // Check C: Publisher + Campaign + Payment Done
+      if (!matchedSub) {
+        matchedSub = submissions.find(s => 
+          (s.publisherId || '').trim().toLowerCase() === normPubId &&
+          s.campaignId === targetEarning.campaignId &&
+          isPaymentDone(s.status)
+        ) || null;
+      }
+
+      // Check D: Publisher + Payment Done + Amount
+      if (!matchedSub) {
+        matchedSub = submissions.find(s => 
+          (s.publisherId || '').trim().toLowerCase() === normPubId &&
+          isPaymentDone(s.status) &&
+          Number(s.payout) === Number(targetEarning.amount)
+        ) || null;
+      }
+
+      // Check E: Any Payment Done for this publisher
+      if (!matchedSub) {
+        matchedSub = submissions.find(s => 
+          (s.publisherId || '').trim().toLowerCase() === normPubId &&
+          isPaymentDone(s.status)
+        ) || null;
+      }
+    }
+
+    if (matchedSub) {
+      const revertedSubId = matchedSub.id;
+      // Revert this submission's status in local state to 'Process'
+      setSubmissions(prev => {
+        const next = prev.map(s => s.id === revertedSubId ? { ...s, status: 'Process' as SubmissionStatus } : s);
+        try {
+          localStorage.setItem('pai_cached_submissions', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
+
+      // Update in Firestore
+      try {
+        updateDoc(doc(db, 'submissions', revertedSubId), { status: 'Process' }).catch(err => {
+          console.warn("Firestore updateDoc submission revert notice:", err.message);
+        });
+      } catch (err) {}
+    }
+
+    // 3. Delete earning doc from Firestore
     try {
       deleteDoc(doc(db, 'earnings', earningId)).catch(err => {
         console.warn("Firestore deleteDoc earning notice:", err.message);
       });
     } catch (err) {}
-    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'DELETE_EARNING_RECORD', `Deleted earning ID ${earningId}`);
+
+    // 4. Dispatch to Server endpoint /api/earning/delete for instant persistent deletion & SSE broadcast across all devices
+    fetch('/api/earning/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        earningId,
+        publisherId: targetEarning?.publisherId,
+        campaignId: targetEarning?.campaignId,
+        amount: targetEarning?.amount,
+        matchedSubmissionId: matchedSub?.id
+      })
+    }).catch(err => console.warn("Server earning delete notice:", err));
+
+    // 5. Broadcast to cross-tabs
+    broadcastSync('EARNING_DELETED', { earningId, matchedSubmissionId: matchedSub?.id });
+
+    addLog(
+      currentUser?.id || 'ADMIN', 
+      currentUser?.name || 'Administrator', 
+      'DELETE_EARNING_RECORD', 
+      `Deleted earning ID ${earningId} (₹${targetEarning?.amount || 0})${matchedSub ? ` and reverted lead [${matchedSub.clientName}] in MIS to "Process"` : ''}`
+    );
   };
 
   const toggleBlockPublisher = (pubId: string) => {

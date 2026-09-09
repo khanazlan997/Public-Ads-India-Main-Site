@@ -528,10 +528,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const handleBroadcast = (event: MessageEvent) => {
         try {
           const { type, payload } = event.data || {};
-          if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
-            setSubmissions(payload);
+          if (type === 'SUBMISSION_STATUS_UPDATED' && payload) {
+            const { submissionId, status, submission, earning, removedEarningId } = payload;
+            setSubmissions(prev => {
+              let updated = false;
+              const next = prev.map(s => {
+                if (s.id === submissionId) {
+                  updated = true;
+                  return { ...s, ...(submission || {}), status: status as SubmissionStatus };
+                }
+                return s;
+              });
+              if (!updated && submission) {
+                next.unshift(submission);
+              }
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+            if (earning) {
+              setEarnings(prev => {
+                const next = [earning, ...prev.filter(e => e.id !== earning.id)];
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            } else if (removedEarningId) {
+              setEarnings(prev => {
+                const next = prev.filter(e => e.id !== removedEarningId && e.id !== `earning-${submissionId}`);
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+          } else if (type === 'NEW_SUBMISSION' && payload) {
+            setSubmissions(prev => {
+              if (prev.some(s => s.id === payload.id)) return prev;
+              const next = [payload, ...prev];
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+          } else if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
+            setSubmissions(prev => {
+              const map = new Map<string, DataSubmission>();
+              prev.forEach(s => map.set(s.id, s));
+              payload.forEach(s => {
+                if (s && s.id) {
+                  const existing = map.get(s.id) || {};
+                  map.set(s.id, { ...existing, ...s });
+                }
+              });
+              const next = Array.from(map.values()).sort((a, b) => {
+                const keyA = (a.submitDate || '') + '_' + (a.id || '');
+                const keyB = (b.submitDate || '') + '_' + (b.id || '');
+                return keyB.localeCompare(keyA);
+              });
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
           } else if (type === 'SYNC_EARNINGS' && Array.isArray(payload)) {
-            setEarnings(payload);
+            setEarnings(prev => {
+              const map = new Map<string, EarningRecord>();
+              prev.forEach(e => map.set(e.id, e));
+              payload.forEach(e => {
+                if (e && e.id) {
+                  const existing = map.get(e.id) || {};
+                  map.set(e.id, { ...existing, ...e });
+                }
+              });
+              const next = Array.from(map.values()).sort((a, b) => {
+                const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
+                const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
+                return keyB.localeCompare(keyA);
+              });
+              try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
           } else if (type === 'SYNC_CAMPAIGNS' && Array.isArray(payload)) {
             setCampaigns(payload);
           } else if (type === 'SYNC_PUBLISHERS' && Array.isArray(payload)) {
@@ -561,29 +630,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { submissions: sList, earnings: eList, campaigns: cList, publishers: pList, bankDetailsMap: bMap, employees: empList } = data;
       
       if (Array.isArray(sList) && sList.length > 0) {
-        setSubmissions(prev => {
-          const map = new Map<string, DataSubmission>();
-          prev.forEach(s => map.set(s.id, s));
-          sList.forEach((s: DataSubmission) => map.set(s.id, s));
-          const next = Array.from(map.values()).sort((a, b) => (b.submitDate || '').localeCompare(a.submitDate || ''));
-          try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
-          return next;
-        });
+        setSubmissions(sList);
+        try { localStorage.setItem('pai_cached_submissions', JSON.stringify(sList)); } catch (e) {}
       }
 
-      if (Array.isArray(eList) && eList.length > 0) {
-        setEarnings(prev => {
-          const map = new Map<string, EarningRecord>();
-          prev.forEach(e => map.set(e.id, e));
-          eList.forEach((e: EarningRecord) => map.set(e.id, e));
-          const next = Array.from(map.values()).sort((a, b) => {
-            const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
-            const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
-            return keyB.localeCompare(keyA);
-          });
-          try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
-          return next;
-        });
+      if (Array.isArray(eList)) {
+        setEarnings(eList);
+        try { localStorage.setItem('pai_cached_earnings', JSON.stringify(eList)); } catch (e) {}
       }
 
       if (Array.isArray(cList) && cList.length > 0) {
@@ -638,7 +691,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const parsed = JSON.parse(event.data);
           const { type, payload } = parsed || {};
 
-          if (type === 'PAYMENT_DONE' && payload) {
+          if (type === 'SUBMISSION_STATUS_UPDATED' && payload) {
+            const { submissionId, status, submission, earning, removedEarningId } = payload;
+            
+            // 1. Immediately update submission in state & local cache
+            setSubmissions(prev => {
+              let updated = false;
+              const next = prev.map(s => {
+                if (s.id === submissionId) {
+                  updated = true;
+                  return { ...s, ...(submission || {}), status: status as SubmissionStatus };
+                }
+                return s;
+              });
+              if (!updated && submission) {
+                next.unshift(submission);
+              }
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+
+            // 2. Immediately update earnings in state & local cache
+            if (earning) {
+              setEarnings(prev => {
+                const next = [earning, ...prev.filter(e => e.id !== earning.id)];
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            } else if (removedEarningId) {
+              setEarnings(prev => {
+                const next = prev.filter(e => e.id !== removedEarningId && e.id !== `earning-${submissionId}`);
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+
+            console.log(`[Cross-Device Realtime] Submission status updated for ${submissionId} to ${status}`);
+          } else if (type === 'PAYMENT_DONE' && payload) {
             const { submissionId, status, submission, earning } = payload;
             
             // 1. Immediately update submission in state & local cache
@@ -661,21 +750,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // 2. Immediately update earnings in state & local cache
             if (earning) {
               setEarnings(prev => {
-                const exists = prev.some(e => e.id === earning.id);
-                if (exists) return prev;
-                const next = [earning, ...prev];
+                const next = [earning, ...prev.filter(e => e.id !== earning.id)];
                 try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
                 return next;
               });
             }
 
             console.log(`[Cross-Device Realtime] Payment Done received for ${submissionId}, state updated.`);
+          } else if (type === 'NEW_SUBMISSION' && payload) {
+            setSubmissions(prev => {
+              if (prev.some(s => s.id === payload.id)) return prev;
+              const next = [payload, ...prev];
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
           } else if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
-            setSubmissions(payload);
-            try { localStorage.setItem('pai_cached_submissions', JSON.stringify(payload)); } catch (e) {}
+            setSubmissions(prev => {
+              const map = new Map<string, DataSubmission>();
+              prev.forEach(s => map.set(s.id, s));
+              payload.forEach(s => {
+                if (s && s.id) {
+                  const existing = map.get(s.id) || {};
+                  map.set(s.id, { ...existing, ...s });
+                }
+              });
+              const next = Array.from(map.values()).sort((a, b) => {
+                const keyA = (a.submitDate || '') + '_' + (a.id || '');
+                const keyB = (b.submitDate || '') + '_' + (b.id || '');
+                return keyB.localeCompare(keyA);
+              });
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
           } else if (type === 'SYNC_EARNINGS' && Array.isArray(payload)) {
-            setEarnings(payload);
-            try { localStorage.setItem('pai_cached_earnings', JSON.stringify(payload)); } catch (e) {}
+            setEarnings(prev => {
+              const map = new Map<string, EarningRecord>();
+              prev.forEach(e => map.set(e.id, e));
+              payload.forEach(e => {
+                if (e && e.id) {
+                  const existing = map.get(e.id) || {};
+                  map.set(e.id, { ...existing, ...e });
+                }
+              });
+              const next = Array.from(map.values()).sort((a, b) => {
+                const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
+                const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
+                return keyB.localeCompare(keyA);
+              });
+              try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
           } else if (type === 'SYNC_CAMPAIGNS' && Array.isArray(payload)) {
             setCampaigns(payload);
             try { localStorage.setItem('pai_cached_campaigns', JSON.stringify(payload)); } catch (e) {}
@@ -1714,7 +1838,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addLog('ADMIN', 'Administrator', 'HIRING_TOGGLE', `Hiring availability program toggled to ${active ? 'Active' : 'Paused'}`);
   };
 
-  const updateSubmissionStatus = (submissionId: string, status: SubmissionStatus) => {
+  const updateSubmissionStatus = (submissionId: string, rawStatus: SubmissionStatus | string) => {
+    // Normalize status string (e.g. 'In Process' -> 'Process')
+    let status: SubmissionStatus = 'Process';
+    const sLower = (rawStatus || '').toLowerCase().trim();
+    if (sLower === 'payment done' || sLower === 'paymentdone' || sLower === 'paid') {
+      status = 'Payment Done';
+    } else if (sLower === 'trade done' || sLower === 'tradedone') {
+      status = 'Trade Done';
+    } else if (sLower === 'ready to trade' || sLower === 'ready') {
+      status = 'Ready To Trade';
+    } else if (sLower === 'active') {
+      status = 'Active';
+    } else if (sLower === 'reject' || sLower === 'rejected') {
+      status = 'Reject';
+    } else {
+      status = 'Process';
+    }
+
     let oldSub = submissions.find(s => s.id === submissionId);
     if (!oldSub) {
       try {
@@ -1726,69 +1867,82 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {}
     }
     if (!oldSub) return;
-    if ((oldSub.status === 'PaymentDone' || oldSub.status === 'Payment Done') && status !== 'Payment Done') return; // protect payouts from getting reverted simply
 
-    // 1. Optimistically update submission status in memory & localStorage & cross-tab sync
-    const nextSubmissions = submissions.map(s => s.id === submissionId ? { ...s, status } : s);
+    const prevStatus = oldSub.status;
+    const isNowPaid = status === 'Payment Done';
+    const wasPaid = prevStatus === 'Payment Done';
+
+    // 1. Optimistically update submission status in memory & localStorage
+    const updatedSub = { ...oldSub, status };
+    const nextSubmissions = submissions.map(s => s.id === submissionId ? updatedSub : s);
     setSubmissions(nextSubmissions);
     try {
       localStorage.setItem('pai_cached_submissions', JSON.stringify(nextSubmissions));
-      broadcastSync('SYNC_SUBMISSIONS', nextSubmissions);
     } catch (e) {}
 
-    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'MIS_STATUS_UPDATE', `Approved campaign status of [${oldSub.clientName}] to ${status}`);
+    addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'MIS_STATUS_UPDATE', `Updated lead status of [${oldSub.clientName}] from "${prevStatus}" to "${status}"`);
 
-    // 2. Core specification requirement: When 'Payment Done' is clicked, automatically add payout to publisher earnings
+    // 2. Handle Earning Record addition or reversal
     let newEarning: EarningRecord | null = null;
-    if (status === 'Payment Done' && oldSub.status !== 'Payment Done') {
-      const earningId = `earning-${Date.now()}`;
+    let removedEarningId: string | null = null;
+
+    if (isNowPaid) {
+      const earningId = `earning-${submissionId}`;
       newEarning = {
         id: earningId,
         publisherId: oldSub.publisherId,
         campaignId: oldSub.campaignId,
         campaignName: oldSub.campaignName,
-        amount: oldSub.payout,
-        date: new Date().toISOString().substring(0, 10),
-        time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+        amount: Number(oldSub.payout) || 0,
+        date: (oldSub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+        time: (oldSub.submitDate || '').substring(11, 16) || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
       };
       
-      // Optimistically add to earnings immediately so Client Dashboard updates without any delay!
+      // Optimistically add to earnings immediately so Publisher Dashboard reflects payout instantly
       setEarnings(prev => {
         const next = [newEarning!, ...prev.filter(e => e.id !== earningId)];
         try {
           localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
-          broadcastSync('SYNC_EARNINGS', next);
         } catch (e) {}
         return next;
       });
 
       addLog('PAYMENT_SERVER', 'Automatic Ledger', 'EARNING_DISBURSE', `Disbursed ₹${oldSub.payout} campaign reward to ${oldSub.publisherId}`);
+    } else if (wasPaid) {
+      // Reverted from Payment Done to another status - remove payment from earnings
+      removedEarningId = `earning-${submissionId}`;
+      setEarnings(prev => {
+        const next = prev.filter(e => e.id !== removedEarningId && !(e.publisherId === oldSub!.publisherId && e.campaignId === oldSub!.campaignId && Number(e.amount) === Number(oldSub!.payout)));
+        try {
+          localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
+        } catch (e) {}
+        return next;
+      });
     }
 
-    // 3. Realtime Cross-Device Server Dispatch (Instant 50ms reflection on Client's mobile phone)
-    if (status === 'Payment Done') {
-      fetch('/api/realtime/payment-done', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          submissionId,
-          status: 'Payment Done',
-          submissionData: { ...oldSub, status: 'Payment Done' },
-          earningData: newEarning
-        })
-      }).catch(err => console.warn("Realtime server payment dispatch notice:", err));
-    } else {
-      fetch('/api/realtime/broadcast', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'SYNC_SUBMISSIONS',
-          payload: nextSubmissions
-        })
-      }).catch(err => console.warn("Realtime server broadcast notice:", err));
-    }
+    // 3. Dispatch cross-tab broadcast
+    broadcastSync('SUBMISSION_STATUS_UPDATED', {
+      submissionId,
+      status,
+      prevStatus,
+      submission: updatedSub,
+      earning: newEarning,
+      removedEarningId
+    });
 
-    // 4. Persist to Firestore asynchronously (with graceful error protection)
+    // 4. Realtime Server Dispatch (Direct update on server store + SSE broadcast across all devices)
+    fetch('/api/submission/update-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        submissionId,
+        status,
+        submissionData: updatedSub,
+        payout: oldSub.payout
+      })
+    }).catch(err => console.warn("Realtime server status dispatch notice:", err));
+
+    // 5. Persist to Firestore asynchronously with error resilience
     try {
       updateDoc(doc(db, 'submissions', submissionId), { status }).catch(err => {
         console.warn("Firestore updateDoc submission notice:", err.message);
@@ -1796,6 +1950,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (newEarning) {
         setDoc(doc(db, 'earnings', newEarning.id), newEarning).catch(err => {
           console.warn("Firestore setDoc earning notice:", err.message);
+        });
+      } else if (removedEarningId) {
+        deleteDoc(doc(db, 'earnings', removedEarningId)).catch(err => {
+          console.warn("Firestore deleteDoc earning notice:", err.message);
         });
       }
     } catch (err: any) {
@@ -2108,13 +2266,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       try {
         localStorage.setItem('pai_cached_submissions', JSON.stringify(list));
-        broadcastSync('SYNC_SUBMISSIONS', list);
-        fetch('/api/realtime/broadcast', {
+        broadcastSync('NEW_SUBMISSION', newSub);
+        fetch('/api/submission/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'SYNC_SUBMISSIONS',
-            payload: list
+            submission: newSub
           })
         }).catch(() => {});
       } catch (e) {}

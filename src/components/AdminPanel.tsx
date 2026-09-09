@@ -1796,8 +1796,35 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                             <td className="p-3 font-medium text-slate-650">{pub.phone}</td>
                             <td className="p-3">
                               {(() => {
-                                const pubEarnings = (earnings || []).filter(e => e.publisherId === pub.id);
-                                const totalSum = pubEarnings.reduce((acc, e) => acc + (e.amount || 0), 0);
+                                const normId = (pub.id || '').trim().toLowerCase();
+                                const pubEarnings = (earnings || []).filter(e => (e.publisherId || '').trim().toLowerCase() === normId);
+                                const paidSubs = (submissions || []).filter(s => {
+                                  const matchesPub = (s.publisherId || '').trim().toLowerCase() === normId;
+                                  const st = (s.status || '').toLowerCase().trim();
+                                  return matchesPub && (st === 'payment done' || st === 'paymentdone' || st === 'paid');
+                                });
+
+                                // Combined earnings ensuring zero double-counting
+                                const combined = [...pubEarnings];
+                                paidSubs.forEach(sub => {
+                                  const alreadyPresent = pubEarnings.some(e => 
+                                    (e.campaignId === sub.campaignId && Number(e.amount) === Number(sub.payout)) ||
+                                    e.id === `earning-${sub.id}`
+                                  );
+                                  if (!alreadyPresent) {
+                                    combined.push({
+                                      id: `earning-sub-${sub.id}`,
+                                      publisherId: pub.id,
+                                      campaignId: sub.campaignId,
+                                      campaignName: sub.campaignName,
+                                      amount: Number(sub.payout) || 0,
+                                      date: (sub.submitDate || '').substring(0, 10),
+                                      time: (sub.submitDate || '').substring(11, 16)
+                                    });
+                                  }
+                                });
+
+                                const totalSum = combined.reduce((acc, e) => acc + (Number(e.amount) || 0), 0);
                                 return (
                                   <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-450 font-black text-xs border border-indigo-100/50">
                                     ₹{totalSum}

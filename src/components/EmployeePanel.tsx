@@ -329,7 +329,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
                               // MIS Employees can change status but CANNOT execute "Payment Done" direct disbursement
                               <div className="flex gap-1.5">
                                 <button
-                                  onClick={() => handleStatusChange(sub.id, 'In Process' as any)}
+                                  onClick={() => handleStatusChange(sub.id, 'Process')}
                                   className="px-2 py-1 bg-yellow-500 text-slate-950 hover:bg-yellow-600 font-bold text-[9px] rounded uppercase uppercase tracking-wider"
                                 >
                                   In Process

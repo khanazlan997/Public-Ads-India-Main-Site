@@ -59,6 +59,45 @@ async function startServer() {
       const parsed = JSON.parse(raw);
       store = { ...store, ...parsed };
       console.log(`Loaded ${store.submissions.length} submissions and ${store.earnings.length} earnings from server storage.`);
+
+      // Auto-reconciliation: ensure every submission marked 'Payment Done' has a corresponding record in store.earnings
+      let reconciledEarnings = 0;
+      const isPaymentDone = (st?: string) => {
+        const s = (st || '').toLowerCase().trim();
+        return s === 'payment done' || s === 'paymentdone' || s === 'paid';
+      };
+
+      store.submissions.forEach(sub => {
+        if (isPaymentDone(sub.status)) {
+          const pubId = (sub.publisherId || '').trim();
+          const hasEarning = store.earnings.some(e => 
+            e.id === `earning-${sub.id}` || 
+            (e.publisherId?.trim().toLowerCase() === pubId.toLowerCase() && 
+             e.campaignId === sub.campaignId && 
+             Number(e.amount) === Number(sub.payout))
+          );
+          if (!hasEarning) {
+            store.earnings.unshift({
+              id: `earning-${sub.id}`,
+              publisherId: pubId,
+              campaignId: sub.campaignId || '',
+              campaignName: sub.campaignName || 'Campaign Payout',
+              amount: Number(sub.payout) || 0,
+              date: (sub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+              time: (sub.submitDate || '').substring(11, 16) || '12:00'
+            });
+            reconciledEarnings++;
+          }
+        }
+      });
+      if (reconciledEarnings > 0) {
+        console.log(`[Store Auto-Reconciled] Added ${reconciledEarnings} missing earning records for confirmed Payment Done leads.`);
+        setTimeout(() => {
+          try {
+            fs.writeFileSync(DATA_FILE, JSON.stringify(store), "utf-8");
+          } catch (e) {}
+        }, 1500);
+      }
     }
   } catch (e) {
     console.warn("Could not read server_data/store.json, using initialized store:", e);
@@ -136,7 +175,141 @@ async function startServer() {
     });
   });
 
-  // 3. Dedicated Realtime "Payment Done" endpoint
+  // 3. Universal Status Update endpoint - Handles ANY status change (Process, Reject, Ready To Trade, Active, Trade Done, Payment Done)
+  app.post("/api/submission/update-status", (req, res) => {
+    try {
+      const { submissionId, status, submissionData, payout } = req.body || {};
+      if (!submissionId || !status) {
+        return res.status(400).json({ error: "Missing submissionId or status" });
+      }
+
+      const isPaymentDone = (st?: string) => {
+        const s = (st || '').toLowerCase().trim();
+        return s === 'payment done' || s === 'paymentdone' || s === 'paid';
+      };
+
+      // 1. Locate or insert submission
+      let sub = store.submissions.find(s => s.id === submissionId);
+      const prevStatus = sub?.status;
+
+      if (!sub && submissionData) {
+        sub = { ...submissionData, id: submissionId, status };
+        store.submissions.unshift(sub);
+      } else if (sub) {
+        sub.status = status;
+        if (payout !== undefined && payout !== null) sub.payout = Number(payout);
+        if (submissionData?.payout !== undefined) sub.payout = Number(submissionData.payout);
+      }
+
+      let newEarning: any = null;
+      let removedEarningId: string | null = null;
+
+      // 2. Handle Earning Synchronization with 100% precision
+      if (isPaymentDone(status)) {
+        const pubId = (sub?.publisherId || submissionData?.publisherId || '').trim();
+        const existingEarning = store.earnings.find(e => 
+          e.id === `earning-${submissionId}` || 
+          (e.publisherId?.trim().toLowerCase() === pubId.toLowerCase() && 
+           e.campaignId === sub?.campaignId && 
+           Number(e.amount) === Number(sub?.payout))
+        );
+
+        if (existingEarning) {
+          newEarning = existingEarning;
+        } else if (sub) {
+          newEarning = {
+            id: `earning-${submissionId}`,
+            publisherId: sub.publisherId,
+            campaignId: sub.campaignId || '',
+            campaignName: sub.campaignName || 'Campaign Payout',
+            amount: Number(sub.payout) || 0,
+            date: new Date().toISOString().substring(0, 10),
+            time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+          };
+          store.earnings.unshift(newEarning);
+        }
+      } else {
+        // If status changed away from Payment Done (e.g., reverted to Process or Reject),
+        // remove the corresponding earning record so client/publisher doesn't see invalid payout!
+        const earningIdx = store.earnings.findIndex(e => 
+          e.id === `earning-${submissionId}` || 
+          (sub && e.publisherId?.trim().toLowerCase() === sub.publisherId?.trim().toLowerCase() && e.campaignId === sub.campaignId && Number(e.amount) === Number(sub.payout))
+        );
+        if (earningIdx !== -1) {
+          removedEarningId = store.earnings[earningIdx].id;
+          store.earnings.splice(earningIdx, 1);
+        }
+      }
+
+      scheduleSaveStore();
+
+      // Broadcast unified real-time event to ALL clients (Admin, Employee, Publisher)
+      broadcastRealtime({
+        type: "SUBMISSION_STATUS_UPDATED",
+        payload: {
+          submissionId,
+          status,
+          prevStatus,
+          submission: sub,
+          earning: newEarning,
+          removedEarningId
+        }
+      });
+
+      // Also broadcast legacy PAYMENT_DONE if status is Payment Done for backward compatibility
+      if (isPaymentDone(status)) {
+        broadcastRealtime({
+          type: "PAYMENT_DONE",
+          payload: {
+            submissionId,
+            status: 'Payment Done',
+            submission: sub,
+            earning: newEarning
+          }
+        });
+      }
+
+      console.log(`[Status Updated] Submission ${submissionId} changed to "${status}". Connected clients: ${sseClients.length}`);
+
+      res.json({
+        success: true,
+        submission: sub,
+        earning: newEarning,
+        removedEarningId,
+        connectedClients: sseClients.length
+      });
+    } catch (err: any) {
+      console.error("Error in /api/submission/update-status:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated endpoint for newly submitted leads (Zero risk of overwriting other submissions)
+  app.post("/api/submission/create", (req, res) => {
+    try {
+      const { submission } = req.body || {};
+      if (!submission || !submission.id) {
+        return res.status(400).json({ error: "Missing submission data or ID" });
+      }
+
+      const exists = store.submissions.some(s => s.id === submission.id);
+      if (!exists) {
+        store.submissions.unshift(submission);
+        scheduleSaveStore();
+      }
+
+      broadcastRealtime({
+        type: "NEW_SUBMISSION",
+        payload: submission
+      });
+
+      res.json({ success: true, submission, connectedClients: sseClients.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 4. Dedicated Realtime "Payment Done" endpoint (retained for backward compatibility)
   app.post("/api/realtime/payment-done", (req, res) => {
     try {
       const { submissionId, status = 'Payment Done', submissionData, earningData } = req.body || {};
@@ -158,7 +331,7 @@ async function startServer() {
       let newEarning = earningData;
       if (!newEarning && sub) {
         newEarning = {
-          id: `earning-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
+          id: `earning-${submissionId}`,
           publisherId: sub.publisherId,
           campaignId: sub.campaignId,
           campaignName: sub.campaignName,
@@ -178,6 +351,15 @@ async function startServer() {
       scheduleSaveStore();
 
       // Broadcast immediately to ALL devices across internet
+      broadcastRealtime({
+        type: "SUBMISSION_STATUS_UPDATED",
+        payload: {
+          submissionId,
+          status: 'Payment Done',
+          submission: sub,
+          earning: newEarning
+        }
+      });
       broadcastRealtime({
         type: "PAYMENT_DONE",
         payload: {
@@ -202,7 +384,7 @@ async function startServer() {
     }
   });
 
-  // 4. General Broadcast endpoint for any entity change
+  // 5. General Broadcast endpoint for any entity change - MERGES arrays instead of blindly replacing!
   app.post("/api/realtime/broadcast", (req, res) => {
     try {
       const { type, payload } = req.body || {};
@@ -211,15 +393,42 @@ async function startServer() {
       }
 
       if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
-        store.submissions = payload;
+        // Safe Merge by ID to protect all other submissions from getting wiped
+        const map = new Map<string, any>(store.submissions.map(s => [s.id, s]));
+        payload.forEach(s => {
+          if (s && s.id) {
+            const existing = map.get(s.id) || {};
+            map.set(s.id, { ...existing, ...s });
+          }
+        });
+        store.submissions = Array.from(map.values()).sort((a, b) => (b.submitDate || '').localeCompare(a.submitDate || ''));
       } else if (type === 'SYNC_EARNINGS' && Array.isArray(payload)) {
-        store.earnings = payload;
+        // Safe Merge by ID
+        const map = new Map<string, any>(store.earnings.map(e => [e.id, e]));
+        payload.forEach(e => {
+          if (e && e.id) {
+            const existing = map.get(e.id) || {};
+            map.set(e.id, { ...existing, ...e });
+          }
+        });
+        store.earnings = Array.from(map.values()).sort((a, b) => {
+          const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
+          const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
+          return keyB.localeCompare(keyA);
+        });
       } else if (type === 'SYNC_CAMPAIGNS' && Array.isArray(payload)) {
         store.campaigns = payload;
       } else if (type === 'SYNC_PUBLISHERS' && Array.isArray(payload)) {
-        store.publishers = payload;
+        const map = new Map<string, any>(store.publishers.map(p => [p.id, p]));
+        payload.forEach(p => {
+          if (p && p.id) {
+            const existing = map.get(p.id) || {};
+            map.set(p.id, { ...existing, ...p });
+          }
+        });
+        store.publishers = Array.from(map.values());
       } else if (type === 'SYNC_BANK_DETAILS' && payload) {
-        store.bankDetailsMap = payload;
+        store.bankDetailsMap = { ...(store.bankDetailsMap || {}), ...payload };
       } else if (type === 'SYNC_EMPLOYEES' && Array.isArray(payload)) {
         store.employees = payload;
       }

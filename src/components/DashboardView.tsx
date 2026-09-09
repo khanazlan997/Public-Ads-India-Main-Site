@@ -677,8 +677,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
   // Helper calculation metrics - Robust calculation that computes payout from both earnings and confirmed payment submissions
   const getPublisherEarnings = (pubId: string) => {
-    const pubEarnings = earnings.filter(e => e.publisherId === pubId);
-    const pubSubmissions = submissions.filter(s => s.publisherId === pubId);
+    const normPubId = (pubId || '').trim().toLowerCase();
+    const pubEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normPubId);
+    const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normPubId);
     const paidSubs = pubSubmissions.filter(s => {
       const st = (s.status || '').toLowerCase().trim();
       return st === 'payment done' || st === 'paymentdone' || st === 'paid';
@@ -996,17 +997,18 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   }
 
   // Publisher Dashboard (after login)
+  const normCurrentUserId = (currentUser?.id || '').trim().toLowerCase();
   const publisherEarningStats = getPublisherEarnings(currentUser.id);
-  const matchedEarnings = earnings.filter(e => e.publisherId === currentUser.id).slice(0, 5);
+  const matchedEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normCurrentUserId).slice(0, 5);
   const activeAndAdminCamps = campaigns.filter(c => c.active === true);
-  const pubSubmissions = submissions.filter(s => s.publisherId === currentUser.id);
+  const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normCurrentUserId);
 
   // User's successful UPI settlements / payouts (Last 5 only)
   const paidSubmissions = pubSubmissions.filter(s => {
     const st = (s.status || '').toLowerCase().trim();
     return st === 'payment done' || st === 'paymentdone' || st === 'paid';
   });
-  const userEarnings = earnings.filter(e => e.publisherId === currentUser.id);
+  const userEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normCurrentUserId);
 
   interface PayoutRecord {
     id: string;

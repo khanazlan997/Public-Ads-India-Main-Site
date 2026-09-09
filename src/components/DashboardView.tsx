@@ -675,26 +675,63 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     }
   };
 
-  // Helper calculation metrics
+  // Helper calculation metrics - Robust calculation that computes payout from both earnings and confirmed payment submissions
   const getPublisherEarnings = (pubId: string) => {
     const pubEarnings = earnings.filter(e => e.publisherId === pubId);
-    
+    const pubSubmissions = submissions.filter(s => s.publisherId === pubId);
+    const paidSubs = pubSubmissions.filter(s => {
+      const st = (s.status || '').toLowerCase().trim();
+      return st === 'payment done' || st === 'paymentdone' || st === 'paid';
+    });
+
+    // Create a combined list of all earnings ensuring zero double-counting
+    const combined = [...pubEarnings];
+    paidSubs.forEach(sub => {
+      const alreadyPresent = pubEarnings.some(e => 
+        (e.campaignId === sub.campaignId && Number(e.amount) === Number(sub.payout)) ||
+        e.id === `earning-${sub.id}`
+      );
+      if (!alreadyPresent) {
+        combined.push({
+          id: `earning-sub-${sub.id}`,
+          publisherId: pubId,
+          campaignId: sub.campaignId,
+          campaignName: sub.campaignName,
+          amount: Number(sub.payout) || 0,
+          date: (sub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+          time: (sub.submitDate || '').substring(11, 16) || ''
+        });
+      }
+    });
+
     // Sum total
-    const total = pubEarnings.reduce((acc, curr) => acc + curr.amount, 0);
+    const total = combined.reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     // Sum last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    const last7 = pubEarnings
-      .filter(e => new Date(e.date) >= sevenDaysAgo)
-      .reduce((acc, curr) => acc + curr.amount, 0);
+    const last7 = combined
+      .filter(e => {
+        try {
+          return new Date(e.date) >= sevenDaysAgo;
+        } catch {
+          return true;
+        }
+      })
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     // Sum last 30 days
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const last30 = pubEarnings
-      .filter(e => new Date(e.date) >= thirtyDaysAgo)
-      .reduce((acc, curr) => acc + curr.amount, 0);
+    const last30 = combined
+      .filter(e => {
+        try {
+          return new Date(e.date) >= thirtyDaysAgo;
+        } catch {
+          return true;
+        }
+      })
+      .reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0);
 
     return { total, last7, last30 };
   };
@@ -702,14 +739,12 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const getLeaderboard = () => {
     // Map with dynamic sums
     const leaders = publishers.map(p => {
-      const sum = earnings
-        .filter(e => e.publisherId === p.id)
-        .reduce((acc, curr) => acc + curr.amount, 0);
+      const stats = getPublisherEarnings(p.id);
       return {
         id: p.id,
         name: p.name,
         avatar: p.avatar || '😎',
-        income: sum
+        income: stats.total
       };
     });
 
@@ -967,7 +1002,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const pubSubmissions = submissions.filter(s => s.publisherId === currentUser.id);
 
   // User's successful UPI settlements / payouts (Last 5 only)
-  const paidSubmissions = pubSubmissions.filter(s => s.status === 'Payment Done');
+  const paidSubmissions = pubSubmissions.filter(s => {
+    const st = (s.status || '').toLowerCase().trim();
+    return st === 'payment done' || st === 'paymentdone' || st === 'paid';
+  });
   const userEarnings = earnings.filter(e => e.publisherId === currentUser.id);
 
   interface PayoutRecord {
@@ -987,7 +1025,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           {
             id: s.id,
             campaignName: s.campaignName,
-            amount: s.payout,
+            amount: Number(s.payout) || 0,
             date: s.submitDate,
             upi: bankUpi || bankDetailsMap[currentUser?.id || '']?.upi || 'Registered UPI',
             status: 'Payment Done'
@@ -998,7 +1036,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           {
             id: e.id,
             campaignName: e.campaignName,
-            amount: e.amount,
+            amount: Number(e.amount) || 0,
             date: `${e.date} ${e.time || ''}`.trim(),
             upi: bankUpi || bankDetailsMap[currentUser?.id || '']?.upi || 'Registered UPI',
             status: 'Payment Done'
@@ -1006,7 +1044,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         ] as [string, PayoutRecord])
       ]
     ).values()
-  ).slice(0, 5);
+  )
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .slice(0, 5);
 
   return (
     <div id="active-publisher-workspace" className="max-w-7xl mx-auto px-4 py-8">

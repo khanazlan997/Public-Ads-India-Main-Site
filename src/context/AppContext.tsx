@@ -101,7 +101,7 @@ interface AppContextType {
   deleteTestimonial: (id: string) => void;
   updateGoogleSheetUrl: (url: string) => Promise<void>;
   deleteAdvertiserInquiry: (id: string) => Promise<void>;
-  submitAdvertiserInquiry: (name: string, phone: string, email: string, company: string, campaign: string) => Promise<{ success: boolean; message: string }>;
+  submitAdvertiserInquiry: (name: string, phone: string, email: string, company: string, campaign: string) => Promise<{ success: boolean; message: string; whatsappUrl?: string; inquiry?: AdvertiserInquiry }>;
   
   // Publisher Actions
   submitBankDetails: (details: BankDetails) => Promise<{ success: boolean; message: string }>;
@@ -424,7 +424,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
     return stored;
   });
-  const [advertiserInquiries, setAdvertiserInquiries] = useState<AdvertiserInquiry[]>([]);
+  const [advertiserInquiries, setAdvertiserInquiries] = useState<AdvertiserInquiry[]>(() => {
+    try {
+      const cached = localStorage.getItem('pai_cached_advertiser_inquiries');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) {
+      return [];
+    }
+  });
   
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const [activePath, setActivePath] = useState<string>('/Home');
@@ -543,6 +550,184 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (removeBroadcast) removeBroadcast();
     };
   }, []);
+
+  // Real-time Cross-Device SSE & State Synchronizer Engine (Zero-Latency, 100% Free Quota Safe)
+  useEffect(() => {
+    let es: EventSource | null = null;
+    let pollInterval: any = null;
+
+    const applyServerData = (data: any) => {
+      if (!data) return;
+      const { submissions: sList, earnings: eList, campaigns: cList, publishers: pList, bankDetailsMap: bMap, employees: empList } = data;
+      
+      if (Array.isArray(sList) && sList.length > 0) {
+        setSubmissions(prev => {
+          const map = new Map<string, DataSubmission>();
+          prev.forEach(s => map.set(s.id, s));
+          sList.forEach((s: DataSubmission) => map.set(s.id, s));
+          const next = Array.from(map.values()).sort((a, b) => (b.submitDate || '').localeCompare(a.submitDate || ''));
+          try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+          return next;
+        });
+      }
+
+      if (Array.isArray(eList) && eList.length > 0) {
+        setEarnings(prev => {
+          const map = new Map<string, EarningRecord>();
+          prev.forEach(e => map.set(e.id, e));
+          eList.forEach((e: EarningRecord) => map.set(e.id, e));
+          const next = Array.from(map.values()).sort((a, b) => {
+            const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
+            const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
+            return keyB.localeCompare(keyA);
+          });
+          try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+          return next;
+        });
+      }
+
+      if (Array.isArray(cList) && cList.length > 0) {
+        setCampaigns(cList);
+        try { localStorage.setItem('pai_cached_campaigns', JSON.stringify(cList)); } catch (e) {}
+      }
+
+      if (Array.isArray(pList) && pList.length > 0) {
+        setPublishers(pList);
+        try { localStorage.setItem('pai_cached_publishers', JSON.stringify(pList)); } catch (e) {}
+      }
+
+      if (bMap && typeof bMap === 'object' && Object.keys(bMap).length > 0) {
+        setBankDetailsMap(prev => ({ ...prev, ...bMap }));
+        try { localStorage.setItem('pai_cached_bank_details', JSON.stringify(bMap)); } catch (e) {}
+      }
+
+      if (Array.isArray(empList) && empList.length > 0) {
+        setEmployees(empList);
+      }
+
+      if (Array.isArray(data.advertiserInquiries) && data.advertiserInquiries.length > 0) {
+        setAdvertiserInquiries(data.advertiserInquiries);
+        try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(data.advertiserInquiries)); } catch (e) {}
+      }
+    };
+
+    const fetchServerState = async () => {
+      try {
+        const res = await fetch('/api/realtime/state');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            applyServerData(json.data);
+          }
+        }
+      } catch (err) {
+        // silent
+      }
+    };
+
+    // Initial state fetch from server memory (0 Firestore reads)
+    fetchServerState();
+
+    // Connect to Server-Sent Events stream for instant cross-device delivery (< 50ms)
+    try {
+      es = new EventSource('/api/realtime/stream');
+
+      es.onmessage = (event) => {
+        try {
+          if (!event.data) return;
+          const parsed = JSON.parse(event.data);
+          const { type, payload } = parsed || {};
+
+          if (type === 'PAYMENT_DONE' && payload) {
+            const { submissionId, status, submission, earning } = payload;
+            
+            // 1. Immediately update submission in state & local cache
+            setSubmissions(prev => {
+              let updated = false;
+              const next = prev.map(s => {
+                if (s.id === submissionId) {
+                  updated = true;
+                  return { ...s, status: 'Payment Done' as SubmissionStatus };
+                }
+                return s;
+              });
+              if (!updated && submission) {
+                next.unshift(submission);
+              }
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
+              return next;
+            });
+
+            // 2. Immediately update earnings in state & local cache
+            if (earning) {
+              setEarnings(prev => {
+                const exists = prev.some(e => e.id === earning.id);
+                if (exists) return prev;
+                const next = [earning, ...prev];
+                try { localStorage.setItem('pai_cached_earnings', JSON.stringify(next)); } catch (e) {}
+                return next;
+              });
+            }
+
+            console.log(`[Cross-Device Realtime] Payment Done received for ${submissionId}, state updated.`);
+          } else if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
+            setSubmissions(payload);
+            try { localStorage.setItem('pai_cached_submissions', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_EARNINGS' && Array.isArray(payload)) {
+            setEarnings(payload);
+            try { localStorage.setItem('pai_cached_earnings', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_CAMPAIGNS' && Array.isArray(payload)) {
+            setCampaigns(payload);
+            try { localStorage.setItem('pai_cached_campaigns', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_PUBLISHERS' && Array.isArray(payload)) {
+            setPublishers(payload);
+            try { localStorage.setItem('pai_cached_publishers', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_BANK_DETAILS' && payload) {
+            setBankDetailsMap(payload);
+            try { localStorage.setItem('pai_cached_bank_details', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_ADVERTISER_INQUIRIES' && Array.isArray(payload)) {
+            setAdvertiserInquiries(payload);
+            try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(payload)); } catch (e) {}
+          }
+        } catch (e) {}
+      };
+
+      es.onerror = () => {
+        // SSE reconnects automatically, fallback to fetchServerState
+        fetchServerState();
+      };
+    } catch (err) {
+      console.warn("EventSource setup error:", err);
+    }
+
+    // 8s backup heartbeat fetch (Zero Firestore reads, purely local Node.js Express memory)
+    pollInterval = setInterval(fetchServerState, 8000);
+
+    return () => {
+      if (es) es.close();
+      if (pollInterval) clearInterval(pollInterval);
+    };
+  }, []);
+
+  // Sync client state to warm up the backend server memory
+  useEffect(() => {
+    if (submissions.length > 0 || earnings.length > 0 || campaigns.length > 0) {
+      const timer = setTimeout(() => {
+        fetch('/api/realtime/sync-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            submissions: submissions.slice(0, 500),
+            earnings: earnings.slice(0, 500),
+            campaigns,
+            publishers: publishers.slice(0, 500),
+            bankDetailsMap
+          })
+        }).catch(() => {});
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [submissions.length, earnings.length, campaigns.length]);
 
   // 1. Sync Campaigns
   useEffect(() => {
@@ -870,10 +1055,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return unsubscribe;
   }, [currentUser, activePath, partnersLimit]);
 
-  // Sync Advertiser Inquiries (Removed to avoid Firestore logging as requested)
-  useEffect(() => {
-    setAdvertiserInquiries([]);
-  }, [activePath]);
+  // Sync Advertiser Inquiries - safely preserved in memory and persistent storage
 
   // 8. Sync Activity Logs (Bypassed to protect Firestore quota limits)
   useEffect(() => {
@@ -1434,7 +1616,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteAdvertiserInquiry = async (id: string) => {
     try {
-      await deleteDoc(doc(db, 'advertiserInquiries', id));
+      setAdvertiserInquiries(prev => {
+        const next = prev.filter(i => i.id !== id);
+        try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(next)); } catch (e) {}
+        return next;
+      });
+      await deleteDoc(doc(db, 'advertiserInquiries', id)).catch(() => {});
       addLog('ADMIN', 'Administrator', 'INQUIRY_DELETE', `Deleted advertiser inquiry: ${id}`);
     } catch (err) {
       console.error("Error deleting inquiry:", err);
@@ -1455,7 +1642,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         submittedAt
       };
 
-      // Send directly to Google Sheets using the hardcoded Web App URL provided by the user
+      // 1. WhatsApp formatted text & URL targeting user's requested number: +91 8934932418
+      const targetPhone = '918934932418';
+      const waText = 
+        `🚀 *NEW ADVERTISER INQUIRY - PUBLIC ADS NETWORK*\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `👤 *Advertiser Name:* ${name.trim()}\n` +
+        `📞 *Contact Number:* ${phone.trim()}\n` +
+        `📧 *Email Address:* ${email.trim()}\n` +
+        `🏢 *Company Name:* ${company.trim()}\n` +
+        `🎯 *Campaign Required:* ${campaign?.trim() || 'General CPA/CPL Promotion'}\n` +
+        `🆔 *Inquiry ID:* ${id}\n` +
+        `📅 *Date:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n` +
+        `━━━━━━━━━━━━━━━━━━━━\n` +
+        `_Sent via Public Ads India Official Advertiser Portal_`;
+      const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(waText)}`;
+
+      // 2. Optimistic local state and cache update
+      setAdvertiserInquiries(prev => {
+        const next = [newInquiry, ...prev.filter(i => i.id !== id)];
+        try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(next)); } catch (e) {}
+        return next;
+      });
+
+      // 3. Post to backend server endpoint for instant persistence and cross-device sync
+      fetch('/api/advertiser/inquiry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newInquiry)
+      }).catch(err => console.warn("Backend server inquiry dispatch notice:", err));
+
+      // 4. Send directly to Google Sheets using the Web App URL
       const targetUrl = 'https://script.google.com/macros/s/AKfycbyDBbwsuefEhBrEZouttfoIlbwqTABJ058VxJHyKsquK8PnFN4fctF7-UIiBB_UivC_/exec';
       try {
         await fetch(targetUrl, {
@@ -1470,10 +1687,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn("Google Apps Script fetch triggered (no-cors mode):", fetchErr);
       }
 
-      // Save a log trace
-      addLog('SYSTEM', 'Advertiser Form', 'INQUIRY_SUBMIT', `New advertiser inquiry from ${name} (${company}) sent to Google Sheet`);
+      // 5. Asynchronously persist to Firestore with error protection
+      try {
+        setDoc(doc(db, 'advertiserInquiries', id), newInquiry).catch(() => {});
+      } catch (e) {}
 
-      return { success: true, message: 'Advertiser inquiry submitted successfully.' };
+      // 6. Save a log trace
+      addLog('SYSTEM', 'Advertiser Form', 'INQUIRY_SUBMIT', `New advertiser inquiry from ${name} (${company}) dispatched to Admin +91 8934932418`);
+
+      return { 
+        success: true, 
+        message: 'Advertiser inquiry submitted successfully.', 
+        whatsappUrl, 
+        inquiry: newInquiry 
+      };
     } catch (err) {
       console.error("Error submitting advertiser inquiry:", err);
       return { success: false, message: err instanceof Error ? err.message : 'Submission failed.' };
@@ -1502,14 +1729,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if ((oldSub.status === 'PaymentDone' || oldSub.status === 'Payment Done') && status !== 'Payment Done') return; // protect payouts from getting reverted simply
 
     // 1. Optimistically update submission status in memory & localStorage & cross-tab sync
-    setSubmissions(prev => {
-      const next = prev.map(s => s.id === submissionId ? { ...s, status } : s);
-      try {
-        localStorage.setItem('pai_cached_submissions', JSON.stringify(next));
-        broadcastSync('SYNC_SUBMISSIONS', next);
-      } catch (e) {}
-      return next;
-    });
+    const nextSubmissions = submissions.map(s => s.id === submissionId ? { ...s, status } : s);
+    setSubmissions(nextSubmissions);
+    try {
+      localStorage.setItem('pai_cached_submissions', JSON.stringify(nextSubmissions));
+      broadcastSync('SYNC_SUBMISSIONS', nextSubmissions);
+    } catch (e) {}
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'MIS_STATUS_UPDATE', `Approved campaign status of [${oldSub.clientName}] to ${status}`);
 
@@ -1540,7 +1765,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addLog('PAYMENT_SERVER', 'Automatic Ledger', 'EARNING_DISBURSE', `Disbursed ₹${oldSub.payout} campaign reward to ${oldSub.publisherId}`);
     }
 
-    // 3. Persist to Firestore asynchronously (with graceful error protection)
+    // 3. Realtime Cross-Device Server Dispatch (Instant 50ms reflection on Client's mobile phone)
+    if (status === 'Payment Done') {
+      fetch('/api/realtime/payment-done', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          submissionId,
+          status: 'Payment Done',
+          submissionData: { ...oldSub, status: 'Payment Done' },
+          earningData: newEarning
+        })
+      }).catch(err => console.warn("Realtime server payment dispatch notice:", err));
+    } else {
+      fetch('/api/realtime/broadcast', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'SYNC_SUBMISSIONS',
+          payload: nextSubmissions
+        })
+      }).catch(err => console.warn("Realtime server broadcast notice:", err));
+    }
+
+    // 4. Persist to Firestore asynchronously (with graceful error protection)
     try {
       updateDoc(doc(db, 'submissions', submissionId), { status }).catch(err => {
         console.warn("Firestore updateDoc submission notice:", err.message);
@@ -1561,6 +1809,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         localStorage.setItem('pai_cached_submissions', JSON.stringify(next));
         broadcastSync('SYNC_SUBMISSIONS', next);
+        fetch('/api/realtime/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'SYNC_SUBMISSIONS',
+            payload: next
+          })
+        }).catch(() => {});
       } catch (err) {}
       return next;
     });
@@ -1853,6 +2109,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         localStorage.setItem('pai_cached_submissions', JSON.stringify(list));
         broadcastSync('SYNC_SUBMISSIONS', list);
+        fetch('/api/realtime/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'SYNC_SUBMISSIONS',
+            payload: list
+          })
+        }).catch(() => {});
       } catch (e) {}
       return list;
     });

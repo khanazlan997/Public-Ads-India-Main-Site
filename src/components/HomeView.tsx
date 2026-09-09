@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   TrendingUp, Newspaper, Megaphone, Users, Award, Flame, HeartHandshake, CheckCircle2,
   ShieldAlert, ShieldCheck, IndianRupee, ArrowRight, Eye, Mail, Phone, ExternalLink, Search,
-  ChevronLeft, ChevronRight, Star, Quote, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, QrCode, X, Download
+  ChevronLeft, ChevronRight, Star, Quote, MessageSquare, ChevronDown, ChevronUp, AlertTriangle, QrCode, X, Download,
+  MessageCircle
 } from 'lucide-react';
 import { useAppState } from '../context/AppContext';
 import GeometricBackground from './GeometricBackground';
@@ -164,6 +165,14 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
   const [advFormSubmitted, setAdvFormSubmitted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submittedInquiryData, setSubmittedInquiryData] = useState<{
+    name: string;
+    phone: string;
+    email: string;
+    company: string;
+    campaign: string;
+    whatsappUrl: string;
+  } | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -182,18 +191,58 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
     if (!formData.name || !formData.phone || !formData.email || !formData.company) return;
     setIsSubmitting(true);
     setSubmitError(null);
+
+    const name = formData.name.trim();
+    const phone = formData.phone.trim();
+    const email = formData.email.trim();
+    const company = formData.company.trim();
+    const campaign = formData.campaign.trim() || 'General Promotion / CPA Campaign';
+
+    // Target Admin WhatsApp number specified by the user: +91 8934932418
+    const targetAdminNumber = '918934932418';
+    const waMessage = 
+      `🚀 *NEW ADVERTISER INQUIRY - PUBLIC ADS NETWORK*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 *Advertiser Name:* ${name}\n` +
+      `📞 *Contact Number:* ${phone}\n` +
+      `📧 *Email Address:* ${email}\n` +
+      `🏢 *Company Name:* ${company}\n` +
+      `🎯 *Proposed Campaign:* ${campaign}\n` +
+      `📅 *Date & Time:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `_Sent via Public Ads India Official Advertiser Portal_`;
+
+    const generatedWaUrl = `https://wa.me/${targetAdminNumber}?text=${encodeURIComponent(waMessage)}`;
+
     try {
       const res = await submitAdvertiserInquiry(
-        formData.name,
-        formData.phone,
-        formData.email,
-        formData.company,
-        formData.campaign
+        name,
+        phone,
+        email,
+        company,
+        campaign
       );
+
       if (res.success) {
+        const finalWaUrl = res.whatsappUrl || generatedWaUrl;
+        setSubmittedInquiryData({
+          name,
+          phone,
+          email,
+          company,
+          campaign,
+          whatsappUrl: finalWaUrl
+        });
         setAdvFormSubmitted(true);
         // Reset form data for subsequent uses
         setFormData({ name: '', phone: '', email: '', company: '', campaign: '' });
+
+        // Auto open WhatsApp with the formatted inquiry for the admin number +91 8934932418
+        try {
+          window.open(finalWaUrl, '_blank', 'noopener,noreferrer');
+        } catch (openErr) {
+          console.warn("Auto-open blocked by browser pop-up setting:", openErr);
+        }
       } else {
         setSubmitError(res.message);
       }
@@ -876,21 +925,59 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
               ) : (
                 <div className="mb-6 sm:mb-8">
                   {advFormSubmitted ? (
-                    <div id="advertiser-sucess-alert" className="p-4 sm:p-5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900 rounded-xl sm:rounded-2xl text-center animate-fade-up">
-                      <ShieldCheck className="w-8 h-8 sm:w-10 sm:h-10 text-emerald-500 mx-auto mb-3" />
-                      <h4 className="text-xs sm:text-sm font-bold text-emerald-800 dark:text-emerald-400">Inquiry Received Successfully!</h4>
-                      <p className="text-[11px] sm:text-xs text-emerald-600 dark:text-emerald-300 font-medium mt-1.5 leading-relaxed">
-                        Thank you! Our campaign staff is active Monday-Friday from 11 AM to 4 PM. We will contact you or your company within 48 hours for campaign terms drafting.
-                      </p>
-                      <button
-                        onClick={() => {
-                          setAdvFormSubmitted(false);
-                          setFormData({ name: '', phone: '', email: '', company: '', campaign: '' });
-                        }}
-                        className="mt-4 text-[11px] sm:text-xs text-brand-primary dark:text-brand-accent underline font-extrabold"
-                      >
-                        Submit another Inquiry
-                      </button>
+                    <div id="advertiser-sucess-alert" className="p-4 sm:p-6 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl sm:rounded-2xl text-left animate-fade-up">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-10 h-10 rounded-full bg-emerald-500/15 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                          <ShieldCheck className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-300">Inquiry Dispatched to +91 8934932418!</h4>
+                          <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
+                            Sara detail admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par bhej diya gaya hai.
+                          </p>
+                        </div>
+                      </div>
+
+                      {submittedInquiryData && (
+                        <div className="mt-3 p-3.5 bg-white dark:bg-[#0d1628] border border-emerald-100 dark:border-emerald-900/60 rounded-xl text-xs space-y-2 text-slate-700 dark:text-slate-300">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider mb-1 border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                            <span>Advertiser Form Details Sent:</span>
+                            <span className="text-[10px] bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full font-bold">Forwarded to +91 8934932418</span>
+                          </div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] sm:text-xs">
+                            <div><span className="font-semibold text-slate-500 dark:text-slate-400">Name:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedInquiryData.name}</span></div>
+                            <div><span className="font-semibold text-slate-500 dark:text-slate-400">Phone:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedInquiryData.phone}</span></div>
+                            <div><span className="font-semibold text-slate-500 dark:text-slate-400">Email:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedInquiryData.email}</span></div>
+                            <div><span className="font-semibold text-slate-500 dark:text-slate-400">Company:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedInquiryData.company}</span></div>
+                          </div>
+                          <div className="pt-1 text-[11px] sm:text-xs border-t border-slate-100 dark:border-slate-800">
+                            <span className="font-semibold text-slate-500 dark:text-slate-400">Campaign:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedInquiryData.campaign}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mt-4 flex flex-col sm:flex-row items-center gap-2.5">
+                        <a
+                          id="advertiser-whatsapp-direct-btn"
+                          href={submittedInquiryData?.whatsappUrl || "https://wa.me/918934932418"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full sm:flex-1 py-2.5 px-4 bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.01]"
+                        >
+                          <MessageCircle className="w-4 h-4 fill-current" />
+                          Chat on WhatsApp (+91 8934932418)
+                        </a>
+                        <button
+                          onClick={() => {
+                            setAdvFormSubmitted(false);
+                            setSubmittedInquiryData(null);
+                            setFormData({ name: '', phone: '', email: '', company: '', campaign: '' });
+                          }}
+                          className="w-full sm:w-auto px-3 py-2 text-[11px] sm:text-xs text-brand-primary dark:text-brand-accent underline font-extrabold cursor-pointer"
+                        >
+                          Submit another Inquiry
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <form onSubmit={handleAdvertiserSubmit} className="space-y-3 bg-slate-50 dark:bg-slate-900/40 p-3.5 sm:p-5 rounded-xl sm:rounded-2xl border border-slate-100 dark:border-slate-800 animate-fade-up">

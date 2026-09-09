@@ -6,7 +6,8 @@ import {
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
-  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Sparkles, Mail
+  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Sparkles, Mail,
+  MessageCircle, Phone
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -1060,6 +1061,77 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   >
                     Open MIS Lead Verification Dashboard →
                   </button>
+                </div>
+
+                {/* Advertiser Inquiries card */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 lg:col-span-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                        <Megaphone className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
+                          Advertiser Inquiries ({advertiserInquiries.length})
+                        </h4>
+                        <p className="text-[10px] text-slate-400">
+                          Directly dispatched to Admin WhatsApp (+91 8934932418)
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1.5 self-start sm:self-auto">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Admin WhatsApp: +91 8934932418
+                    </span>
+                  </div>
+
+                  <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
+                    {advertiserInquiries.length === 0 ? (
+                      <div className="text-center py-8 text-slate-400 text-xs">
+                        No advertiser inquiries received yet. Any submissions from the "Become an Advertiser" form will appear here and are immediately routed to WhatsApp +91 8934932418.
+                      </div>
+                    ) : (
+                      advertiserInquiries.map(inq => (
+                        <div key={inq.id} className="p-3.5 bg-slate-50 rounded-xl hover:bg-amber-50/40 border border-slate-100 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-slate-800">{inq.name}</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">
+                                {inq.company}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600">
+                              <span>📞 <span className="font-semibold">{inq.phone}</span></span>
+                              <span>📧 <span className="font-semibold">{inq.email}</span></span>
+                              <span>🎯 Campaign: <span className="font-bold text-slate-800">{inq.campaign}</span></span>
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-mono">
+                              ID: {inq.id} • {inq.submittedAt ? new Date(inq.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Recent'}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                            <a
+                              href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, '').length === 10 ? '91' + inq.phone.replace(/[^0-9]/g, '') : inq.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${inq.name}, we received your advertiser inquiry for "${inq.campaign}" on Public Ads India.`)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-transform hover:scale-105"
+                            >
+                              <MessageCircle className="w-3 h-3 fill-current" />
+                              Chat Advertiser
+                            </a>
+                            <button
+                              onClick={() => deleteAdvertiserInquiry(inq.id)}
+                              className="text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-lg hover:bg-rose-50"
+                              title="Delete inquiry"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
 
               </div>

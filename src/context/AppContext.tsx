@@ -1381,9 +1381,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Actions
   const loginPublisher = async (phoneOrEmail: string, password: string) => {
+    console.log(`[Client Auth] Attempting login for: ${phoneOrEmail}`);
     try {
       const cleanTarget = phoneOrEmail.trim().toLowerCase();
       // 1. Check local state (fast track)
+      console.log(`[Client Auth] Local publishers count: ${publishers.length}`);
       let pub = publishers.find(p => 
         (p.email?.trim().toLowerCase() === cleanTarget || p.phone?.trim() === phoneOrEmail.trim()) && 
         p.password === password
@@ -1391,22 +1393,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // 2. Check Backend Server Store (Zero Firestore Quota Cost, instant response across all devices)
       if (!pub) {
+        console.log(`[Client Auth] Not found locally, checking backend...`);
         try {
           const res = await fetch('/api/auth/publisher-login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ phoneOrEmail, password })
           });
+          console.log(`[Client Auth] Backend response status: ${res.status}`);
           if (res.ok) {
             const json = await res.json();
+            console.log(`[Client Auth] Backend response json:`, json);
             if (json.success && json.publisher) {
               pub = json.publisher;
               setPublishers(prev => prev.some(p => p.id === pub!.id) ? prev : [pub!, ...prev]);
             }
+          } else {
+             const errText = await res.text();
+             console.log(`[Client Auth] Backend response error: ${errText}`);
           }
         } catch (err) {
+          console.log(`[Client Auth] Backend request error:`, err);
           // ignore server net err and fall through
         }
+      } else {
+        console.log(`[Client Auth] Found locally!`);
       }
 
       // 3. Query Firestore directly as fallback (guarded against quota errors)

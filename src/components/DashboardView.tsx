@@ -1000,7 +1000,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const normCurrentUserId = (currentUser?.id || '').trim().toLowerCase();
   const publisherEarningStats = getPublisherEarnings(currentUser.id);
   const matchedEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normCurrentUserId).slice(0, 5);
-  const activeAndAdminCamps = campaigns.filter(c => c.active === true);
+  const activeAndAdminCamps = campaigns.filter(c => c.active !== false && String(c.active) !== 'false');
   const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normCurrentUserId);
 
   // User's successful UPI settlements / payouts (Last 5 only)
@@ -1537,26 +1537,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
           </div>
 
-          {quotaError && (
-            <div className="select-none">
-              <div className="bg-blue-50/70 dark:bg-[#0c1938] border border-blue-200 dark:border-blue-900/60 rounded-3xl p-5 sm:p-6 flex gap-4 items-start shadow-sm">
-                <span className="text-2xl shrink-0 animate-pulse text-blue-500">⚙️</span>
-                <div className="space-y-1 text-left">
-                  <h5 className="text-xs sm:text-sm font-black text-blue-800 dark:text-blue-300 uppercase tracking-wider">
-                    System Status: Scheduled Database Optimizations (सर्वर में सुधार कार्य जारी है)
-                  </h5>
-                  <p className="text-xs text-blue-700/90 dark:text-blue-400 font-medium leading-relaxed font-sans">
-                    We are currently performing routine database performance upgrades to optimize speed and handle the high volume of active publisher networks. 
-                    <strong className="text-blue-900 dark:text-blue-200"> All campaign registers, balances, and data submissions are 100% secure.</strong> Full real-time synchronization will resume shortly.
-                  </p>
-                  <p className="text-xs text-blue-600/90 dark:text-blue-450 font-medium leading-relaxed font-sans mt-1.5">
-                    <strong>नोट (Note):</strong> वेबसाइट का डेटाबेस अपग्रेड चल रहा है ताकि अधिक ट्रैफ़िक होने पर भी आपको तेज़ स्पीड मिले। आपका सारा काम और बैलेंस पूरी तरह सुरक्षित है। कृपया कुछ समय बाद पुनः प्रयास करें।
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* 2-Column Grid: My Income Desk + Total Work Box Card */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
@@ -1624,9 +1604,111 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
             </div>
 
+          </div>
+
+          {/* My Client Submissions Feed in Main Dashboard */}
+          <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-slate-900 dark:border-slate-700 shadow-sm mt-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
+              <div>
+                <h4 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <UploadCloud className="w-4 h-4 text-indigo-500" />
+                  <span>My Client Submissions (सबमिट किए गए लीड्स)</span>
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">Real-time status of your submitted client leads</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('datasubmit')}
+                  className="text-[11px] font-bold px-3.5 py-1.5 bg-brand-primary text-white rounded-xl hover:bg-blue-700 transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>+ Submit New Lead</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mistracking')}
+                  className="text-[10px] font-bold px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-750 transition cursor-pointer"
+                >
+                  View All in MIS ↗
+                </button>
+              </div>
             </div>
 
-
+            {pubSubmissions.length === 0 ? (
+              <div className="text-center py-10 text-slate-400 text-xs font-medium border-2 border-dashed border-slate-100 dark:border-slate-850 rounded-2xl">
+                <p>No campaign submissions yet for your publisher account.</p>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('datasubmit')}
+                  className="mt-3 text-xs font-bold text-brand-accent underline hover:text-blue-500 cursor-pointer"
+                >
+                  Click here to submit your first client conversion
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">
+                      <th className="p-3 rounded-l-xl">Campaign Name</th>
+                      <th className="p-3">Client Name & Phone</th>
+                      <th className="p-3">Client Code</th>
+                      <th className="p-3">Payout</th>
+                      <th className="p-3">Date</th>
+                      <th className="p-3">Screenshot</th>
+                      <th className="p-3 rounded-r-xl text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pubSubmissions.slice(0, 10).map((sub) => (
+                      <tr key={sub.id} className="border-b border-slate-50 dark:border-slate-850/20 hover:bg-slate-50/50 dark:hover:bg-slate-850/10 transition">
+                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
+                          {sub.campaignName}
+                        </td>
+                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                          <span className="block font-bold">{sub.clientName}</span>
+                          <span className="block text-[10px] text-slate-400 mt-0.5">{sub.clientPhone}</span>
+                        </td>
+                        <td className="p-3 font-mono text-slate-500">
+                          {sub.clientCode || 'None'}
+                        </td>
+                        <td className="p-3 font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                          ₹{sub.payout || 0}
+                        </td>
+                        <td className="p-3 text-slate-400 text-[11px]">
+                          {sub.submitDate}
+                        </td>
+                        <td className="p-3">
+                          {sub.screenshot ? (
+                            <button
+                              type="button"
+                              onClick={() => setPreviewImage(sub.screenshot)}
+                              className="text-brand-accent underline hover:text-blue-500 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
+                            >
+                              View ↗
+                            </button>
+                          ) : (
+                            <span className="text-slate-400 text-[10px]">No file</span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className={`inline-flex px-2.5 py-1 font-bold text-[10px] rounded-full uppercase tracking-wider ${
+                            sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800' :
+                            sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-800' :
+                            sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 border border-amber-300 dark:border-amber-800 animate-pulse' :
+                            sub.status === 'Reject' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800' :
+                            'bg-blue-100 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350 border border-blue-300 dark:border-blue-800'
+                          }`}>
+                            {sub.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
 
         </div>
       )}
@@ -1939,6 +2021,46 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
             </form>
           </div>
+
+          {/* Quick Submissions Feed below form */}
+          {pubSubmissions.length > 0 && (
+            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-5 border border-slate-200/80 dark:border-slate-800/80 shadow-md mt-6">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                  Recently Submitted Leads ({pubSubmissions.length})
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('mistracking')}
+                  className="text-[11px] font-bold text-brand-accent hover:underline cursor-pointer"
+                >
+                  Full Report ↗
+                </button>
+              </div>
+              <div className="space-y-2.5">
+                {pubSubmissions.slice(0, 3).map((sub) => (
+                  <div key={sub.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/60 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{sub.clientName}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">({sub.clientPhone})</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{sub.campaignName} • ₹{sub.payout}</p>
+                    </div>
+                    <span className={`shrink-0 px-2 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider ${
+                      sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
+                      sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400' :
+                      sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 animate-pulse' :
+                      sub.status === 'Reject' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400' :
+                      'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300'
+                    }`}>
+                      {sub.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -2432,16 +2554,28 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </h3>
               
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed mb-6">
-                Your client lead submission has been safely recorded in our secure network database. Feel rest assured, your data is complete!
+                Your client lead submission has been safely recorded in our network database. You can track its live verification status right from your dashboard!
               </p>
 
-              <button
-                type="button"
-                onClick={() => setShowSuccessPopup(false)}
-                className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
-              >
-                Awesome, Got It!
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSuccessPopup(false);
+                    setActiveTab('dashboard');
+                  }}
+                  className="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
+                >
+                  View In Dashboard ↗
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="py-3 px-4 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 font-bold text-xs tracking-wider uppercase rounded-xl transition cursor-pointer"
+                >
+                  Submit Another
+                </button>
+              </div>
             </motion.div>
           </div>
         )}

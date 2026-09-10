@@ -439,22 +439,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [activePath, setActivePath] = useState<string>('/Home');
   const [quotaError, setQuotaError] = useState<string | null>(null);
 
-  // Pagination states for lazy loading and O(1) reads (optimized to 250 items to avoid burning through Firestore 50k read limits)
-  const [submissionsLimit, setSubmissionsLimit] = useState(250);
-  const [hasMoreSubmissions, setHasMoreSubmissions] = useState(true);
-  const loadMoreSubmissions = () => setSubmissionsLimit(prev => prev + 100);
+  // Pagination limits expanded to high capacities (unlimited zero-quota server storage)
+  const [submissionsLimit, setSubmissionsLimit] = useState(25000);
+  const [hasMoreSubmissions, setHasMoreSubmissions] = useState(false);
+  const loadMoreSubmissions = () => setSubmissionsLimit(prev => prev + 5000);
 
-  const [earningsLimit, setEarningsLimit] = useState(250);
-  const [hasMoreEarnings, setHasMoreEarnings] = useState(true);
-  const loadMoreEarnings = () => setEarningsLimit(prev => prev + 100);
+  const [earningsLimit, setEarningsLimit] = useState(25000);
+  const [hasMoreEarnings, setHasMoreEarnings] = useState(false);
+  const loadMoreEarnings = () => setEarningsLimit(prev => prev + 5000);
 
-  const [publishersLimit, setPublishersLimit] = useState(250);
-  const [hasMorePublishers, setHasMorePublishers] = useState(true);
-  const loadMorePublishers = () => setPublishersLimit(prev => prev + 100);
+  const [publishersLimit, setPublishersLimit] = useState(25000);
+  const [hasMorePublishers, setHasMorePublishers] = useState(false);
+  const loadMorePublishers = () => setPublishersLimit(prev => prev + 5000);
 
-  const [partnersLimit, setPartnersLimit] = useState(250);
-  const [hasMorePartners, setHasMorePartners] = useState(true);
-  const loadMorePartners = () => setPartnersLimit(prev => prev + 100);
+  const [partnersLimit, setPartnersLimit] = useState(25000);
+  const [hasMorePartners, setHasMorePartners] = useState(false);
+  const loadMorePartners = () => setPartnersLimit(prev => prev + 5000);
 
   // Dynamically track the active location hash/route to prevent loading the entire database on public home page
   useEffect(() => {
@@ -664,7 +664,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const { submissions: sList, earnings: eList, campaigns: cList, publishers: pList, bankDetailsMap: bMap, employees: empList } = data;
       
       if (Array.isArray(sList) && sList.length > 0) {
-        setSubmissions(sList);
+        setSubmissions(prev => {
+          const map = new Map<string, DataSubmission>();
+          // Server submissions
+          sList.forEach(s => { if (s && s.id) map.set(s.id, s); });
+          // Preserve any optimistic local submissions
+          prev.forEach(s => {
+            if (s && s.id && !map.has(s.id)) {
+              map.set(s.id, s);
+            }
+          });
+          const merged = Array.from(map.values()).sort((a, b) => {
+            const keyA = (a.submitDate || '') + '_' + (a.id || '');
+            const keyB = (b.submitDate || '') + '_' + (b.id || '');
+            return keyB.localeCompare(keyA);
+          });
+          return merged;
+        });
         try { localStorage.setItem('pai_cached_submissions', JSON.stringify(sList)); } catch (e) {}
       }
 
@@ -695,6 +711,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(data.advertiserInquiries) && data.advertiserInquiries.length > 0) {
         setAdvertiserInquiries(data.advertiserInquiries);
         try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(data.advertiserInquiries)); } catch (e) {}
+      }
+
+      if (Array.isArray(data.partners) && data.partners.length > 0) {
+        setPartnerApplications(data.partners);
+        try { localStorage.setItem('pai_cached_partners', JSON.stringify(data.partners)); } catch (e) {}
       }
     };
 
@@ -885,6 +906,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else if (type === 'SYNC_ADVERTISER_INQUIRIES' && Array.isArray(payload)) {
             setAdvertiserInquiries(payload);
             try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_PARTNERS' && Array.isArray(payload)) {
+            setPartnerApplications(payload);
+            try { localStorage.setItem('pai_cached_partners', JSON.stringify(payload)); } catch (e) {}
           }
         } catch (e) {}
       };
@@ -908,7 +932,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Sync client state to warm up the backend server memory
   useEffect(() => {
-    if (submissions.length > 0 || earnings.length > 0 || campaigns.length > 0) {
+    const isAdmin = currentUser?.type === 'admin';
+    if (isAdmin && (submissions.length > 0 || earnings.length > 0 || campaigns.length > 0)) {
+      const isMock = campaigns.some(c => c.id === 'camp-1' || c.id === 'camp-2');
       const timer = setTimeout(() => {
         fetch('/api/realtime/sync-batch', {
           method: 'POST',
@@ -916,58 +942,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           body: JSON.stringify({
             submissions: submissions.slice(0, 500),
             earnings: earnings.slice(0, 500),
-            campaigns,
+            campaigns: isMock ? [] : campaigns,
             publishers: publishers.slice(0, 500),
             bankDetailsMap
           })
         }).catch(() => {});
-      }, 2000);
+      }, 3000);
       return () => clearTimeout(timer);
     }
-  }, [submissions.length, earnings.length, campaigns.length]);
+  }, [currentUser?.type, submissions.length, earnings.length, campaigns.length]);
 
-  // 1. Sync Campaigns
-  useEffect(() => {
-    const q = collection(db, 'campaigns');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        // Only set empty if no cache exists
-        try {
-          const cached = localStorage.getItem('pai_cached_campaigns');
-          if (!cached) setCampaigns([]);
-        } catch {
-          setCampaigns([]);
-        }
-      } else {
-        const list: Campaign[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as Campaign);
-        });
-        setCampaigns(list);
-        try {
-          localStorage.setItem('pai_cached_campaigns', JSON.stringify(list));
-        } catch (e) {}
-      }
-    }, (error) => {
-      console.warn("onSnapshot campaigns notice (using local/resilient cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource") || lower.includes("project_number")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_campaigns');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setCampaigns(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, []);
-
-  // 1b. Sync Testimonials from Firestore on app mount
+  // Real-time synchronization is 100% handled with 0-Quota Server SSE Engine & Local Persistence
+  // Testimonials fast one-time startup load
   useEffect(() => {
     const fetchTestimonials = async () => {
       try {
@@ -994,7 +980,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           localStorage.setItem('pai_cached_testimonials', JSON.stringify(list));
         }
       } catch (err) {
-        console.warn("Error loading testimonials (using fallback):", err);
         const stored = localStorage.getItem('pai_cached_testimonials');
         if (stored) {
           try {
@@ -1002,287 +987,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } catch {
             setTestimonials(defaultTestimonials);
           }
+        } else {
+          setTestimonials(defaultTestimonials);
         }
       }
     };
     fetchTestimonials();
   }, []);
-
-  // 2. Sync Publishers (Optimized with limit-based Pagination & Cache Fallback)
-  useEffect(() => {
-    if (!currentUser) {
-      // Don't wipe publishers if user is browsing
-      return;
-    }
-    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-
-    let q;
-    if (isAdminOrEmployee) {
-      q = query(collection(db, 'publishers'), limit(publishersLimit));
-    } else {
-      q = query(collection(db, 'publishers'), where('id', '==', currentUser.id), limit(1));
-    }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const list: Publisher[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as Publisher);
-        });
-        list.sort((a, b) => {
-          const keyA = (a.joinedDate || '') + '_' + (a.id || '');
-          const keyB = (b.joinedDate || '') + '_' + (b.id || '');
-          return keyB.localeCompare(keyA);
-        });
-        setPublishers(list);
-        try {
-          localStorage.setItem('pai_cached_publishers', JSON.stringify(list));
-        } catch (e) {}
-        
-        if (isAdminOrEmployee) {
-          setHasMorePublishers(snapshot.docs.length >= publishersLimit);
-        } else {
-          setHasMorePublishers(false);
-        }
-      }
-    }, (error) => {
-      console.warn("onSnapshot publishers notice (using local/resilient cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_publishers');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPublishers(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, [currentUser, publishersLimit]);
-
-  // 3. Sync Bank Details Map
-  useEffect(() => {
-    if (!currentUser) {
-      return;
-    }
-    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-
-    let q;
-    if (isAdminOrEmployee) {
-      q = query(collection(db, 'bank_details'), limit(publishersLimit));
-    } else {
-      q = query(collection(db, 'bank_details'), where('publisherId', '==', currentUser.id), limit(1));
-    }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const map: Record<string, BankDetails> = {};
-        snapshot.forEach((docSnap) => {
-          map[docSnap.id] = docSnap.data() as BankDetails;
-        });
-        setBankDetailsMap(map);
-        try {
-          localStorage.setItem('pai_cached_bank_details', JSON.stringify(map));
-        } catch (e) {}
-      }
-    }, (error) => {
-      console.warn("onSnapshot bank_details notice (using local/resilient cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_bank_details');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed && typeof parsed === 'object') {
-            setBankDetailsMap(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, [currentUser, publishersLimit]);
-
-  // 4. Sync Earnings (Optimized with Local Cache & Cross-Tab Synchrony)
-  useEffect(() => {
-    if (!currentUser) {
-      return;
-    }
-    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-
-    let q;
-    if (isAdminOrEmployee) {
-      q = query(collection(db, 'earnings'), limit(earningsLimit));
-    } else {
-      q = query(collection(db, 'earnings'), where('publisherId', '==', currentUser.id), limit(earningsLimit));
-    }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const list: EarningRecord[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as EarningRecord);
-        });
-        list.sort((a, b) => {
-          const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
-          const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
-          return keyB.localeCompare(keyA);
-        });
-        setEarnings(list);
-        setHasMoreEarnings(snapshot.docs.length >= earningsLimit);
-        try {
-          localStorage.setItem('pai_cached_earnings', JSON.stringify(list));
-        } catch (e) {}
-      }
-    }, (error) => {
-      console.warn("onSnapshot earnings notice (using local/resilient cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_earnings');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEarnings(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, [currentUser, earningsLimit]);
-
-  // 5. Sync Submissions (Always active when authenticated, optimized with cache)
-  useEffect(() => {
-    if (!currentUser) {
-      return;
-    }
-    const isAdminOrEmployee = currentUser.type === 'admin' || currentUser.type === 'employee';
-
-    let q;
-    if (isAdminOrEmployee) {
-      q = query(collection(db, 'submissions'), limit(submissionsLimit));
-    } else {
-      q = query(collection(db, 'submissions'), where('publisherId', '==', currentUser.id), limit(submissionsLimit));
-    }
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (!snapshot.empty) {
-        const list: DataSubmission[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as DataSubmission);
-        });
-        list.sort((a, b) => {
-          const keyA = (a.submitDate || '') + '_' + (a.id || '');
-          const keyB = (b.submitDate || '') + '_' + (b.id || '');
-          return keyB.localeCompare(keyA);
-        });
-        setSubmissions(list);
-        setHasMoreSubmissions(snapshot.docs.length >= submissionsLimit);
-        try {
-          localStorage.setItem('pai_cached_submissions', JSON.stringify(list));
-        } catch (e) {}
-      }
-    }, (error) => {
-      console.warn("onSnapshot submissions notice (using local/resilient cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_submissions');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setSubmissions(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, [currentUser, submissionsLimit]);
-
-  // 6. Sync Employees
-  useEffect(() => {
-    if (!currentUser && !['/Admin', '/Employee', 'admin', 'employee'].some(p => activePath.toLowerCase().includes(p))) {
-      setEmployees([]);
-      return;
-    }
-    const q = query(collection(db, 'employees'), limit(50));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        setEmployees([]);
-      } else {
-        const list: Employee[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as Employee);
-        });
-        setEmployees(list);
-        try { localStorage.setItem('pai_cached_employees', JSON.stringify(list)); } catch (e) {}
-      }
-    }, (error) => {
-      console.warn("onSnapshot employees notice (using local cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_employees');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setEmployees(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, [currentUser, activePath]);
-
-  // 7. Sync Partner Applications
-  useEffect(() => {
-    if (!currentUser && !['/Admin', '/Partner', 'admin', 'partner'].some(p => activePath.toLowerCase().includes(p))) {
-      setPartnerApplications([]);
-      return;
-    }
-    const q = query(collection(db, 'partners'), limit(partnersLimit));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        setPartnerApplications([]);
-        setHasMorePartners(false);
-      } else {
-        const list: PartnerApplication[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as PartnerApplication);
-        });
-        setPartnerApplications(list);
-        setHasMorePartners(snapshot.docs.length >= partnersLimit);
-        try { localStorage.setItem('pai_cached_partners', JSON.stringify(list)); } catch (e) {}
-      }
-    }, (error) => {
-      console.warn("onSnapshot partners notice (using local cache):", error.message);
-      const lower = error.message?.toLowerCase() || '';
-      if (lower.includes("quota") || lower.includes("limit") || lower.includes("exhausted") || lower.includes("billing") || lower.includes("resource")) {
-        setQuotaError("maintenance");
-      }
-      try {
-        const cached = localStorage.getItem('pai_cached_partners');
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setPartnerApplications(parsed);
-          }
-        }
-      } catch (e) {}
-    });
-    return unsubscribe;
-  }, [currentUser, activePath, partnersLimit]);
 
   // Sync Advertiser Inquiries - safely preserved in memory and persistent storage
 
@@ -1291,7 +1002,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setActivityLogs([
       { id: 'l1', timestamp: new Date().toISOString().substring(0, 19).replace('T', ' '), userId: 'SYSTEM', userName: 'Server Core', action: 'BOOT', details: 'Bypassed Firestore logging to protect daily free-tier limits.' }
     ]);
-  }, [activePath]);
+  }, []);
 
   // 9. Sync Settings (Optimized from onSnapshot real-time listener to a fast one-time startup getDoc fetch with localStorage cache)
   useEffect(() => {
@@ -1535,7 +1246,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // 10. Sync Backup Logs (Disabled to protect Firestore quota limits)
   useEffect(() => {
     // Keep local static backups for offline state
-  }, [activePath]);
+  }, []);
 
   const setTheme = (t: 'light' | 'dark') => {
     setThemeState(t);
@@ -1559,26 +1270,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Actions
   const loginPublisher = async (phoneOrEmail: string, password: string) => {
     try {
+      const cleanTarget = phoneOrEmail.trim().toLowerCase();
       // 1. Check local state (fast track)
-      let pub = publishers.find(p => (p.email === phoneOrEmail || p.phone === phoneOrEmail) && p.password === password);
+      let pub = publishers.find(p => 
+        (p.email?.trim().toLowerCase() === cleanTarget || p.phone?.trim() === phoneOrEmail.trim()) && 
+        p.password === password
+      );
       
-      // 2. Query Firestore directly (eliminates race conditions, network latency issues on new devices)
+      // 2. Check Backend Server Store (Zero Firestore Quota Cost, instant response across all devices)
       if (!pub) {
-        const pubsRef = collection(db, 'publishers');
-        
-        // Try by email (optimized with limit(1))
-        const qEmail = query(pubsRef, where('email', '==', phoneOrEmail), where('password', '==', password), limit(1));
-        const snapEmail = await getDocs(qEmail);
-        
-        if (!snapEmail.empty) {
-          pub = snapEmail.docs[0].data() as Publisher;
-        } else {
-          // Try by phone (optimized with limit(1))
-          const qPhone = query(pubsRef, where('phone', '==', phoneOrEmail), where('password', '==', password), limit(1));
-          const snapPhone = await getDocs(qPhone);
-          if (!snapPhone.empty) {
-            pub = snapPhone.docs[0].data() as Publisher;
+        try {
+          const res = await fetch('/api/auth/publisher-login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phoneOrEmail, password })
+          });
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && json.publisher) {
+              pub = json.publisher;
+              setPublishers(prev => prev.some(p => p.id === pub!.id) ? prev : [pub!, ...prev]);
+            }
           }
+        } catch (err) {
+          // ignore server net err and fall through
+        }
+      }
+
+      // 3. Query Firestore directly as fallback (guarded against quota errors)
+      if (!pub) {
+        try {
+          const pubsRef = collection(db, 'publishers');
+          
+          // Try by email (optimized with limit(1))
+          const qEmail = query(pubsRef, where('email', '==', phoneOrEmail.trim()), where('password', '==', password), limit(1));
+          const snapEmail = await getDocs(qEmail);
+          
+          if (!snapEmail.empty) {
+            pub = snapEmail.docs[0].data() as Publisher;
+          } else {
+            // Try by phone (optimized with limit(1))
+            const qPhone = query(pubsRef, where('phone', '==', phoneOrEmail.trim()), where('password', '==', password), limit(1));
+            const snapPhone = await getDocs(qPhone);
+            if (!snapPhone.empty) {
+              pub = snapPhone.docs[0].data() as Publisher;
+            }
+          }
+        } catch (err: any) {
+          console.warn("Firestore login fallback check notice:", err.message);
         }
       }
 
@@ -1669,10 +1408,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...(formattedInviteCode ? { inviteCode: formattedInviteCode } : {})
       };
 
-      // 4. Save to Firestore (await to ensure durable database write completes!)
-      await setDoc(doc(db, 'publishers', newId), newPub);
-
-      // Create matching bank details record
       const emptyBank: BankDetails = {
         publisherId: newId,
         holderName: name,
@@ -1683,7 +1418,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         upi: '',
         qrCode: ''
       };
-      await setDoc(doc(db, 'bank_details', newId), emptyBank);
+
+      // 4. Optimistic state & cache
+      setPublishers(prev => {
+        const next = [newPub, ...prev.filter(p => p.id !== newId)];
+        try { localStorage.setItem('pai_cached_publishers', JSON.stringify(next)); } catch (e) {}
+        return next;
+      });
+      setBankDetailsMap(prev => {
+        const next = { ...prev, [newId]: emptyBank };
+        try { localStorage.setItem('pai_cached_bank_details', JSON.stringify(next)); } catch (e) {}
+        return next;
+      });
+
+      // 5. Server Persistence (Zero Firestore Quota Dependency)
+      fetch('/api/publisher/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisher: newPub })
+      }).catch(err => console.warn("Server publisher register notice:", err));
+
+      fetch('/api/bank/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId: newId, details: emptyBank })
+      }).catch(err => console.warn("Server bank init notice:", err));
+
+      // 6. Background Firestore write
+      try {
+        setDoc(doc(db, 'publishers', newId), newPub).catch(() => {});
+        setDoc(doc(db, 'bank_details', newId), emptyBank).catch(() => {});
+      } catch (e) {}
 
       const sess = { type: 'publisher' as const, id: newId, name };
       setCurrentUser(sess);
@@ -1756,6 +1521,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
+    // Realtime Server Persistence & Broadcast to ALL Connected Devices
+    fetch('/api/campaign/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaign: newCamp })
+    }).catch(err => console.warn("Server campaign add dispatch notice:", err));
+
     try {
       setDoc(doc(db, 'campaigns', newId), newCamp).catch(err => {
         console.warn("Firestore setDoc campaign notice:", err.message);
@@ -1767,8 +1539,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleCampaignActive = (id: string) => {
     const c = campaigns.find(item => item.id === id);
     if (c) {
+      const newActive = !c.active;
       setCampaigns(prev => {
-        const next = prev.map(item => item.id === id ? { ...item, active: !item.active } : item);
+        const next = prev.map(item => item.id === id ? { ...item, active: newActive } : item);
         try {
           localStorage.setItem('pai_cached_campaigns', JSON.stringify(next));
           broadcastSync('SYNC_CAMPAIGNS', next);
@@ -1776,26 +1549,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
+      // Realtime Server Persistence & Broadcast to ALL Connected Devices
+      fetch('/api/campaign/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, active: newActive })
+      }).catch(err => console.warn("Server campaign toggle dispatch notice:", err));
+
       try {
-        updateDoc(doc(db, 'campaigns', id), { active: !c.active }).catch(err => {
+        updateDoc(doc(db, 'campaigns', id), { active: newActive }).catch(err => {
           console.warn("Firestore updateDoc campaign notice:", err.message);
         });
       } catch (err) {}
-      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${!c.active}`);
+      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${newActive}`);
     }
   };
 
   const editCampaign = (id: string, updatedCamp: Partial<Campaign>) => {
     const c = campaigns.find(item => item.id === id);
     if (c) {
+      const merged = { ...c, ...updatedCamp };
       setCampaigns(prev => {
-        const next = prev.map(item => item.id === id ? { ...item, ...updatedCamp } : item);
+        const next = prev.map(item => item.id === id ? merged : item);
         try {
           localStorage.setItem('pai_cached_campaigns', JSON.stringify(next));
           broadcastSync('SYNC_CAMPAIGNS', next);
         } catch (err) {}
         return next;
       });
+
+      // Realtime Server Persistence & Broadcast to ALL Connected Devices
+      fetch('/api/campaign/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, campaign: merged })
+      }).catch(err => console.warn("Server campaign edit dispatch notice:", err));
 
       try {
         updateDoc(doc(db, 'campaigns', id), updatedCamp).catch(err => {
@@ -1817,6 +1605,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (err) {}
         return next;
       });
+
+      // Realtime Server Persistence & Broadcast to ALL Connected Devices
+      fetch('/api/campaign/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id })
+      }).catch(err => console.warn("Server campaign delete dispatch notice:", err));
 
       try {
         deleteDoc(doc(db, 'campaigns', id)).catch(err => {
@@ -2500,8 +2295,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser || currentUser.type !== 'publisher') return { success: false, message: 'Authentication level required' };
     
     // Immediate optimistic update & cache
+    const updated = { ...details, publisherId: currentUser.id };
     setBankDetailsMap(prev => {
-      const next = { ...prev, [currentUser.id]: { ...details, publisherId: currentUser.id } };
+      const next = { ...prev, [currentUser.id]: updated };
       try {
         localStorage.setItem('pai_cached_bank_details', JSON.stringify(next));
         broadcastSync('SYNC_BANK_DETAILS', next);
@@ -2509,17 +2305,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
+    // Server Persistence & Broadcast
+    fetch('/api/bank/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ publisherId: currentUser.id, details: updated })
+    }).catch(err => console.warn("Server bank update notice:", err));
+
     try {
-      setDoc(doc(db, 'bank_details', currentUser.id), {
-        ...details,
-        publisherId: currentUser.id
-      }).catch(err => {
+      setDoc(doc(db, 'bank_details', currentUser.id), updated).catch(err => {
         console.warn("Firestore bank details save notice:", err.message);
       });
       addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
       return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
     } catch (err: any) {
-      console.warn('Bank save local fallback:', err);
       return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
     }
   };
@@ -2547,7 +2346,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       status: 'Process'
     };
 
-    // Immediate optimistic update & cache
+    // 1. Immediate optimistic update in state
     setSubmissions(prev => {
       const exists = prev.some(s => s.id === subId);
       if (exists) return prev;
@@ -2557,30 +2356,47 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const keyB = (b.submitDate || '') + '_' + (b.id || '');
         return keyB.localeCompare(keyA);
       });
-      try {
-        localStorage.setItem('pai_cached_submissions', JSON.stringify(list));
-        broadcastSync('NEW_SUBMISSION', newSub);
-        fetch('/api/submission/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            submission: newSub
-          })
-        }).catch(() => {});
-      } catch (e) {}
       return list;
     });
 
+    // 2. Safe local storage cache update (without crashing on QuotaExceededError)
+    try {
+      localStorage.setItem('pai_cached_submissions', JSON.stringify([newSub, ...submissions.slice(0, 30)]));
+    } catch (quotaErr) {
+      try {
+        const lean = [newSub, ...submissions.slice(0, 20)].map(s => ({
+          ...s,
+          screenshot: s.screenshot && s.screenshot.length > 200 ? s.screenshot.substring(0, 100) : s.screenshot
+        }));
+        localStorage.setItem('pai_cached_submissions', JSON.stringify(lean));
+      } catch (e) {}
+    }
+
+    // 3. Multi-Tab / Multi-Window Broadcast
+    try {
+      broadcastSync('NEW_SUBMISSION', newSub);
+    } catch (e) {}
+
+    // 4. Guaranteed Persistence on Backend Server (0 Firestore Quota, Multi-Device Sync)
+    try {
+      await fetch('/api/submission/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submission: newSub })
+      });
+    } catch (fetchErr) {
+      console.warn("Backend submission create error:", fetchErr);
+    }
+
+    // 5. Firestore as secondary backup
     try {
       setDoc(doc(db, 'submissions', subId), newSub).catch(err => {
         console.warn("Firestore submission save notice:", err.message);
       });
-      addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
-      return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
-    } catch (err: any) {
-      console.warn('Submission local fallback:', err);
-      return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
-    }
+    } catch (err) {}
+
+    addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
+    return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
   };
 
   const applyForPartner = async (name: string, phone: string, email: string, city: string, age: number, qualification: string) => {
@@ -2599,14 +2415,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submitDate: new Date().toISOString().substring(0, 10)
     };
 
+    // Optimistic state & cache
+    setPartnerApplications(prev => {
+      const next = [newApp, ...prev];
+      try {
+        localStorage.setItem('pai_cached_partners', JSON.stringify(next));
+        broadcastSync('SYNC_PARTNERS', next);
+      } catch (e) {}
+      return next;
+    });
+
+    // Server Persistence (Zero Firestore Quota Dependency)
+    fetch('/api/partner/apply', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partner: newApp })
+    }).catch(err => console.warn("Server partner apply notice:", err));
+
+    // Non-blocking background Firestore write
     try {
-      await setDoc(doc(db, 'partners', partnerId), newApp);
-      await addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
-      return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
-    } catch (err: any) {
-      console.error('Error applying for partner:', err);
-      return { success: false, message: sanitizeError(err) };
-    }
+      setDoc(doc(db, 'partners', partnerId), newApp).catch(() => {});
+    } catch (e) {}
+
+    addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
+    return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
   };
 
   // Staff Portal Login

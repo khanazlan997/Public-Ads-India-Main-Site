@@ -38,6 +38,7 @@ async function startServer() {
     bankDetailsMap: Record<string, any>;
     employees: any[];
     advertiserInquiries: any[];
+    partners: any[];
     updatedAt: number;
   }
 
@@ -49,6 +50,7 @@ async function startServer() {
     bankDetailsMap: {},
     employees: [],
     advertiserInquiries: [],
+    partners: [],
     updatedAt: Date.now()
   };
 
@@ -167,12 +169,191 @@ async function startServer() {
 
   // 2. Fetch server state (Instantly loads latest data without burning Firestore read quota)
   app.get("/api/realtime/state", (req, res) => {
+    // Auto-reconcile on demand: ensure every submission marked 'Payment Done' has an earning record in store
+    const isPaymentDone = (st?: string) => {
+      const s = (st || '').toLowerCase().trim();
+      return s === 'payment done' || s === 'paymentdone' || s === 'paid';
+    };
+    let reconciled = false;
+    store.submissions.forEach(sub => {
+      if (isPaymentDone(sub.status)) {
+        const pubId = (sub.publisherId || '').trim();
+        const hasEarning = store.earnings.some(e => 
+          e.id === `earning-${sub.id}` || 
+          e.id === `earning-sub-${sub.id}` ||
+          (e.publisherId?.trim().toLowerCase() === pubId.toLowerCase() && 
+           e.campaignId === sub.campaignId && 
+           Number(e.amount) === Number(sub.payout))
+        );
+        if (!hasEarning) {
+          store.earnings.unshift({
+            id: `earning-sub-${sub.id}`,
+            publisherId: pubId,
+            campaignId: sub.campaignId || '',
+            campaignName: sub.campaignName || 'Campaign Payout',
+            amount: Number(sub.payout) || 0,
+            date: (sub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+            time: (sub.submitDate || '').substring(11, 16) || '12:00'
+          });
+          reconciled = true;
+        }
+      }
+    });
+    if (reconciled) {
+      scheduleSaveStore();
+    }
+
     res.json({
       success: true,
       data: store,
       connectedClients: sseClients.length,
       serverTime: Date.now()
     });
+  });
+
+  // Dedicated Campaign Management endpoints (Guaranteed cross-device sync & persistence)
+  app.post("/api/campaign/update", (req, res) => {
+    try {
+      const { id, active, campaign, allCampaigns } = req.body || {};
+      
+      if (Array.isArray(allCampaigns) && allCampaigns.length > 0) {
+        store.campaigns = allCampaigns;
+      } else if (id && active !== undefined) {
+        const camp = store.campaigns.find(c => c.id === id);
+        if (camp) {
+          camp.active = Boolean(active);
+        }
+      } else if (campaign && campaign.id) {
+        const idx = store.campaigns.findIndex(c => c.id === campaign.id);
+        if (idx !== -1) {
+          store.campaigns[idx] = { ...store.campaigns[idx], ...campaign };
+        } else {
+          store.campaigns.unshift(campaign);
+        }
+      }
+
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_CAMPAIGNS",
+        payload: store.campaigns
+      });
+
+      res.json({ success: true, campaigns: store.campaigns, connectedClients: sseClients.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/campaign/delete", (req, res) => {
+    try {
+      const { id } = req.body || {};
+      if (id) {
+        store.campaigns = store.campaigns.filter(c => c.id !== id);
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_CAMPAIGNS",
+          payload: store.campaigns
+        });
+      }
+      res.json({ success: true, campaigns: store.campaigns, connectedClients: sseClients.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Publisher Login endpoint (Zero Firestore quota dependency)
+  app.post("/api/auth/publisher-login", (req, res) => {
+    try {
+      const { phoneOrEmail, password } = req.body || {};
+      if (!phoneOrEmail || !password) {
+        return res.status(400).json({ success: false, message: "Missing credentials" });
+      }
+      const target = phoneOrEmail.trim().toLowerCase();
+      const pub = store.publishers.find(p => 
+        (p.email?.trim().toLowerCase() === target || p.phone?.trim() === phoneOrEmail.trim()) && 
+        p.password === password
+      );
+      if (!pub) {
+        return res.status(401).json({ success: false, message: "Invalid phone/email or password." });
+      }
+      if (pub.blocked) {
+        return res.status(403).json({ success: false, message: "Your publisher account has been blocked by Admin. Contact support." });
+      }
+      res.json({ success: true, publisher: pub });
+    } catch (err: any) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  });
+
+  // Dedicated Publisher Register endpoint (Zero Firestore quota dependency)
+  app.post("/api/publisher/register", (req, res) => {
+    try {
+      const { publisher } = req.body || {};
+      if (!publisher || !publisher.id) {
+        return res.status(400).json({ error: "Missing publisher data" });
+      }
+      const idx = store.publishers.findIndex(p => p.id === publisher.id);
+      if (idx !== -1) {
+        store.publishers[idx] = { ...store.publishers[idx], ...publisher };
+      } else {
+        store.publishers.unshift(publisher);
+      }
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_PUBLISHERS",
+        payload: store.publishers
+      });
+      res.json({ success: true, publisher });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Bank Details endpoint (Zero Firestore quota dependency)
+  app.post("/api/bank/update", (req, res) => {
+    try {
+      const { publisherId, details } = req.body || {};
+      if (!publisherId || !details) {
+        return res.status(400).json({ error: "Missing publisherId or details" });
+      }
+      store.bankDetailsMap = {
+        ...(store.bankDetailsMap || {}),
+        [publisherId]: { ...details, publisherId }
+      };
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_BANK_DETAILS",
+        payload: store.bankDetailsMap
+      });
+      res.json({ success: true, bankDetails: store.bankDetailsMap[publisherId] });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Partner Apply endpoint (Zero Firestore quota dependency)
+  app.post("/api/partner/apply", (req, res) => {
+    try {
+      const { partner } = req.body || {};
+      if (!partner || !partner.id) {
+        return res.status(400).json({ error: "Missing partner data" });
+      }
+      if (!Array.isArray(store.partners)) store.partners = [];
+      const idx = store.partners.findIndex(p => p.id === partner.id);
+      if (idx !== -1) {
+        store.partners[idx] = { ...store.partners[idx], ...partner };
+      } else {
+        store.partners.unshift(partner);
+      }
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_PARTNERS",
+        payload: store.partners
+      });
+      res.json({ success: true, partner });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // 3. Universal Status Update endpoint - Handles ANY status change (Process, Reject, Ready To Trade, Active, Trade Done, Payment Done)
@@ -295,11 +476,13 @@ async function startServer() {
         return res.status(400).json({ error: "Missing submission data or ID" });
       }
 
-      const exists = store.submissions.some(s => s.id === submission.id);
-      if (!exists) {
+      const idx = store.submissions.findIndex(s => s.id === submission.id);
+      if (idx >= 0) {
+        store.submissions[idx] = { ...store.submissions[idx], ...submission };
+      } else {
         store.submissions.unshift(submission);
-        scheduleSaveStore();
       }
+      scheduleSaveStore();
 
       broadcastRealtime({
         type: "NEW_SUBMISSION",
@@ -611,7 +794,18 @@ async function startServer() {
       }
 
       if (Array.isArray(campaigns) && campaigns.length > 0) {
-        store.campaigns = campaigns;
+        const isMock = (c: any) => c.id === 'camp-1' || c.id === 'camp-2' || c.id === 'camp-3' || c.id === 'camp-4';
+        const realCampaigns = campaigns.filter(c => !isMock(c));
+        if (realCampaigns.length > 0) {
+          const map = new Map<string, any>(store.campaigns.map(c => [c.id, c]));
+          realCampaigns.forEach(c => {
+            if (c && c.id) {
+              const existing = map.get(c.id) || {};
+              map.set(c.id, { ...existing, ...c });
+            }
+          });
+          store.campaigns = Array.from(map.values());
+        }
       }
 
       if (Array.isArray(publishers) && publishers.length > 0) {

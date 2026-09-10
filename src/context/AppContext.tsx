@@ -2511,13 +2511,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // 4. Guaranteed Persistence on Backend Server (0 Firestore Quota, Multi-Device Sync)
     try {
-      await fetch('/api/submission/create', {
+      const response = await fetch('/api/submission/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ submission: newSub })
       });
+      if (!response.ok) throw new Error('Backend submission failed');
+      return { success: true, message: 'Lead submitted successfully!' };
     } catch (fetchErr) {
-      console.warn("Backend submission create error:", fetchErr);
+      console.error("Backend submission create error:", fetchErr);
+      return { success: false, message: 'Failed to submit lead to server. Please check your internet connection.' };
     }
 
     // 5. Firestore as secondary backup

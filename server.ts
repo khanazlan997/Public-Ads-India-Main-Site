@@ -526,11 +526,13 @@ async function startServer() {
         return res.status(400).json({ success: false, message: "Missing credentials" });
       }
       const target = phoneOrEmail.trim().toLowerCase();
+      console.log(`[Auth Attempt] Target: ${target}, Server publishers count: ${store.publishers.length}`);
       const pub = store.publishers.find(p => 
         (p.email?.trim().toLowerCase() === target || p.phone?.trim() === phoneOrEmail.trim()) && 
         p.password === password
       );
       if (!pub) {
+        console.log(`[Auth Failed] No match found for: ${target}`);
         return res.status(401).json({ success: false, message: "Invalid phone/email or password." });
       }
       if (pub.blocked) {

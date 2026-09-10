@@ -1539,6 +1539,25 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
           {/* 2-Column Grid: My Income Desk + Total Work Box Card */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            {/* NEW: Profile Summary Card */}
+            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-6">
+              <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-4xl overflow-hidden border-2 border-slate-200 dark:border-slate-700">
+                {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http') || profileAvatar.startsWith('/api/')) ? (
+                  <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="text-4xl">{profileAvatar || '😎'}</span>
+                )}
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-900 dark:text-white">{profileName}</h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">ID: {currentUser?.id}</p>
+                <div className="mt-2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
+                  <p>Bank: {bankAccount || 'Not set'}</p>
+                  <p>UPI: {bankUpi || 'Not set'}</p>
+                </div>
+              </div>
+            </div>
             
             {/* Card 3: Right Dynamic Income Desk Card */}
             <div className="relative bg-gradient-to-b from-white/90 to-emerald-50/30 dark:from-[#0d1628] dark:to-emerald-950/20 border-2 border-slate-900 dark:border-slate-700 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-lg group overflow-hidden min-h-[140px] shadow-sm">

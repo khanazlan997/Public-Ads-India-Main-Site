@@ -1599,7 +1599,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     updateDoc(doc(db, 'publishers', pubId), { name, avatar });
     
-    const upSess = { ...currentUser, name };
+    const upSess = { ...currentUser, name, avatar };
     setCurrentUser(upSess);
     localStorage.setItem('pai_user_session', JSON.stringify(upSess));
 

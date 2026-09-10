@@ -85,12 +85,7 @@ async function startServer() {
       store.submissions.forEach(sub => {
         if (isPaymentDone(sub.status)) {
           const pubId = (sub.publisherId || '').trim();
-          const hasEarning = store.earnings.some(e => 
-            e.id === `earning-${sub.id}` || 
-            (e.publisherId?.trim().toLowerCase() === pubId.toLowerCase() && 
-             e.campaignId === sub.campaignId && 
-             Number(e.amount) === Number(sub.payout))
-          );
+          const hasEarning = store.earnings.some(e => e.id === `earning-${sub.id}`);
           if (!hasEarning) {
             store.earnings.unshift({
               id: `earning-${sub.id}`,
@@ -1160,6 +1155,9 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // Start periodic sync
+  setInterval(syncFromFirestore, 600000); // 10 minutes
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

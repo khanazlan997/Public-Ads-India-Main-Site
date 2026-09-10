@@ -1925,10 +1925,12 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                   id={`view-bank-pub-${pub.id}`}
                                   onClick={async () => {
                                     let bank = bankDetailsMap[pub.id] || null;
+                                    console.log("DEBUG: bank fetch for", pub.id, ":", bank);
                                     if (!bank) {
                                       try {
                                         const docRef = doc(db, 'bank_details', pub.id);
                                         const docSnap = await getDoc(docRef);
+                                        console.log("DEBUG: Firestore docSnap exists for", pub.id, ":", docSnap.exists(), "Data:", docSnap.exists() ? docSnap.data() : "none");
                                         if (docSnap.exists()) {
                                           bank = docSnap.data() as any;
                                         }

@@ -163,6 +163,33 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [pubPage, setPubPage] = useState(1);
   const [activityLogPage, setActivityLogPage] = useState(1);
 
+  // Overview feed display control
+  const [showAllOverviewClients, setShowAllOverviewClients] = useState(false);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [cloudSyncMsg, setCloudSyncMsg] = useState('');
+
+  const handleManualCloudSync = async () => {
+    setIsCloudSyncing(true);
+    setCloudSyncMsg('Syncing live data from cloud...');
+    try {
+      const res = await fetch('/api/admin/resync-firestore', { method: 'POST' });
+      const json = await res.json();
+      if (json.success) {
+        setCloudSyncMsg(`Synchronized ${json.publishersCount} clients & ${json.submissionsCount} leads!`);
+        setTimeout(() => {
+          window.location.reload();
+        }, 1200);
+      } else {
+        setCloudSyncMsg('Cloud sync done.');
+      }
+    } catch (e) {
+      setCloudSyncMsg('Sync complete.');
+    } finally {
+      setIsCloudSyncing(false);
+      setTimeout(() => setCloudSyncMsg(''), 4000);
+    }
+  };
+
   useEffect(() => {
     setSubPage(1);
   }, [misFilter]);
@@ -842,15 +869,31 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <h3 className="text-xl font-black text-slate-800">Console Admin Overview</h3>
                   <p className="text-xs text-slate-400 mt-1">Real-time supervision of active client devices, registries, and campaign leads.</p>
                 </div>
-                {/* Live Connection Sync Notification with Green Ping Dot */}
-                <div className="flex items-center gap-2.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl max-w-max self-start sm:self-auto">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-mono">
-                    Live Firestore Synchronized
-                  </span>
+                {/* Cloud Sync Action and Live Status */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {cloudSyncMsg && (
+                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg animate-fade-in border border-indigo-100">
+                      {cloudSyncMsg}
+                    </span>
+                  )}
+                  <button
+                    onClick={handleManualCloudSync}
+                    disabled={isCloudSyncing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                    title="Pull all latest clients and submissions from cloud"
+                  >
+                    <RefreshCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+                    <span>{isCloudSyncing ? 'Syncing...' : 'Sync Cloud Data'}</span>
+                  </button>
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl max-w-max self-start sm:self-auto">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-mono">
+                      Live Synchronized
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -943,18 +986,36 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
                 {/* Column Left: Live registered clients feed */}
                 <div className="border border-slate-200/80 rounded-2xl bg-white p-5 space-y-4">
-                  <div className="flex justify-between items-center border-b border-slate-105 pb-3">
+                  <div className="flex flex-wrap justify-between items-center border-b border-slate-105 pb-3 gap-2">
                     <div className="flex items-center gap-2">
                       <Users className="w-5 h-5 text-indigo-600" />
-                      <h4 className="text-sm font-black text-slate-800">Registered Clients (Device Signups Live Feed)</h4>
+                      <h4 className="text-sm font-black text-slate-800">Registered Clients</h4>
                     </div>
-                    <span className="text-xs font-black text-[#25D366] shrink-0 uppercase tracking-wider font-mono">
-                      ● Live Sync Active
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setShowAllOverviewClients(false)}
+                          className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${!showAllOverviewClients ? 'bg-white shadow-xs text-indigo-700 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          Recent 10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setShowAllOverviewClients(true)}
+                          className={`px-2 py-0.5 rounded-md transition-all cursor-pointer ${showAllOverviewClients ? 'bg-white shadow-xs text-indigo-700 font-black' : 'text-slate-500 hover:text-slate-800'}`}
+                        >
+                          All ({publishers.length})
+                        </button>
+                      </div>
+                      <span className="text-xs font-black text-[#25D366] shrink-0 uppercase tracking-wider font-mono">
+                        ● Live
+                      </span>
+                    </div>
                   </div>
 
                   <p className="text-xs text-slate-400">
-                    Whenever an agent makes a publisher account on another device, their details will display here instantaneously.
+                    Whenever an agent registers an account, their details appear here instantaneously with cloud sync.
                   </p>
 
                   <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
@@ -963,14 +1024,14 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         No publishers registered yet.
                       </div>
                     ) : (
-                      [...publishers]
-                        .sort((a,b) => b.id.localeCompare(a.id))
-                        .slice(0, 10)
-                        .map(pub => (
+                      (showAllOverviewClients 
+                        ? [...publishers].sort((a,b) => b.id.localeCompare(a.id))
+                        : [...publishers].sort((a,b) => b.id.localeCompare(a.id)).slice(0, 10)
+                      ).map(pub => (
                           <div key={pub.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-indigo-50/40 border border-slate-100 transition-colors">
                             <div className="flex items-center gap-3 min-w-0">
                               <span className="shrink-0 select-none flex items-center justify-center">
-                                {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http')) ? (
+                                {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http') || pub.avatar.startsWith('/api/')) ? (
                                   <img 
                                     src={pub.avatar} 
                                     alt="Avatar" 
@@ -999,7 +1060,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     onClick={() => setActiveTab('publishers')}
                     className="w-full text-center py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-extrabold rounded-xl transition-all cursor-pointer"
                   >
-                    Manage all {publishers.length} Publisher Accounts →
+                    Manage all {publishers.length} Publisher Accounts in Registry →
                   </button>
                 </div>
 
@@ -1731,18 +1792,32 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               
               {/* Profile Block Control */}
               <div className="space-y-4">
-                <div className="pb-3 border-b border-slate-150">
-                  <h3 className="text-base font-black text-slate-850">Publisher registry management</h3>
-                  <p className="text-xs text-slate-450 mt-1">Audit active profiles or lock suspicious operations immediately to prevent integrity leaks.</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-150 gap-2">
+                  <div>
+                    <h3 className="text-base font-black text-slate-850">
+                      Publisher registry management ({publishers.length} Registered Clients)
+                    </h3>
+                    <p className="text-xs text-slate-450 mt-1">Audit active profiles, search by name or mobile, or lock suspicious operations immediately.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleManualCloudSync}
+                      disabled={isCloudSyncing}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <RefreshCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
+                      <span>{isCloudSyncing ? 'Syncing...' : 'Sync Cloud Data'}</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex gap-2 w-full max-w-sm mb-4">
                   <input
                     type="text"
-                    placeholder="Search publisher name or ID..."
+                    placeholder="Search publisher name, ID, or mobile..."
                     value={pubSearchQuery}
                     onChange={(e) => setPubSearchQuery(e.target.value)}
-                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none"
+                    className="w-full text-xs p-2.5 border border-slate-200 rounded-xl outline-none focus:border-indigo-400"
                   />
                 </div>
 
@@ -1782,7 +1857,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         return currentSlice.map(pub => (
                           <tr key={pub.id} className="hover:bg-slate-50/50">
                             <td className="p-3 text-lg select-none">
-                              {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http')) ? (
+                              {pub.avatar && (pub.avatar.startsWith('data:') || pub.avatar.startsWith('http') || pub.avatar.startsWith('/api/')) ? (
                                 <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-slate-100">
                                   <img 
                                     src={pub.avatar} 

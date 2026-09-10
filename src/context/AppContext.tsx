@@ -659,6 +659,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let es: EventSource | null = null;
     let pollInterval: any = null;
 
+    const safeSetLocal = (key: string, val: any) => {
+      try {
+        localStorage.setItem(key, JSON.stringify(val));
+      } catch (err) {
+        try {
+          // If storage quota exceeded, clear non-critical caches and retry
+          localStorage.removeItem('pai_cached_bank_details');
+          localStorage.removeItem('pai_cached_advertiser_inquiries');
+          localStorage.setItem(key, JSON.stringify(val));
+        } catch (e2) {}
+      }
+    };
+
     const applyServerData = (data: any) => {
       if (!data) return;
       const { submissions: sList, earnings: eList, campaigns: cList, publishers: pList, bankDetailsMap: bMap, employees: empList } = data;
@@ -681,27 +694,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
           return merged;
         });
-        try { localStorage.setItem('pai_cached_submissions', JSON.stringify(sList)); } catch (e) {}
+        safeSetLocal('pai_cached_submissions', sList);
       }
 
       if (Array.isArray(eList)) {
         setEarnings(eList);
-        try { localStorage.setItem('pai_cached_earnings', JSON.stringify(eList)); } catch (e) {}
+        safeSetLocal('pai_cached_earnings', eList);
       }
 
       if (Array.isArray(cList) && cList.length > 0) {
         setCampaigns(cList);
-        try { localStorage.setItem('pai_cached_campaigns', JSON.stringify(cList)); } catch (e) {}
+        safeSetLocal('pai_cached_campaigns', cList);
       }
 
       if (Array.isArray(pList) && pList.length > 0) {
         setPublishers(pList);
-        try { localStorage.setItem('pai_cached_publishers', JSON.stringify(pList)); } catch (e) {}
+        safeSetLocal('pai_cached_publishers', pList);
       }
 
       if (bMap && typeof bMap === 'object' && Object.keys(bMap).length > 0) {
         setBankDetailsMap(prev => ({ ...prev, ...bMap }));
-        try { localStorage.setItem('pai_cached_bank_details', JSON.stringify(bMap)); } catch (e) {}
+        safeSetLocal('pai_cached_bank_details', bMap);
       }
 
       if (Array.isArray(empList) && empList.length > 0) {
@@ -710,13 +723,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (Array.isArray(data.advertiserInquiries) && data.advertiserInquiries.length > 0) {
         setAdvertiserInquiries(data.advertiserInquiries);
-        try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(data.advertiserInquiries)); } catch (e) {}
+        safeSetLocal('pai_cached_advertiser_inquiries', data.advertiserInquiries);
       }
 
       if (Array.isArray(data.partners) && data.partners.length > 0) {
         setPartnerApplications(data.partners);
-        try { localStorage.setItem('pai_cached_partners', JSON.stringify(data.partners)); } catch (e) {}
+        safeSetLocal('pai_cached_partners', data.partners);
       }
+    };
+
+    const fetchDirectFirestoreFallback = async () => {
+      try {
+        const pubSnap = await getDocs(collection(db, 'publishers'));
+        if (!pubSnap.empty) {
+          const directPubs: Publisher[] = [];
+          pubSnap.forEach(d => directPubs.push({ id: d.id, ...d.data() } as Publisher));
+          setPublishers(directPubs);
+          safeSetLocal('pai_cached_publishers', directPubs);
+        }
+        const subSnap = await getDocs(collection(db, 'submissions'));
+        if (!subSnap.empty) {
+          const directSubs: DataSubmission[] = [];
+          subSnap.forEach(d => directSubs.push({ id: d.id, ...d.data() } as DataSubmission));
+          setSubmissions(directSubs);
+          safeSetLocal('pai_cached_submissions', directSubs);
+        }
+      } catch (e) {}
     };
 
     const fetchServerState = async () => {
@@ -726,10 +758,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const json = await res.json();
           if (json.success && json.data) {
             applyServerData(json.data);
+            // If server has fewer than 2 publishers, pull fallback from Firestore
+            if (!json.data.publishers || json.data.publishers.length <= 1) {
+              await fetchDirectFirestoreFallback();
+            }
+            return;
           }
         }
       } catch (err) {
-        // silent
+        // Fallback to Firestore directly if server is unreachable
+        await fetchDirectFirestoreFallback();
       }
     };
 

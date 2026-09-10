@@ -2221,7 +2221,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         <span className="text-xs font-mono font-bold w-6 text-center text-slate-500 dark:text-slate-400">
                           #{i + 1}
                         </span>
-                        {leader.avatar && (leader.avatar.startsWith('data:image/') || leader.avatar.startsWith('http')) ? (
+                        {leader.avatar && (leader.avatar.startsWith('data:image/') || leader.avatar.startsWith('http') || leader.avatar.startsWith('/api/')) ? (
                           <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 shadow-2xs">
                             <img src={leader.avatar} alt="User Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                           </div>

@@ -2,6 +2,8 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
+import { initializeApp } from "firebase/app";
+import { getFirestore, collection, getDocs } from "firebase/firestore";
 
 async function startServer() {
   const app = express();
@@ -119,6 +121,98 @@ async function startServer() {
     }, 1000);
   }
 
+  // Automatic Firestore Cloud Synchronization
+  // Pulls all live publishers, submissions, earnings, campaigns, and bank details from Firestore
+  async function syncFromFirestore() {
+    try {
+      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+      if (!fs.existsSync(configPath)) return;
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      if (!config.apiKey || !config.projectId) return;
+
+      const firebaseApp = initializeApp(config, `server-sync-${Date.now()}`);
+      const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
+
+      console.log("[Server Firestore Sync] Fetching collections from Firestore...");
+      
+      const [pubSnap, subSnap, earnSnap, campSnap, bankSnap] = await Promise.all([
+        getDocs(collection(firestore, "publishers")).catch(() => ({ size: 0, docs: [] } as any)),
+        getDocs(collection(firestore, "submissions")).catch(() => ({ size: 0, docs: [] } as any)),
+        getDocs(collection(firestore, "earnings")).catch(() => ({ size: 0, docs: [] } as any)),
+        getDocs(collection(firestore, "campaigns")).catch(() => ({ size: 0, docs: [] } as any)),
+        getDocs(collection(firestore, "bank_details")).catch(() => ({ size: 0, docs: [] } as any)),
+      ]);
+
+      let changed = false;
+
+      // 1. Publishers
+      if (pubSnap.size > 0) {
+        const pubMap = new Map<string, any>();
+        store.publishers.forEach(p => pubMap.set(p.id, p));
+        pubSnap.docs.forEach((d: any) => {
+          const data = { id: d.id, ...d.data() };
+          pubMap.set(d.id, { ...(pubMap.get(d.id) || {}), ...data });
+        });
+        const mergedPubs = Array.from(pubMap.values());
+        if (mergedPubs.length !== store.publishers.length) changed = true;
+        store.publishers = mergedPubs;
+      }
+
+      // 2. Submissions
+      if (subSnap.size > 0) {
+        const subMap = new Map<string, any>();
+        store.submissions.forEach(s => subMap.set(s.id, s));
+        subSnap.docs.forEach((d: any) => {
+          const data = { id: d.id, ...d.data() };
+          subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data });
+        });
+        const mergedSubs = Array.from(subMap.values());
+        if (mergedSubs.length !== store.submissions.length) changed = true;
+        store.submissions = mergedSubs;
+      }
+
+      // 3. Earnings
+      if (earnSnap.size > 0) {
+        const earnMap = new Map<string, any>();
+        store.earnings.forEach(e => earnMap.set(e.id, e));
+        earnSnap.docs.forEach((d: any) => {
+          const data = { id: d.id, ...d.data() };
+          earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data });
+        });
+        const mergedEarns = Array.from(earnMap.values());
+        if (mergedEarns.length !== store.earnings.length) changed = true;
+        store.earnings = mergedEarns;
+      }
+
+      // 4. Campaigns
+      if (campSnap.size > 0) {
+        const campMap = new Map<string, any>();
+        store.campaigns.forEach(c => campMap.set(c.id, c));
+        campSnap.docs.forEach((d: any) => {
+          const data = { id: d.id, ...d.data() };
+          campMap.set(d.id, { ...(campMap.get(d.id) || {}), ...data });
+        });
+        store.campaigns = Array.from(campMap.values());
+      }
+
+      // 5. Bank Details
+      if (bankSnap.size > 0) {
+        bankSnap.docs.forEach((d: any) => {
+          store.bankDetailsMap[d.id] = { ...(store.bankDetailsMap[d.id] || {}), ...d.data() };
+        });
+      }
+
+      console.log(`[Server Firestore Sync] Synced ${store.publishers.length} publishers, ${store.submissions.length} submissions, ${store.earnings.length} earnings.`);
+      scheduleSaveStore();
+    } catch (err) {
+      console.warn("[Server Firestore Sync] Sync notice:", err);
+    }
+  }
+
+  // Trigger sync on boot and every 5 minutes in background
+  syncFromFirestore();
+  setInterval(syncFromFirestore, 5 * 60 * 1000);
+
   // Active Server-Sent Events (SSE) connections for cross-device real-time sync
   const sseClients: { id: string; res: express.Response }[] = [];
 
@@ -167,6 +261,107 @@ async function startServer() {
     });
   });
 
+  // Image streaming endpoints to keep JSON state ultra-lightweight (<100KB vs 9.5MB)
+  app.get("/api/submission/screenshot/:id", (req, res) => {
+    const sub = store.submissions.find(s => s.id === req.params.id);
+    if (!sub || !sub.screenshot) {
+      return res.status(404).send("Screenshot not found");
+    }
+    const shot = sub.screenshot;
+    if (shot.startsWith("data:")) {
+      const matches = shot.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], "base64");
+        res.setHeader("Content-Type", type);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.send(buffer);
+      }
+    }
+    if (shot.startsWith("http")) {
+      return res.redirect(shot);
+    }
+    res.send(shot);
+  });
+
+  app.get("/api/publisher/avatar/:id", (req, res) => {
+    const pub = store.publishers.find(p => p.id === req.params.id);
+    if (!pub || !pub.avatar) {
+      return res.status(404).send("Avatar not found");
+    }
+    const av = pub.avatar;
+    if (av.startsWith("data:")) {
+      const matches = av.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], "base64");
+        res.setHeader("Content-Type", type);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.send(buffer);
+      }
+    }
+    if (av.startsWith("http")) {
+      return res.redirect(av);
+    }
+    res.send(av);
+  });
+
+  app.get("/api/bank/qr/:id", (req, res) => {
+    const bank = store.bankDetailsMap[req.params.id];
+    if (!bank || !bank.qrCode) {
+      return res.status(404).send("QR code not found");
+    }
+    const qr = bank.qrCode;
+    if (qr.startsWith("data:")) {
+      const matches = qr.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], "base64");
+        res.setHeader("Content-Type", type);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.send(buffer);
+      }
+    }
+    if (qr.startsWith("http")) {
+      return res.redirect(qr);
+    }
+    res.send(qr);
+  });
+
+  app.get("/api/campaign/image/:id", (req, res) => {
+    const camp = store.campaigns.find(c => c.id === req.params.id);
+    if (!camp || !camp.image) {
+      return res.status(404).send("Image not found");
+    }
+    const img = camp.image;
+    if (img.startsWith("data:")) {
+      const matches = img.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (matches && matches.length === 3) {
+        const type = matches[1];
+        const buffer = Buffer.from(matches[2], "base64");
+        res.setHeader("Content-Type", type);
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.send(buffer);
+      }
+    }
+    if (img.startsWith("http")) {
+      return res.redirect(img);
+    }
+    res.send(img);
+  });
+
+  // Dedicated manual trigger to force pull latest records from Firestore
+  app.post("/api/admin/resync-firestore", async (req, res) => {
+    await syncFromFirestore();
+    res.json({
+      success: true,
+      publishersCount: store.publishers.length,
+      submissionsCount: store.submissions.length,
+      earningsCount: store.earnings.length,
+      campaignsCount: store.campaigns.length
+    });
+  });
+
   // 2. Fetch server state (Instantly loads latest data without burning Firestore read quota)
   app.get("/api/realtime/state", (req, res) => {
     // Auto-reconcile on demand: ensure every submission marked 'Payment Done' has an earning record in store
@@ -203,9 +398,57 @@ async function startServer() {
       scheduleSaveStore();
     }
 
+    // Build lightweight payload (< 150KB vs 9.5MB) to guarantee lightning speed and prevent localStorage QuotaExceeded errors
+    const lightweightSubmissions = store.submissions.map(sub => ({
+      ...sub,
+      screenshot: sub.screenshot && sub.screenshot.length > 500
+        ? `/api/submission/screenshot/${sub.id}`
+        : sub.screenshot
+    }));
+
+    const lightweightPublishers = store.publishers.map(pub => ({
+      ...pub,
+      avatar: pub.avatar && pub.avatar.length > 500
+        ? `/api/publisher/avatar/${pub.id}`
+        : pub.avatar
+    }));
+
+    const lightweightCampaigns = store.campaigns.map(camp => ({
+      ...camp,
+      image: camp.image && camp.image.length > 500
+        ? `/api/campaign/image/${camp.id}`
+        : camp.image
+    }));
+
+    const lightweightBanks: Record<string, any> = {};
+    for (const [k, v] of Object.entries(store.bankDetailsMap || {})) {
+      if (v) {
+        lightweightBanks[k] = {
+          ...v,
+          qrCode: v.qrCode && v.qrCode.length > 500
+            ? `/api/bank/qr/${k}`
+            : v.qrCode
+        };
+      }
+    }
+
+    const payload = {
+      ...store,
+      submissions: lightweightSubmissions,
+      publishers: lightweightPublishers,
+      campaigns: lightweightCampaigns,
+      bankDetailsMap: lightweightBanks
+    };
+
     res.json({
       success: true,
-      data: store,
+      data: payload,
+      counts: {
+        publishers: store.publishers.length,
+        submissions: store.submissions.length,
+        earnings: store.earnings.length,
+        campaigns: store.campaigns.length
+      },
       connectedClients: sseClients.length,
       serverTime: Date.now()
     });

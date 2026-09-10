@@ -20,6 +20,8 @@ type AdminTab = 'overview' | 'campaigns' | 'mis_database' | 'payment_portal' | '
 export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const { 
     currentUser, 
+    setCurrentUser,
+    refreshServerState,
     loginPublisher, // We can reuse session logs
     logout, 
     campaigns, 
@@ -386,7 +388,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     .filter((item) => item.totalQualifiedCount >= 20);
 
   // Handle Admin login verify
-  const handleAdminAuth = (e: React.FormEvent) => {
+  const handleAdminAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAdminError('');
     if (adminEmail === 'khanazlan997@gmail.com' && adminPassword === 'Admin@123') {
@@ -394,6 +396,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       // Allocate artificial admin session
       const sess = { type: 'admin' as const, id: 'ADMIN999', name: 'Administrator' };
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
+      setCurrentUser(sess);
+      try {
+        await refreshServerState();
+      } catch (err) {}
       // Re-trigger triggerBackup mock logs on load for system integrity
       triggerBackup();
     } else {

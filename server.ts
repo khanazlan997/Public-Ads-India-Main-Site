@@ -9,6 +9,17 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // CORS middleware for seamless cross-device mobile and desktop access
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   // JSON body parser with generous limit
   app.use(express.json({ limit: "25mb" }));
 
@@ -364,6 +375,9 @@ async function startServer() {
 
   // 2. Fetch server state (Instantly loads latest data without burning Firestore read quota)
   app.get("/api/realtime/state", (req, res) => {
+    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
     // Auto-reconcile on demand: ensure every submission marked 'Payment Done' has an earning record in store
     const isPaymentDone = (st?: string) => {
       const s = (st || '').toLowerCase().trim();

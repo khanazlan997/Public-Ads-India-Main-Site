@@ -31,6 +31,16 @@ import {
   PaymentEmailRecord,
   EmailStatus
 } from '../types';
+import {
+  snapshotPublishers,
+  snapshotSubmissions,
+  snapshotEarnings,
+  snapshotCampaigns,
+  snapshotBankDetailsMap,
+  snapshotEmployees,
+  snapshotAdvertiserInquiries,
+  snapshotPartners
+} from '../data/databaseSnapshot';
 
 interface AppContextType {
   theme: 'light' | 'dark';
@@ -48,6 +58,8 @@ interface AppContextType {
   supportEmail: string;
   partnerHiringActive: boolean;
   currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
+  setCurrentUser: (user: AppContextType['currentUser']) => void;
+  refreshServerState: () => Promise<void>;
   testimonials: Testimonial[];
   quotaError: string | null;
   googleSheetUrl: string;
@@ -322,9 +334,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_campaigns');
-      return stored ? JSON.parse(stored) : defaultCampaigns;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotCampaigns.length > 0 ? snapshotCampaigns : defaultCampaigns;
     } catch {
-      return defaultCampaigns;
+      return snapshotCampaigns.length > 0 ? snapshotCampaigns : defaultCampaigns;
     }
   });
   
@@ -341,54 +357,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [publishers, setPublishers] = useState<Publisher[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_publishers');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotPublishers;
     } catch {
-      return [];
+      return snapshotPublishers;
     }
   });
 
   const [earnings, setEarnings] = useState<EarningRecord[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_earnings');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotEarnings;
     } catch {
-      return [];
+      return snapshotEarnings;
     }
   });
 
   const [submissions, setSubmissions] = useState<DataSubmission[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_submissions');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotSubmissions;
     } catch {
-      return [];
+      return snapshotSubmissions;
     }
   });
 
   const [employees, setEmployees] = useState<Employee[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_employees');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotEmployees;
     } catch {
-      return [];
+      return snapshotEmployees;
     }
   });
 
   const [partnerApplications, setPartnerApplications] = useState<PartnerApplication[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_partners');
-      return stored ? JSON.parse(stored) : [];
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotPartners;
     } catch {
-      return [];
+      return snapshotPartners;
     }
   });
 
   const [bankDetailsMap, setBankDetailsMap] = useState<Record<string, BankDetails>>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_bank_details');
-      return stored ? JSON.parse(stored) : {};
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) return parsed;
+      }
+      return snapshotBankDetailsMap;
     } catch {
-      return {};
+      return snapshotBankDetailsMap;
     }
   });
 
@@ -429,13 +469,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [advertiserInquiries, setAdvertiserInquiries] = useState<AdvertiserInquiry[]>(() => {
     try {
       const cached = localStorage.getItem('pai_cached_advertiser_inquiries');
-      return cached ? JSON.parse(cached) : [];
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+      return snapshotAdvertiserInquiries;
     } catch (e) {
-      return [];
+      return snapshotAdvertiserInquiries;
     }
   });
   
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
+  const fetchServerStateRef = useRef<() => Promise<void>>();
+
+  const refreshServerState = async () => {
+    if (fetchServerStateRef.current) {
+      await fetchServerStateRef.current();
+    } else {
+      try {
+        const res = await fetch('/api/realtime/state', { credentials: 'include' });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            if (Array.isArray(json.data.publishers) && json.data.publishers.length > 0) {
+              setPublishers(json.data.publishers);
+              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(json.data.publishers)); } catch (e) {}
+            }
+            if (Array.isArray(json.data.submissions) && json.data.submissions.length > 0) {
+              setSubmissions(json.data.submissions);
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(json.data.submissions)); } catch (e) {}
+            }
+            if (Array.isArray(json.data.earnings) && json.data.earnings.length > 0) {
+              setEarnings(json.data.earnings);
+              try { localStorage.setItem('pai_cached_earnings', JSON.stringify(json.data.earnings)); } catch (e) {}
+            }
+          }
+        }
+      } catch (e) {}
+    }
+  };
   const [activePath, setActivePath] = useState<string>('/Home');
   const [quotaError, setQuotaError] = useState<string | null>(null);
 
@@ -753,23 +826,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchServerState = async () => {
       try {
-        const res = await fetch('/api/realtime/state');
-        if (res.ok) {
+        const res = await fetch('/api/realtime/state', { credentials: 'include' });
+        const contentType = res.headers.get('content-type') || '';
+        if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
           if (json.success && json.data) {
             applyServerData(json.data);
-            // If server has fewer than 2 publishers, pull fallback from Firestore
-            if (!json.data.publishers || json.data.publishers.length <= 1) {
-              await fetchDirectFirestoreFallback();
-            }
             return;
           }
         }
       } catch (err) {
-        // Fallback to Firestore directly if server is unreachable
-        await fetchDirectFirestoreFallback();
+        // Fallback to Firestore only if server fetch fails
+        try {
+          await fetchDirectFirestoreFallback();
+        } catch (e) {}
       }
     };
+
+    fetchServerStateRef.current = fetchServerState;
 
     // Initial state fetch from server memory (0 Firestore reads)
     fetchServerState();
@@ -2511,6 +2585,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       googleSheetUrl,
       advertiserInquiries,
       currentUser,
+      setCurrentUser,
+      refreshServerState,
       testimonials,
       quotaError,
       paymentEmailRecords,

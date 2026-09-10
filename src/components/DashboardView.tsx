@@ -1195,7 +1195,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   {/* Clean Professional Avatar Centered exactly on the Top Border Line */}
                   <div className="relative shrink-0 -mt-[80px] sm:-mt-[96px] mb-1 sm:mb-0">
                     <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white dark:bg-[#0d1628] border border-slate-300 dark:border-slate-700 rounded-full flex items-center justify-center overflow-hidden select-none shadow-lg ring-2 ring-white dark:ring-[#0d1628]">
-                      {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
+                      {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http') || profileAvatar.startsWith('/api/')) ? (
                         <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
                         profileAvatar && profileAvatar.length <= 2 ? (

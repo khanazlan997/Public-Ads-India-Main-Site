@@ -439,9 +439,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [offer, setOffer] = useState<ActiveOffer>(() => {
     try {
       const stored = localStorage.getItem('pai_offer');
-      return stored ? JSON.parse(stored) : { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true };
+      return stored ? JSON.parse(stored) : { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: false };
     } catch {
-      return { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true };
+      return { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: false };
     }
   });
   const [supportPhone, setSupportPhone] = useState(() => {
@@ -1128,7 +1128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             supportEmail: 'publicadsnetwork@gmail.com',
             partnerHiringActive: true,
             googleSheetUrl: '',
-            offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: true }
+            offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: false }
           };
           await setDoc(docRef, initialSettings).catch(() => {});
           localStorage.setItem('pai_support_phone', initialSettings.supportPhone);

@@ -335,11 +335,13 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
   // Load user profile details on login state change
   useEffect(() => {
+    console.log('DashboardView useEffect triggering, currentUser:', currentUser, 'publishers found:', publishers.find(pub => pub.id === currentUser?.id)?.avatar);
     if (currentUser?.type === 'publisher') {
       const p = publishers.find(pub => pub.id === currentUser.id);
       if (p) {
         setProfileName(p.name);
-        setProfileAvatar(p.avatar || '😎');
+        // Prioritize currentUser.avatar if available, otherwise fallback to publisher object avatar
+        setProfileAvatar(currentUser.avatar || p.avatar || '😎');
 
         // Load Bank Details too if present
         const bank = bankDetailsMap[p.id];
@@ -1196,7 +1198,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                       {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http')) ? (
                         <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                       ) : (
-                        <span className="text-4xl sm:text-5xl">{profileAvatar || '😎'}</span>
+                        profileAvatar && profileAvatar.length <= 2 ? (
+                          <span className="text-4xl sm:text-5xl">{profileAvatar}</span>
+                        ) : (
+                          <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgfkDqzbCnl6zEkhuBL08Yy5NOcQwG-QOw64NS6WYU2R_2wlUnmydO2xnOjMiY59D0cnlT0QTmiBZ_G_gi5_-W62TOcPdry0KaXmGeGoQAKYiLTfTlc6ko_IiX5FhUJbFuW7y4X2lrkT9F5bm3elnqaxTMOxhYqemHL0EFoozduJf77NEIaZDjuXO1FA2I/Gemini_Generated_Image_txixh7txixh7txix.png" alt="Default Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        )
                       )}
                     </div>
                   </div>
@@ -1540,25 +1546,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
           {/* 2-Column Grid: My Income Desk + Total Work Box Card */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-            {/* NEW: Profile Summary Card */}
-            <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-6">
-              <div className="w-20 h-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-4xl overflow-hidden border-2 border-slate-200 dark:border-slate-700">
-                {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http') || profileAvatar.startsWith('/api/')) ? (
-                  <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : (
-                  <span className="text-4xl">{profileAvatar || '😎'}</span>
-                )}
-              </div>
-              <div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white">{profileName}</h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400">ID: {currentUser?.id}</p>
-                <div className="mt-2 text-[10px] font-bold text-slate-600 dark:text-slate-300">
-                  <p>Bank: {bankAccount || 'Not set'}</p>
-                  <p>UPI: {bankUpi || 'Not set'}</p>
-                </div>
-              </div>
-            </div>
-            
             {/* Card 3: Right Dynamic Income Desk Card */}
             <div className="relative bg-gradient-to-b from-white/90 to-emerald-50/30 dark:from-[#0d1628] dark:to-emerald-950/20 border-2 border-slate-900 dark:border-slate-700 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-lg group overflow-hidden min-h-[140px] shadow-sm">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />

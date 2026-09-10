@@ -1525,7 +1525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email,
         phone,
         password,
-        avatar: '👤',
+        avatar: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgfkDqzbCnl6zEkhuBL08Yy5NOcQwG-QOw64NS6WYU2R_2wlUnmydO2xnOjMiY59D0cnlT0QTmiBZ_G_gi5_-W62TOcPdry0KaXmGeGoQAKYiLTfTlc6ko_IiX5FhUJbFuW7y4X2lrkT9F5bm3elnqaxTMOxhYqemHL0EFoozduJf77NEIaZDjuXO1FA2I/Gemini_Generated_Image_txixh7txixh7txix.png',
         blocked: false,
         joinedDate: new Date().toISOString().substring(0, 10),
         ...(formattedInviteCode ? { inviteCode: formattedInviteCode } : {})
@@ -1593,17 +1593,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('pai_user_session');
   };
 
-  const updatePublisherProfile = (name: string, avatar: string) => {
+  const updatePublisherProfile = async (name: string, avatar: string) => {
     if (!currentUser || currentUser.type !== 'publisher') return;
     const pubId = currentUser.id;
     
-    updateDoc(doc(db, 'publishers', pubId), { name, avatar });
-    
-    const upSess = { ...currentUser, name, avatar };
-    setCurrentUser(upSess);
-    localStorage.setItem('pai_user_session', JSON.stringify(upSess));
+    try {
+      await updateDoc(doc(db, 'publishers', pubId), { name, avatar });
+      
+      const upSess = { ...currentUser, name, avatar };
+      setCurrentUser(upSess);
+      localStorage.setItem('pai_user_session', JSON.stringify(upSess));
 
-    addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
+      const updatedPublishers = publishers.map(p => p.id === pubId ? { ...p, name, avatar } : p);
+      setPublishers(updatedPublishers);
+      localStorage.setItem('pai_cached_publishers', JSON.stringify(updatedPublishers));
+
+      addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      alert('Failed to save profile. Please try a smaller image.');
+    }
   };
 
   const sendPasswordReset = (phone: string, email: string) => {

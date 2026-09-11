@@ -1608,6 +1608,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setPublishers(updatedPublishers);
       localStorage.setItem('pai_cached_publishers', JSON.stringify(updatedPublishers));
 
+      fetch('/api/publisher/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId: pubId, name, avatar })
+      }).catch(err => {});
+
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
     } catch (err) {
       console.error('Failed to update profile:', err);

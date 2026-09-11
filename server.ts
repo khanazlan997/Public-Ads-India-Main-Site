@@ -563,6 +563,34 @@ async function startServer() {
     }
   });
 
+  // Dedicated Publisher Profile Update endpoint
+  app.post("/api/publisher/update", (req, res) => {
+    try {
+      const { publisherId, name, avatar } = req.body || {};
+      if (!publisherId) {
+        return res.status(400).json({ error: "Missing publisherId" });
+      }
+      const idx = store.publishers.findIndex(p => p.id === publisherId);
+      if (idx !== -1) {
+        store.publishers[idx] = {
+          ...store.publishers[idx],
+          ...(name ? { name } : {}),
+          ...(avatar !== undefined ? { avatar } : {})
+        };
+      } else {
+        store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });
+      }
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_PUBLISHERS",
+        payload: store.publishers
+      });
+      res.json({ success: true, publisher: store.publishers.find(p => p.id === publisherId) });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Dedicated Bank Details endpoint (Zero Firestore quota dependency)
   app.post("/api/bank/update", (req, res) => {
     try {

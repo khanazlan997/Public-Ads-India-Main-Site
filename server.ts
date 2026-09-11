@@ -478,7 +478,16 @@ async function startServer() {
       } else if (campaign && campaign.id) {
         const idx = store.campaigns.findIndex(c => c.id === campaign.id);
         if (idx !== -1) {
-          store.campaigns[idx] = { ...store.campaigns[idx], ...campaign };
+          const existingImage = store.campaigns[idx].image;
+          const newImage = campaign.image;
+          const finalImage = (newImage && newImage.startsWith('/api/campaign/image/'))
+            ? existingImage
+            : (newImage !== undefined ? newImage : existingImage);
+          store.campaigns[idx] = { 
+            ...store.campaigns[idx], 
+            ...campaign, 
+            image: finalImage 
+          };
         } else {
           store.campaigns.unshift(campaign);
         }
@@ -548,7 +557,12 @@ async function startServer() {
       }
       const idx = store.publishers.findIndex(p => p.id === publisher.id);
       if (idx !== -1) {
-        store.publishers[idx] = { ...store.publishers[idx], ...publisher };
+        const existingAvatar = store.publishers[idx].avatar;
+        const newAvatar = publisher.avatar;
+        const finalAvatar = (newAvatar && newAvatar.startsWith('/api/publisher/avatar/'))
+          ? existingAvatar
+          : (newAvatar !== undefined ? newAvatar : existingAvatar);
+        store.publishers[idx] = { ...store.publishers[idx], ...publisher, avatar: finalAvatar };
       } else {
         store.publishers.unshift(publisher);
       }
@@ -572,10 +586,14 @@ async function startServer() {
       }
       const idx = store.publishers.findIndex(p => p.id === publisherId);
       if (idx !== -1) {
+        const existingAvatar = store.publishers[idx].avatar;
+        const finalAvatar = (avatar && avatar.startsWith('/api/publisher/avatar/'))
+          ? existingAvatar
+          : (avatar !== undefined ? avatar : existingAvatar);
         store.publishers[idx] = {
           ...store.publishers[idx],
           ...(name ? { name } : {}),
-          ...(avatar !== undefined ? { avatar } : {})
+          avatar: finalAvatar
         };
       } else {
         store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });

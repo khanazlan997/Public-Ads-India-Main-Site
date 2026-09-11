@@ -265,8 +265,20 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     hasMoreSubmissions,
     loadMoreSubmissions,
     hasMoreEarnings,
-    loadMoreEarnings
+    loadMoreEarnings,
+    refreshServerState
   } = useAppState();
+
+  // Auto-poll and sync server state for publisher dashboard in real-time
+  useEffect(() => {
+    if (currentUser?.type === 'publisher') {
+      refreshServerState().catch(() => {});
+      const interval = setInterval(() => {
+        refreshServerState().catch(() => {});
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [currentUser?.type, currentUser?.id]);
 
   // Active Tab representation
   const [activeTab, setActiveTab] = useState<TabType>('dashboard');
@@ -531,6 +543,11 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       if (res.success) {
         setSubmissionSuccess(res.message);
         setShowSuccessPopup(true);
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
         // Reset form fields
         setLeadClientName('');
         setLeadClientPhone('');
@@ -684,7 +701,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normPubId);
     const paidSubs = pubSubmissions.filter(s => {
       const st = (s.status || '').toLowerCase().trim();
-      return st === 'payment done' || st === 'paymentdone' || st === 'paid';
+      return st === 'payment done' || st === 'paymentdone' || st === 'paid' || st === 'approved';
     });
 
     // Create a combined list of all earnings ensuring zero double-counting

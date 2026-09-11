@@ -496,9 +496,9 @@ async function startServer() {
         if (idx !== -1) {
           const existingImage = store.campaigns[idx].image;
           const newImage = campaign.image;
-          const finalImage = (newImage && newImage.startsWith('/api/campaign/image/'))
-            ? existingImage
-            : (newImage !== undefined ? newImage : existingImage);
+          const finalImage = (newImage && typeof newImage === 'string' && newImage.trim().length > 0 && !newImage.startsWith('/api/campaign/image/'))
+            ? newImage
+            : existingImage;
           store.campaigns[idx] = { 
             ...store.campaigns[idx], 
             ...campaign, 

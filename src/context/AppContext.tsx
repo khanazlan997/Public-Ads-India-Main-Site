@@ -848,6 +848,66 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Initial state fetch from server memory (0 Firestore reads)
     fetchServerState();
 
+    // Firestore onSnapshot real-time listeners for instant zero-refresh updates
+    let unsubCampaigns: (() => void) | undefined;
+    let unsubPublishers: (() => void) | undefined;
+    let unsubSubmissions: (() => void) | undefined;
+    let unsubEarnings: (() => void) | undefined;
+
+    try {
+      unsubCampaigns = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
+        if (!snapshot.empty) {
+          const fetchedCamps: Campaign[] = [];
+          snapshot.forEach(docSnap => {
+            fetchedCamps.push({ id: docSnap.id, ...docSnap.data() } as Campaign);
+          });
+          if (fetchedCamps.length > 0) {
+            setCampaigns(fetchedCamps);
+            safeSetLocal('pai_cached_campaigns', fetchedCamps);
+          }
+        }
+      }, (err) => console.warn("Campaigns onSnapshot error:", err));
+
+      unsubPublishers = onSnapshot(collection(db, 'publishers'), (snapshot) => {
+        if (!snapshot.empty) {
+          const fetchedPubs: Publisher[] = [];
+          snapshot.forEach(docSnap => {
+            fetchedPubs.push({ id: docSnap.id, ...docSnap.data() } as Publisher);
+          });
+          if (fetchedPubs.length > 0) {
+            setPublishers(fetchedPubs);
+            safeSetLocal('pai_cached_publishers', fetchedPubs);
+          }
+        }
+      }, (err) => console.warn("Publishers onSnapshot error:", err));
+
+      unsubSubmissions = onSnapshot(collection(db, 'submissions'), (snapshot) => {
+        if (!snapshot.empty) {
+          const fetchedSubs: DataSubmission[] = [];
+          snapshot.forEach(docSnap => {
+            fetchedSubs.push({ id: docSnap.id, ...docSnap.data() } as DataSubmission);
+          });
+          fetchedSubs.sort((a, b) => (b.submitDate || '').localeCompare(a.submitDate || ''));
+          setSubmissions(fetchedSubs);
+          safeSetLocal('pai_cached_submissions', fetchedSubs);
+        }
+      }, (err) => console.warn("Submissions onSnapshot error:", err));
+
+      unsubEarnings = onSnapshot(collection(db, 'earnings'), (snapshot) => {
+        if (!snapshot.empty) {
+          const fetchedEarn: EarningRecord[] = [];
+          snapshot.forEach(docSnap => {
+            fetchedEarn.push({ id: docSnap.id, ...docSnap.data() } as EarningRecord);
+          });
+          fetchedEarn.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+          setEarnings(fetchedEarn);
+          safeSetLocal('pai_cached_earnings', fetchedEarn);
+        }
+      }, (err) => console.warn("Earnings onSnapshot error:", err));
+    } catch (e) {
+      console.warn("Firestore onSnapshot setup notice:", e);
+    }
+
     // Connect to Server-Sent Events stream for instant cross-device delivery (< 50ms)
     try {
       es = new EventSource('/api/realtime/stream');
@@ -1039,6 +1099,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       if (es) es.close();
       if (pollInterval) clearInterval(pollInterval);
+      if (unsubCampaigns) unsubCampaigns();
+      if (unsubPublishers) unsubPublishers();
+      if (unsubSubmissions) unsubSubmissions();
+      if (unsubEarnings) unsubEarnings();
     };
   }, []);
 

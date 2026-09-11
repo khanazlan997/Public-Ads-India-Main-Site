@@ -749,7 +749,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!data) return;
       const { submissions: sList, earnings: eList, campaigns: cList, publishers: pList, bankDetailsMap: bMap, employees: empList } = data;
       
-      if (Array.isArray(sList) && sList.length > 0) {
+      if (Array.isArray(sList)) {
         setSubmissions(prev => {
           const map = new Map<string, DataSubmission>();
           // Server submissions
@@ -775,31 +775,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeSetLocal('pai_cached_earnings', eList);
       }
 
-      if (Array.isArray(cList) && cList.length > 0) {
+      if (Array.isArray(cList)) {
         setCampaigns(cList);
         safeSetLocal('pai_cached_campaigns', cList);
       }
 
-      if (Array.isArray(pList) && pList.length > 0) {
+      if (Array.isArray(pList)) {
         setPublishers(pList);
         safeSetLocal('pai_cached_publishers', pList);
       }
 
-      if (bMap && typeof bMap === 'object' && Object.keys(bMap).length > 0) {
+      if (bMap && typeof bMap === 'object') {
         setBankDetailsMap(prev => ({ ...prev, ...bMap }));
         safeSetLocal('pai_cached_bank_details', bMap);
       }
 
-      if (Array.isArray(empList) && empList.length > 0) {
+      if (Array.isArray(empList)) {
         setEmployees(empList);
       }
 
-      if (Array.isArray(data.advertiserInquiries) && data.advertiserInquiries.length > 0) {
+      if (Array.isArray(data.advertiserInquiries)) {
         setAdvertiserInquiries(data.advertiserInquiries);
         safeSetLocal('pai_cached_advertiser_inquiries', data.advertiserInquiries);
       }
 
-      if (Array.isArray(data.partners) && data.partners.length > 0) {
+      if (Array.isArray(data.partners)) {
         setPartnerApplications(data.partners);
         safeSetLocal('pai_cached_partners', data.partners);
       }
@@ -826,7 +826,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const fetchServerState = async () => {
       try {
-        const res = await fetch('/api/realtime/state', { credentials: 'include' });
+        const res = await fetch(`/api/realtime/state?_t=${Date.now()}`, { cache: 'no-store', credentials: 'include' });
         const contentType = res.headers.get('content-type') || '';
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
@@ -1598,21 +1598,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pubId = currentUser.id;
     
     try {
-      await updateDoc(doc(db, 'publishers', pubId), { name, avatar });
+      await updateDoc(doc(db, 'publishers', pubId), { name, avatar }).catch(() => {});
       
       const upSess = { ...currentUser, name, avatar };
       setCurrentUser(upSess);
-      localStorage.setItem('pai_user_session', JSON.stringify(upSess));
+      try {
+        localStorage.setItem('pai_user_session', JSON.stringify(upSess));
+      } catch (e) {}
 
       const updatedPublishers = publishers.map(p => p.id === pubId ? { ...p, name, avatar } : p);
       setPublishers(updatedPublishers);
-      localStorage.setItem('pai_cached_publishers', JSON.stringify(updatedPublishers));
+      try {
+        localStorage.setItem('pai_cached_publishers', JSON.stringify(updatedPublishers));
+      } catch (e) {}
 
-      fetch('/api/publisher/update', {
+      broadcastSync('SYNC_PUBLISHERS', updatedPublishers);
+
+      await fetch('/api/publisher/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publisherId: pubId, name, avatar })
-      }).catch(err => {});
+      }).catch(err => console.warn("Publisher update api notice:", err));
 
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
     } catch (err) {

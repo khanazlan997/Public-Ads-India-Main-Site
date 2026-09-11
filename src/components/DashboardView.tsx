@@ -1019,7 +1019,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const normCurrentUserId = (currentUser?.id || '').trim().toLowerCase();
   const publisherEarningStats = getPublisherEarnings(currentUser.id);
   const matchedEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normCurrentUserId).slice(0, 5);
-  const activeAndAdminCamps = campaigns.filter(c => c.active !== false && String(c.active) !== 'false');
+  const activeAndAdminCamps = campaigns.filter(c => {
+    if (c.active === false || c.active === 0 || String(c.active).toLowerCase() === 'false') return false;
+    return true;
+  });
   const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normCurrentUserId);
 
   // User's successful UPI settlements / payouts (Last 5 only)

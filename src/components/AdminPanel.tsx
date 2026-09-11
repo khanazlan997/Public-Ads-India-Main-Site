@@ -204,6 +204,14 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     setActivityLogPage(1);
   }, [activityQuery, activityCategory]);
 
+  // Auto-refresh server state in Admin panel every 4 seconds for instant lead visibility
+  useEffect(() => {
+    const timer = setInterval(() => {
+      refreshServerState().catch(() => {});
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [refreshServerState]);
+
   const renderPaginationControls = (
     currentPage: number,
     totalPages: number,

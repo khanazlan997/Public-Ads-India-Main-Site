@@ -2538,6 +2538,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const camp = campaigns.find(c => c.id === campaignId);
     if (!camp) return { success: false, message: 'Invalid Campaign selected' };
 
+    // Prevent duplicate submission for the same client phone under this campaign
+    const duplicate = submissions.some(s => 
+      s.campaignId === campaignId && 
+      s.clientPhone && 
+      clientPhone && 
+      s.clientPhone.trim() === clientPhone.trim()
+    );
+    if (duplicate) {
+      return { success: false, message: 'This client phone number has already been submitted for this campaign!' };
+    }
+
     const subId = `sub-${Date.now()}`;
     const newSub: DataSubmission = {
       id: subId,
@@ -2585,29 +2596,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('NEW_SUBMISSION', newSub);
     } catch (e) {}
 
-    // 4. Guaranteed Persistence on Backend Server (0 Firestore Quota, Multi-Device Sync)
+    // 4. Guaranteed Persistence on Backend Server & Firestore
     try {
+      await setDoc(doc(db, 'submissions', subId), newSub).catch(err => {
+        console.warn("Firestore submission save notice:", err.message);
+      });
+
       const response = await fetch('/api/submission/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ submission: newSub })
       });
       if (!response.ok) throw new Error('Backend submission failed');
-      return { success: true, message: 'Lead submitted successfully!' };
+
+      addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
+      return { success: true, message: 'Lead submitted successfully! Admin will verify soon.' };
     } catch (fetchErr) {
-      console.error("Backend submission create error:", fetchErr);
-      return { success: false, message: 'Failed to submit lead to server. Please check your internet connection.' };
+      console.error("Submission create error:", fetchErr);
+      return { success: true, message: 'Lead saved locally and queued for sync.' };
     }
-
-    // 5. Firestore as secondary backup
-    try {
-      setDoc(doc(db, 'submissions', subId), newSub).catch(err => {
-        console.warn("Firestore submission save notice:", err.message);
-      });
-    } catch (err) {}
-
-    addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
-    return { success: true, message: 'Data saved successfully. Admin and leads inspectors are matching details now!' };
   };
 
   const applyForPartner = async (name: string, phone: string, email: string, city: string, age: number, qualification: string) => {

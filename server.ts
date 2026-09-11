@@ -431,19 +431,9 @@ async function startServer() {
         : sub.screenshot
     }));
 
-    const lightweightPublishers = store.publishers.map(pub => ({
-      ...pub,
-      avatar: pub.avatar && pub.avatar.length > 500
-        ? `/api/publisher/avatar/${pub.id}`
-        : pub.avatar
-    }));
+    const lightweightPublishers = store.publishers;
 
-    const lightweightCampaigns = store.campaigns.map(camp => ({
-      ...camp,
-      image: camp.image && camp.image.length > 500
-        ? `/api/campaign/image/${camp.id}`
-        : camp.image
-    }));
+    const lightweightCampaigns = store.campaigns;
 
     const lightweightBanks: Record<string, any> = {};
     for (const [k, v] of Object.entries(store.bankDetailsMap || {})) {

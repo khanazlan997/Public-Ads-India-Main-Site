@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState, db } from '../context/AppContext';
 import { compressImageBase64 } from '../lib/image';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '../lib/firebase';
 import { 
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 

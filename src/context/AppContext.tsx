@@ -11,9 +11,9 @@ import {
   getDocs,
   limit,
   getDoc,
-  orderBy
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
+  orderBy,
+  db
+} from '../lib/firebase';
 export { db };
 import { 
   Campaign, 

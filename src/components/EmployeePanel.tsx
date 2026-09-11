@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAppState, db } from '../context/AppContext';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from '../lib/firebase';
 import { Lock, Eye, EyeOff, ShieldCheck, UserCheck, Search, Users, Banknote, ListTodo, LogOut, CheckCircle2, Download } from 'lucide-react';
 import { SubmissionStatus } from '../types';
 

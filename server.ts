@@ -4,6 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { snapshotPublishers } from "./src/data/databaseSnapshot";
 
 async function startServer() {
   const app = express();
@@ -74,43 +75,58 @@ async function startServer() {
       const parsed = JSON.parse(raw);
       store = { ...store, ...parsed };
       console.log(`Loaded ${store.submissions.length} submissions and ${store.earnings.length} earnings from server storage.`);
-
-      // Auto-reconciliation: ensure every submission marked 'Payment Done' has a corresponding record in store.earnings
-      let reconciledEarnings = 0;
-      const isPaymentDone = (st?: string) => {
-        const s = (st || '').toLowerCase().trim();
-        return s === 'payment done' || s === 'paymentdone' || s === 'paid';
-      };
-
-      store.submissions.forEach(sub => {
-        if (isPaymentDone(sub.status)) {
-          const pubId = (sub.publisherId || '').trim();
-          const hasEarning = store.earnings.some(e => e.id === `earning-${sub.id}`);
-          if (!hasEarning) {
-            store.earnings.unshift({
-              id: `earning-${sub.id}`,
-              publisherId: pubId,
-              campaignId: sub.campaignId || '',
-              campaignName: sub.campaignName || 'Campaign Payout',
-              amount: Number(sub.payout) || 0,
-              date: (sub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
-              time: (sub.submitDate || '').substring(11, 16) || '12:00'
-            });
-            reconciledEarnings++;
-          }
-        }
-      });
-      if (reconciledEarnings > 0) {
-        console.log(`[Store Auto-Reconciled] Added ${reconciledEarnings} missing earning records for confirmed Payment Done leads.`);
-        setTimeout(() => {
-          try {
-            fs.writeFileSync(DATA_FILE, JSON.stringify(store), "utf-8");
-          } catch (e) {}
-        }, 1500);
-      }
     }
   } catch (e) {
     console.warn("Could not read server_data/store.json, using initialized store:", e);
+  }
+
+  if (!store.publishers || store.publishers.length === 0) {
+    store.publishers = snapshotPublishers;
+  } else {
+    const pubMap = new Map();
+    snapshotPublishers.forEach(p => pubMap.set(p.id, p));
+    store.publishers.forEach(p => {
+      const snap = pubMap.get(p.id);
+      if (snap && snap.avatar && snap.avatar !== '👤' && (!p.avatar || p.avatar === '👤')) {
+        p.avatar = snap.avatar;
+      }
+      pubMap.set(p.id, p);
+    });
+    store.publishers = Array.from(pubMap.values());
+  }
+
+  // Auto-reconciliation: ensure every submission marked 'Payment Done' has a corresponding record in store.earnings
+  let reconciledEarnings = 0;
+  const isPaymentDone = (st?: string) => {
+    const s = (st || '').toLowerCase().trim();
+    return s === 'payment done' || s === 'paymentdone' || s === 'paid';
+  };
+
+  store.submissions.forEach(sub => {
+    if (isPaymentDone(sub.status)) {
+      const pubId = (sub.publisherId || '').trim();
+      const hasEarning = store.earnings.some(e => e.id === `earning-${sub.id}`);
+      if (!hasEarning) {
+        store.earnings.unshift({
+          id: `earning-${sub.id}`,
+          publisherId: pubId,
+          campaignId: sub.campaignId || '',
+          campaignName: sub.campaignName || 'Campaign Payout',
+          amount: Number(sub.payout) || 0,
+          date: (sub.submitDate || '').substring(0, 10) || new Date().toISOString().substring(0, 10),
+          time: (sub.submitDate || '').substring(11, 16) || '12:00'
+        });
+        reconciledEarnings++;
+      }
+    }
+  });
+  if (reconciledEarnings > 0) {
+    console.log(`[Store Auto-Reconciled] Added ${reconciledEarnings} missing earning records for confirmed Payment Done leads.`);
+    setTimeout(() => {
+      try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(store), "utf-8");
+      } catch (e) {}
+    }, 1500);
   }
 
   let saveTimer: NodeJS.Timeout | null = null;

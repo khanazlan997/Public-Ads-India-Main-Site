@@ -1351,43 +1351,71 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
       </section>
 
       {/* 7. Footer */}
-      <footer className="py-10 text-center bg-slate-905 border-t border-slate-200/50 dark:border-slate-800/50 select-none">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col items-center gap-7">
+      <footer className="py-12 bg-slate-50/50 dark:bg-[#070e1c] border-t border-slate-200/60 dark:border-slate-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           
-          {/* Modern ISO 9001:2015 Certification Badge */}
-          <div
-            id="footer-iso-badge"
-            className="inline-flex items-center bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl px-4 sm:px-6 py-3.5 sm:py-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_20px_rgba(0,0,0,0.06)] transition-all duration-300 max-w-full text-left"
-          >
-            {/* Left Section: CERTIFIED ISO 9001:2015 */}
-            <div className="flex flex-col justify-center shrink-0 pr-1">
-              <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold tracking-[0.2em] text-slate-400 dark:text-slate-500 uppercase select-none">
-                CERTIFIED
-              </span>
-              <span className="text-base sm:text-xl md:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mt-1 whitespace-nowrap">
-                ISO 9001:2015
-              </span>
+          {/* Top Footer: Brand + Multi-column Links */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-left">
+            {/* Col 1: Brand Info & ISO Badge */}
+            <div className="md:col-span-1 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-slate-900 dark:text-white tracking-tight text-base">Public Ads India</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                India's premier performance marketing ecosystem empowering publishers, media buyers, and financial creators.
+              </p>
+              
+              {/* ISO 9001:2015 Compact Badge */}
+              <div className="inline-flex items-center bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-xl px-3 py-2 shadow-xs">
+                <div className="pr-2 border-r border-slate-200 dark:border-slate-800">
+                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">CERTIFIED</span>
+                  <span className="text-xs font-black text-slate-900 dark:text-white whitespace-nowrap">ISO 9001:2015</span>
+                </div>
+                <div className="pl-2">
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 block leading-none">Quality Management</span>
+                </div>
+              </div>
             </div>
 
-            {/* Vertical Divider */}
-            <div className="w-px h-8 sm:h-10 md:h-11 bg-slate-200 dark:bg-slate-800 mx-3.5 sm:mx-5 shrink-0" />
+            {/* Col 2: Ecosystem */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Ecosystem</h4>
+              <ul className="space-y-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => onNavigate('/overview')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Platform Overview</button></li>
+                <li><button onClick={() => onNavigate('/sitemap')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Business Sitemap (Diagram)</button></li>
+                <li><button onClick={() => onNavigate('/industry')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Industry Solutions</button></li>
+                <li><button onClick={() => onNavigate('/becomeapartner')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Become a Partner</button></li>
+                <li><button onClick={() => onNavigate('/aboutus')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">About Us</button></li>
+              </ul>
+            </div>
 
-            {/* Right Section: Certified quality management system */}
-            <div className="flex flex-col justify-center min-w-0 pl-0.5">
-              <span className="text-xs sm:text-sm md:text-[14.5px] font-bold text-slate-900 dark:text-white leading-tight tracking-tight">
-                Certified quality<br className="hidden xs:inline" /> management system
-              </span>
-              <span className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 font-medium mt-1 tracking-tight truncate">
-                Public Ads India Fintech
-              </span>
+            {/* Col 3: Resources & Playbooks */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Knowledge & Guides</h4>
+              <ul className="space-y-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => onNavigate('/blogpage')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Blog & Earning Playbooks</button></li>
+                <li><button onClick={() => onNavigate('/resource')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Resource Hub & Toolkits</button></li>
+                <li><button onClick={() => onNavigate('/termandcondition')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Terms & Conditions</button></li>
+              </ul>
+            </div>
+
+            {/* Col 4: Portals & Workspaces */}
+            <div className="space-y-3">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Access Desks</h4>
+              <ul className="space-y-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => onNavigate('/Dashboard')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Publisher Portal</button></li>
+                <li><button onClick={() => onNavigate('/Partner')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Partner Desk</button></li>
+                <li><button onClick={() => onNavigate('/Employee')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Employee Desk</button></li>
+                <li><button onClick={() => onNavigate('/Admin')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Administration Console</button></li>
+              </ul>
             </div>
           </div>
 
           {/* Bottom Row: Copyright and Agency Credits */}
-          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400 border-t border-slate-200/30 dark:border-slate-800/30 pt-6">
+          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400 border-t border-slate-200/60 dark:border-slate-800/60 pt-6">
             <div className="flex flex-col items-center sm:items-start gap-0.5">
               <span>&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
-              <span className="text-[11px] text-slate-500 font-medium">Established in 2023</span>
+              <span className="text-[11px] text-slate-500 font-medium">Established in 2023 • Registered Enterprise</span>
             </div>
             <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold">
               Design by. BharatX Web Agency

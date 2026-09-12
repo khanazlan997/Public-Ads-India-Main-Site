@@ -4,7 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, getDocs } from "firebase/firestore";
-import { snapshotPublishers } from "./src/data/databaseSnapshot";
+import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
 
 async function startServer() {
   const app = express();
@@ -93,6 +93,23 @@ async function startServer() {
       pubMap.set(p.id, p);
     });
     store.publishers = Array.from(pubMap.values());
+  }
+
+  // Campaigns Initialization & Synchronization
+  if (!store.campaigns || store.campaigns.length === 0) {
+    store.campaigns = snapshotCampaigns.map(c => ({ ...c, active: true }));
+  } else {
+    const campMap = new Map();
+    snapshotCampaigns.forEach(c => campMap.set(c.id, { ...c, active: true }));
+    store.campaigns.forEach(c => {
+      const snap = campMap.get(c.id);
+      campMap.set(c.id, {
+        ...c,
+        ...(snap ? { image: (c.image && !c.image.startsWith('/api/campaign/image/')) ? c.image : snap.image } : {}),
+        active: c.active !== undefined ? c.active : true
+      });
+    });
+    store.campaigns = Array.from(campMap.values());
   }
 
   // Auto-reconciliation: ensure every submission marked 'Payment Done' has a corresponding record in store.earnings
@@ -351,11 +368,12 @@ async function startServer() {
   });
 
   app.get("/api/campaign/image/:id", (req, res) => {
-    const camp = store.campaigns.find(c => c.id === req.params.id);
-    if (!camp || !camp.image) {
-      return res.status(404).send("Image not found");
+    const camp = store.campaigns.find(c => c.id === req.params.id) || snapshotCampaigns.find(c => c.id === req.params.id);
+    let img = camp?.image;
+    if (!img || img === `/api/campaign/image/${req.params.id}`) {
+      const snap = snapshotCampaigns.find(c => c.id === req.params.id);
+      img = snap?.image && !snap.image.startsWith('/api/campaign/image/') ? snap.image : 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200';
     }
-    const img = camp.image;
     if (img.startsWith("data:")) {
       const matches = img.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
       if (matches && matches.length === 3) {

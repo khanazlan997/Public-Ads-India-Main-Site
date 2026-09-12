@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAppState } from '../context/AppContext';
-import { DollarSign, ShieldCheck, Sparkles, ExternalLink, Settings, RefreshCw, Layers } from 'lucide-react';
+import { DollarSign, ShieldCheck, TrendingUp, ExternalLink, Settings, RefreshCw, Layers } from 'lucide-react';
 import CryptoJS from 'crypto-js';
 
 interface AdsEarningViewProps {
@@ -159,8 +159,8 @@ export default function AdsEarningView({ onNavigate }: AdsEarningViewProps) {
         
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-xs font-black uppercase tracking-wider mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full text-xs font-black uppercase tracking-wider mb-3">
+              <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
               <span>Monetization & Ad Network Wall</span>
             </div>
             <h1 className="text-2xl sm:text-4xl font-black text-white tracking-tight">

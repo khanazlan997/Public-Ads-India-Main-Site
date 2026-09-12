@@ -8,7 +8,7 @@ import {
   CheckCircle2, 
   XCircle, 
   Lock, 
-  Sparkles, 
+  Tag, 
   Copy, 
   Check, 
   ArrowLeft, 
@@ -242,7 +242,7 @@ export default function SponsorshipOffer({ onNavigate }: SponsorshipOfferProps) 
         </button>
 
         <div className="flex items-center gap-2 bg-gradient-to-r from-blue-500/10 via-sky-500/10 to-indigo-500/10 p-2.5 px-4 rounded-2xl border border-blue-500/20">
-          <Sparkles className="w-4 h-4 text-sky-500" />
+          <Tag className="w-4 h-4 text-sky-500" />
           <span className="text-xs font-black text-slate-700 dark:text-slate-200 uppercase tracking-widest">
             Sponsor ID: <span className="text-sky-500 font-mono">{currentUser.id}</span>
           </span>

@@ -11,8 +11,37 @@ import AdminPanel from './components/AdminPanel';
 import AdsEarningView from './components/AdsEarningView';
 import SponsorshipOffer from './components/SponsorshipOffer';
 import NotFoundView from './components/NotFoundView';
+import BlogPage from './components/BlogPage';
+import AboutUs from './components/AboutUs';
+import Overview from './components/Overview';
+import TermsAndConditions from './components/TermsAndConditions';
+import ResourceHub from './components/ResourceHub';
+import IndustrySolutions from './components/IndustrySolutions';
+import BecomeAPartner from './components/BecomeAPartner';
+import BusinessSitemap from './components/BusinessSitemap';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gift, Sparkles, ChevronRight } from 'lucide-react';
+import { Gift, ChevronRight } from 'lucide-react';
+
+// Helper to normalize route paths
+function normalizeRoute(rawPath: string): string {
+  const lower = rawPath.toLowerCase().trim();
+  if (lower === '/home' || lower === '/' || lower === '') return '/Home';
+  if (lower === '/dashboard') return '/Dashboard';
+  if (lower === '/admin') return '/Admin';
+  if (lower === '/partner') return '/Partner';
+  if (lower === '/employee') return '/Employee';
+  if (lower === '/ads-earning') return '/ads-earning';
+  if (lower === '/sponsorship-offer') return '/sponsorship-offer';
+  if (lower === '/blogpage' || lower === '/blog') return '/blogpage';
+  if (lower === '/aboutus' || lower === '/about') return '/aboutus';
+  if (lower === '/overview') return '/overview';
+  if (lower === '/termandcondition' || lower === '/terms' || lower === '/termsandconditions' || lower === '/terms-and-conditions') return '/termandcondition';
+  if (lower === '/resource' || lower === '/resources' || lower === '/resourcehub') return '/resource';
+  if (lower === '/industry' || lower === '/industries' || lower === '/industrysolutions') return '/industry';
+  if (lower === '/becomeapartner' || lower === '/become-a-partner' || lower === '/partnerships') return '/becomeapartner';
+  if (lower === '/sitemap' || lower === '/business-sitemap') return '/sitemap';
+  return '/404';
+}
 
 // Sub App content receiver that utilizes state context
 function AppContent() {
@@ -38,33 +67,21 @@ function AppContent() {
       window.scrollTo(0, 0);
       document.documentElement.scrollTop = 0;
       document.body.scrollTop = 0;
-      // Prioritize hash routing to prevent 404 on refresh in any cloud runtime
+      
       const hash = window.location.hash;
       let path = '/Home';
 
       if (hash && hash !== '#') {
-        // Support both '#/Dashboard' and '#Dashboard' styles
         const cleanHash = hash.replace(/^#\/?/, '/');
-        const lowerHash = cleanHash.toLowerCase();
-        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer'].includes(lowerHash)) {
-          if (lowerHash === '/ads-earning' || lowerHash === '/sponsorship-offer') {
-            path = cleanHash; // preserve exact case or allow /sponsorship-offer
-          } else {
-            path = cleanHash;
-          }
-        } else {
-          path = '/404';
-        }
+        path = normalizeRoute(cleanHash);
       } else {
-        // Fallback or migration: if user is on a clean pathname, translate it to hash so refresh is saved
         const pathname = window.location.pathname;
-        const lowerPath = pathname.toLowerCase();
-        if (['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer'].includes(lowerPath)) {
-          path = pathname;
-          window.location.hash = `#${pathname}`;
+        if (pathname && pathname !== '/') {
+          path = normalizeRoute(pathname);
+          window.location.hash = `#${path}`;
           window.history.replaceState(null, '', '/');
-        } else if (pathname !== '/' && pathname !== '') {
-          path = '/404';
+        } else {
+          path = '/Home';
         }
       }
       setRoute(path);
@@ -93,9 +110,10 @@ function AppContent() {
 
   // Update URL via hash dynamically to reflect active panels across refreshes
   const navigateTo = (newRoute: string) => {
+    const normalized = normalizeRoute(newRoute);
     setIsPageNavigating(true);
-    setRoute(newRoute);
-    window.location.hash = `#${newRoute}`;
+    setRoute(normalized);
+    window.location.hash = `#${normalized}`;
     window.scrollTo(0, 0);
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
@@ -205,7 +223,15 @@ function AppContent() {
             {route === '/Employee' && <EmployeePanel onNavigate={navigateTo} />}
             {route.toLowerCase() === '/ads-earning' && <AdsEarningView onNavigate={navigateTo} />}
             {route.toLowerCase() === '/sponsorship-offer' && <SponsorshipOffer onNavigate={navigateTo} />}
-            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer'].includes(route.toLowerCase()) && (
+            {route.toLowerCase() === '/blogpage' && <BlogPage onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/aboutus' && <AboutUs onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/overview' && <Overview onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/termandcondition' && <TermsAndConditions onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/resource' && <ResourceHub onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/industry' && <IndustrySolutions onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/becomeapartner' && <BecomeAPartner onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/sitemap' && <BusinessSitemap onNavigate={navigateTo} />}
+            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer', '/blogpage', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap'].includes(route.toLowerCase()) && (
               <NotFoundView onNavigate={navigateTo} />
             )}
           </motion.div>

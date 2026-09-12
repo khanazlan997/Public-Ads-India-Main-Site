@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { 
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
-  Camera, UploadCloud, Edit3, Sparkles, LogOut, Check, ChevronDown, ChevronRight,
+  Camera, UploadCloud, Edit3, LogOut, Check, ChevronDown, ChevronRight,
   Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck, Gift
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
@@ -1795,8 +1795,13 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         <img 
                           src={camp.image} 
                           alt={camp.name} 
-                          className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-slate-100 dark:border-slate-800"
+                          className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800"
                           referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.onerror = null;
+                            target.src = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200';
+                          }}
                         />
                       ) : (
                         <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center shrink-0">

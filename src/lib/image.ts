@@ -1,17 +1,17 @@
 /**
  * Compresses an image in base64 format using HTML5 Canvas.
- * Ensures the output image is within safe size limits (well under 1MB) for Firestore.
+ * Iteratively resizes and reduces quality to target ~10KB (well under 14KB base64),
+ * ensuring zero load / quota burnout on Firebase while supporting client uploads up to 2MB+.
  * 
  * @param base64Str The source base64 image string.
- * @param maxWidth The maximum width of the output image. Default 1200px.
- * @param maxHeight The maximum height of the output image. Default 1200px.
- * @param quality The compression quality (0 to 1) for JPEG output. Default 0.7.
+ * @param targetMaxBytes The target maximum size in bytes (default 12 * 1024 = ~12KB base64 ≈ 9-10KB binary).
  */
 export function compressImageBase64(
   base64Str: string,
-  maxWidth = 600,
-  maxHeight = 600,
-  quality = 0.45
+  maxWidth = 450,
+  maxHeight = 450,
+  initialQuality = 0.35,
+  targetMaxBytes = 14 * 1024 // ~14KB base64 string = ~10KB raw image
 ): Promise<string> {
   return new Promise((resolve) => {
     if (!base64Str || !base64Str.startsWith('data:image')) {
@@ -24,36 +24,60 @@ export function compressImageBase64(
     img.src = base64Str;
 
     img.onload = () => {
-      let width = img.width;
-      let height = img.height;
+      let maxDim = Math.min(maxWidth, maxHeight, 450);
+      let quality = initialQuality;
 
-      const maxDim = 600;
-      if (width > maxDim || height > maxDim) {
-        if (width > height) {
-          height = Math.round((height * maxDim) / width);
-          width = maxDim;
-        } else {
-          width = Math.round((width * maxDim) / height);
-          height = maxDim;
+      // Iterative compression to strictly target ~10KB
+      let bestResult = '';
+      let bestSize = Infinity;
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
         }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(width, 100);
+        canvas.height = Math.max(height, 100);
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(bestResult || base64Str);
+          return;
+        }
+
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+        const currentCompressed = canvas.toDataURL('image/jpeg', quality);
+        const currentLength = currentCompressed.length;
+
+        if (currentLength < bestSize) {
+          bestResult = currentCompressed;
+          bestSize = currentLength;
+        }
+
+        if (currentLength <= targetMaxBytes) {
+          // Successfully compressed to target ~10KB!
+          break;
+        }
+
+        // Reduce dimensions and quality for next pass
+        maxDim = Math.max(Math.round(maxDim * 0.75), 200);
+        quality = Math.max(quality * 0.75, 0.15);
       }
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(base64Str);
-        return;
-      }
-
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(0, 0, width, height);
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      const compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-      resolve(compressedBase64);
+      resolve(bestResult || base64Str);
     };
 
     img.onerror = () => {
@@ -61,3 +85,4 @@ export function compressImageBase64(
     };
   });
 }
+

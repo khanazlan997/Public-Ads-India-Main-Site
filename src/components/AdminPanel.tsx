@@ -6,7 +6,7 @@ import {
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
-  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Sparkles, Mail,
+  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Target, Mail,
   MessageCircle, Phone
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
@@ -1377,7 +1377,17 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     {campaigns.map(camp => (
                       <tr key={camp.id} className="hover:bg-slate-50/50">
                         <td className="p-4">
-                          <img src={camp.image} alt={camp.name} className="w-10 h-10 rounded-full object-cover border border-slate-100" referrerPolicy="no-referrer" />
+                          <img 
+                            src={camp.image} 
+                            alt={camp.name} 
+                            className="w-10 h-10 rounded-full object-cover border border-slate-100 bg-slate-50" 
+                            referrerPolicy="no-referrer" 
+                            onError={(e) => {
+                              const target = e.currentTarget;
+                              target.onerror = null;
+                              target.src = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200';
+                            }}
+                          />
                         </td>
                         <td className="p-4">
                           <span className="font-extrabold text-slate-900 block">{camp.name}</span>
@@ -2108,7 +2118,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-extrabold text-slate-600 shadow-xs">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                    <Target className="w-3.5 h-3.5 text-amber-500" />
                     <span>Rule: Target 20/20 Required to Display Data</span>
                   </div>
                 </div>

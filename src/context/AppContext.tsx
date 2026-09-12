@@ -336,11 +336,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const stored = localStorage.getItem('pai_cached_campaigns');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const map = new Map<string, Campaign>();
+          snapshotCampaigns.forEach(c => map.set(c.id, { ...c, active: true }));
+          parsed.forEach(c => {
+            if (c && c.id) {
+              const snap = map.get(c.id);
+              map.set(c.id, {
+                ...c,
+                ...(snap ? { image: (c.image && !c.image.startsWith('/api/campaign/image/')) ? c.image : snap.image } : {}),
+                active: c.active !== undefined ? c.active : true
+              });
+            }
+          });
+          return Array.from(map.values());
+        }
       }
-      return snapshotCampaigns.length > 0 ? snapshotCampaigns : defaultCampaigns;
+      return snapshotCampaigns.length > 0 ? snapshotCampaigns.map(c => ({ ...c, active: true })) : defaultCampaigns;
     } catch {
-      return snapshotCampaigns.length > 0 ? snapshotCampaigns : defaultCampaigns;
+      return snapshotCampaigns.length > 0 ? snapshotCampaigns.map(c => ({ ...c, active: true })) : defaultCampaigns;
     }
   });
   
@@ -1551,35 +1565,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: 'An account with this Email or Phone number already exists.' };
       }
 
-      // 3. Compute new ID
-      let nextNum = 1004;
-      publishers.forEach(p => {
-        const num = parseInt(p.id.replace('PUB', ''));
-        if (!isNaN(num) && num >= nextNum) {
-          nextNum = num + 1;
-        }
-      });
+      // 3. Compute new ID: Random 4-digit number (1000-9999) prefixed with 'PUB' (non-sequential)
+      const existingIds = new Set(publishers.map(p => p.id));
+      let candidateId = '';
       
-      // Instead of reading ALL publishers, query ONLY the single highest ID document!
-      const pubsRef = collection(db, 'publishers');
-      const qMax = query(pubsRef, orderBy('id', 'desc'), limit(1));
+      for (let attempt = 0; attempt < 500; attempt++) {
+        const random4Digit = Math.floor(1000 + Math.random() * 9000); // 4-digit number between 1000 and 9999
+        const testId = `PUB${random4Digit}`;
+        if (!existingIds.has(testId)) {
+          candidateId = testId;
+          break;
+        }
+      }
+
+      if (!candidateId) {
+        candidateId = `PUB${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
+      // Check Firestore document existence to prevent collisions across distributed devices
       try {
-        const snapMax = await getDocs(qMax);
-        if (!snapMax.empty) {
-          const p = snapMax.docs[0].data() as Publisher;
-          if (p.id) {
-            const num = parseInt(p.id.replace('PUB', ''));
-            if (!isNaN(num) && num >= nextNum) {
-              nextNum = num + 1;
+        const docRef = doc(db, 'publishers', candidateId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          for (let i = 0; i < 50; i++) {
+            const random4Digit = Math.floor(1000 + Math.random() * 9000);
+            const testId = `PUB${random4Digit}`;
+            const testSnap = await getDoc(doc(db, 'publishers', testId));
+            if (!testSnap.exists()) {
+              candidateId = testId;
+              break;
             }
           }
         }
       } catch (err) {
-        console.warn("Could not query max publisher ID, falling back to random numeric suffix", err);
-        nextNum = Math.floor(100000 + Math.random() * 900000);
+        console.warn("Firestore ID verification notice:", err);
       }
 
-      const newId = `PUB${nextNum}`;
+      const newId = candidateId;
 
       const formattedInviteCode = inviteCode ? inviteCode.trim().toUpperCase() : undefined;
 

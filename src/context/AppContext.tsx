@@ -57,7 +57,7 @@ interface AppContextType {
   supportPhone: string;
   supportEmail: string;
   partnerHiringActive: boolean;
-  currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS' } | null;
+  currentUser: { type: 'publisher' | 'admin' | 'employee'; id: string; name: string; username?: string; role?: 'Payment' | 'MIS'; avatar?: string } | null;
   setCurrentUser: (user: AppContextType['currentUser']) => void;
   refreshServerState: () => Promise<void>;
   testimonials: Testimonial[];
@@ -1515,7 +1515,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
       }
       
-      const sess = { type: 'publisher' as const, id: pub.id, name: pub.name };
+      const sess = { type: 'publisher' as const, id: pub.id, name: pub.name, avatar: pub.avatar };
       setCurrentUser(sess);
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
       addLog(pub.id, pub.name, 'LOGIN', 'Publisher logged in successfully via credential verify');
@@ -1637,7 +1637,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setDoc(doc(db, 'bank_details', newId), emptyBank).catch(() => {});
       } catch (e) {}
 
-      const sess = { type: 'publisher' as const, id: newId, name };
+      const sess = { type: 'publisher' as const, id: newId, name, avatar: newPub.avatar };
       setCurrentUser(sess);
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
       

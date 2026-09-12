@@ -1225,15 +1225,38 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   {/* Clean Professional Avatar Centered exactly on the Top Border Line */}
                   <div className="relative shrink-0 -mt-[80px] sm:-mt-[96px] mb-1 sm:mb-0">
                     <div className="w-24 h-24 sm:w-28 sm:h-28 bg-white dark:bg-[#0d1628] border border-slate-300 dark:border-slate-700 rounded-full flex items-center justify-center overflow-hidden select-none shadow-lg ring-2 ring-white dark:ring-[#0d1628]">
-                      {profileAvatar && (profileAvatar.startsWith('data:image/') || profileAvatar.startsWith('http') || profileAvatar.startsWith('/api/')) ? (
-                        <img src={profileAvatar} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                      ) : (
-                        profileAvatar && profileAvatar.length <= 2 ? (
-                          <span className="text-4xl sm:text-5xl">{profileAvatar}</span>
-                        ) : (
-                          <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png" alt="Default Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                        )
-                      )}
+                      {(() => {
+                        const isImg = profileAvatar && (
+                          profileAvatar.startsWith('data:') || 
+                          profileAvatar.startsWith('http://') || 
+                          profileAvatar.startsWith('https://') || 
+                          profileAvatar.startsWith('/')
+                        );
+                        if (isImg) {
+                          return (
+                            <img 
+                              src={profileAvatar} 
+                              alt="Profile" 
+                              className="w-full h-full object-cover" 
+                              referrerPolicy="no-referrer"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png";
+                              }}
+                            />
+                          );
+                        }
+                        if (profileAvatar && profileAvatar !== '👤') {
+                          return <span className="text-4xl sm:text-5xl">{profileAvatar}</span>;
+                        }
+                        return (
+                          <img 
+                            src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png" 
+                            alt="Default Profile" 
+                            className="w-full h-full object-cover" 
+                            referrerPolicy="no-referrer" 
+                          />
+                        );
+                      })()}
                     </div>
                   </div>
 
@@ -2257,13 +2280,26 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         <span className="text-xs font-mono font-bold w-6 text-center text-slate-500 dark:text-slate-400">
                           #{i + 1}
                         </span>
-                        {leader.avatar && (leader.avatar.startsWith('data:image/') || leader.avatar.startsWith('http') || leader.avatar.startsWith('/api/')) ? (
-                          <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 shadow-2xs">
-                            <img src={leader.avatar} alt="User Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          </div>
-                        ) : (
-                          <span className="text-xl select-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-full">{leader.avatar}</span>
-                        )}
+                        {(() => {
+                          const isImg = leader.avatar && (
+                            leader.avatar.startsWith('data:') || 
+                            leader.avatar.startsWith('http://') || 
+                            leader.avatar.startsWith('https://') || 
+                            leader.avatar.startsWith('/')
+                          );
+                          if (isImg) {
+                            return (
+                              <div className="w-8 h-8 rounded-full overflow-hidden flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-750 shadow-2xs shrink-0">
+                                <img src={leader.avatar} alt="User Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                              </div>
+                            );
+                          }
+                          return (
+                            <span className="text-xl select-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-full shrink-0">
+                              {leader.avatar || '😎'}
+                            </span>
+                          );
+                        })()}
                         <div>
                           <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 block">{leader.name}</span>
                           <span className="text-[9px] text-slate-455 block font-mono">{leader.id}</span>

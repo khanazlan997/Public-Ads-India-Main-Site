@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   HeartHandshake, Building2, Users2, ShieldCheck, Zap, ArrowRight, 
-  CheckCircle2, Send, Check, ChevronRight, Award, Briefcase
+  CheckCircle2, Send, Check, ChevronRight, Award, Briefcase, MessageCircle
 } from 'lucide-react';
 import { useAppState } from '../context/AppContext';
 
@@ -22,6 +22,8 @@ export default function BecomeAPartner({ onNavigate }: { onNavigate: (route: str
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [submittedWaUrl, setSubmittedWaUrl] = useState('');
+  const [submittedPartnerData, setSubmittedPartnerData] = useState<any>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
   const partnerTiers = [
@@ -77,11 +79,22 @@ export default function BecomeAPartner({ onNavigate }: { onNavigate: (route: str
         email: formData.email || `${formData.phone}@partner.pai`,
         city: `${formData.city} (Est: ${formData.monthlyLeads})`,
         age: parseInt(formData.age) || 25,
-        qualification: formData.qualification
+        qualification: formData.qualification,
+        partnerType: formData.partnerType,
+        monthlyLeads: formData.monthlyLeads
       });
 
       if (res.success) {
+        setSubmittedPartnerData({ ...formData });
+        const waUrl = res.whatsappUrl || `https://wa.me/918934932418`;
+        setSubmittedWaUrl(waUrl);
         setSuccess(true);
+        // Auto open WhatsApp with the formatted application
+        try {
+          window.open(waUrl, '_blank', 'noopener,noreferrer');
+        } catch (openErr) {
+          console.warn("Auto-open blocked by browser pop-up setting:", openErr);
+        }
       } else {
         setErrorMessage(res.message || 'Application submission failed. Please try again.');
       }
@@ -175,16 +188,56 @@ export default function BecomeAPartner({ onNavigate }: { onNavigate: (route: str
         </div>
 
         {success ? (
-          <div className="p-8 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-3">
-            <Check className="w-12 h-12 text-emerald-500 mx-auto" />
-            <h3 className="text-lg font-black text-emerald-900 dark:text-emerald-200">Application Successfully Submitted!</h3>
-            <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300 max-w-md mx-auto">
-              Thank you for applying. Our Partnership Strategy Desk will review your application and reach out via WhatsApp/Phone within 24 hours.
-            </p>
-            <div className="pt-3">
+          <div className="p-6 sm:p-8 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-center space-y-4 animate-fade-up">
+            <div className="w-14 h-14 bg-emerald-500/15 rounded-full flex items-center justify-center text-emerald-600 dark:text-emerald-400 mx-auto">
+              <Check className="w-8 h-8" />
+            </div>
+            
+            <div>
+              <h3 className="text-xl font-black text-emerald-950 dark:text-emerald-200">Application Dispatched to WhatsApp!</h3>
+              <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300 max-w-md mx-auto mt-1">
+                Aapki partner application details seedha admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par forward kar di gayi hain.
+              </p>
+              <div className="mt-2 inline-block text-[10px] font-extrabold px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded-full">
+                ✓ Direct WhatsApp Routing • Zero Firebase / Database Load
+              </div>
+            </div>
+
+            {submittedPartnerData && (
+              <div className="p-4 bg-white dark:bg-[#0b1322] border border-emerald-100 dark:border-emerald-900/60 rounded-xl text-left text-xs space-y-2 text-slate-700 dark:text-slate-300 max-w-lg mx-auto">
+                <div className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                  Forwarded Application Details:
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] sm:text-xs">
+                  <div><span className="font-semibold text-slate-500 dark:text-slate-400">Name:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedPartnerData.name}</span></div>
+                  <div><span className="font-semibold text-slate-500 dark:text-slate-400">Phone:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedPartnerData.phone}</span></div>
+                  <div><span className="font-semibold text-slate-500 dark:text-slate-400">City:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedPartnerData.city}</span></div>
+                  <div><span className="font-semibold text-slate-500 dark:text-slate-400">Category:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedPartnerData.partnerType}</span></div>
+                </div>
+                {submittedPartnerData.monthlyLeads && (
+                  <div className="pt-1 text-[11px] border-t border-slate-100 dark:border-slate-800">
+                    <span className="font-semibold text-slate-500 dark:text-slate-400">Estimated Volume:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedPartnerData.monthlyLeads}</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <a
+                href={submittedWaUrl || "https://wa.me/918934932418"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto px-6 py-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs sm:text-sm rounded-xl inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.02]"
+              >
+                <MessageCircle className="w-4 h-4 fill-current" />
+                Chat on WhatsApp (+91 8934932418)
+              </a>
               <button
-                onClick={() => setSuccess(false)}
-                className="px-5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700"
+                onClick={() => {
+                  setSuccess(false);
+                  setSubmittedPartnerData(null);
+                }}
+                className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors"
               >
                 Submit Another Application
               </button>

@@ -931,10 +931,13 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                           <ShieldCheck className="w-6 h-6" />
                         </div>
                         <div>
-                          <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-300">Inquiry Dispatched to +91 8934932418!</h4>
+                          <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-300">Inquiry Dispatched to WhatsApp (+91 8934932418)!</h4>
                           <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
                             Sara detail admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par bhej diya gaya hai.
                           </p>
+                          <span className="inline-block mt-1 text-[9.5px] font-extrabold px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded-md">
+                            ✓ Direct WhatsApp Routing • Zero Firebase / Database Load
+                          </span>
                         </div>
                       </div>
 

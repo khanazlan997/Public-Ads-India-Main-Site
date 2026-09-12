@@ -3,8 +3,53 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
+
+const defaultTestimonials = [
+  {
+    id: "testi-1",
+    name: "Rahul Sharma",
+    profession: "Demat Publisher, Kanpur",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
+    message: "Maine zero investment se Demat account opening work start kiya tha. Daily UPI se payout exact time pe mil jata hai. Transparent tracking and 100% trusted network."
+  },
+  {
+    id: "testi-2",
+    name: "Pooja Verma",
+    profession: "Telecalling & BPO Partner, Lucknow",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
+    message: "Work from home calling work ke liye sabse reliable platform hai. Lead verification bahut fast hota hai aur payment me kabhi delay nahi hua. 5-star support!"
+  },
+  {
+    id: "testi-3",
+    name: "Amit Patel",
+    profession: "Master Affiliate Partner, Gujarat",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300",
+    message: "Public Ads India ke fintech CPA campaigns ka conversion rate aur payout industry me sabse best hai. Inka MIS portal aur lead dashboard behad user-friendly hai."
+  },
+  {
+    id: "testi-4",
+    name: "Neha Singh",
+    profession: "Student & Part-Time Publisher, Delhi",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300",
+    message: "Bina kisi investment ke daily 2-3 hours work karke achi income generate ho rahi hai. Customer support team hamesha guide karti hai. Truly India's trusted platform."
+  },
+  {
+    id: "testi-5",
+    name: "Vikas Yadav",
+    profession: "Agency Owner (25+ Agents), Kanpur",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300",
+    message: "Hamari Puri calling team PAI ke banking aur Demat campaigns par kaam karti hai. Bulk payment processing aur live status tracking system unmatchable hai."
+  },
+  {
+    id: "testi-6",
+    name: "Sunil Gupta",
+    profession: "Digital Marketer & Publisher, Jaipur",
+    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=300",
+    message: "Fintech affiliate offers aur calling projects ke liye India ka #1 portal. Admin aur support team ka response instant rehta hai. Highly recommended!"
+  }
+];
 
 async function startServer() {
   const app = express();
@@ -88,11 +133,17 @@ async function startServer() {
       store = { ...store, ...parsed };
       if (!store.settings) store.settings = defaultSettings;
       else store.settings = { ...defaultSettings, ...store.settings };
-      if (!Array.isArray(store.testimonials)) store.testimonials = [];
-      console.log(`Loaded ${store.submissions.length} submissions and ${store.earnings.length} earnings from server storage.`);
+      if (!Array.isArray(store.testimonials) || store.testimonials.length === 0) {
+        store.testimonials = defaultTestimonials;
+      }
+      console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.testimonials.length} reviews from server storage.`);
     }
   } catch (e) {
     console.warn("Could not read server_data/store.json, using initialized store:", e);
+  }
+
+  if (!Array.isArray(store.testimonials) || store.testimonials.length === 0) {
+    store.testimonials = defaultTestimonials;
   }
 
   if (!store.publishers) {
@@ -166,12 +217,13 @@ async function startServer() {
 
       console.log("[Server Firestore Sync (Manual)] Fetching collections from Firestore on demand...");
       
-      const [pubSnap, subSnap, earnSnap, campSnap, bankSnap] = await Promise.all([
+      const [pubSnap, subSnap, earnSnap, campSnap, bankSnap, testiSnap] = await Promise.all([
         getDocs(collection(firestore, "publishers")).catch(() => ({ size: 0, docs: [] } as any)),
         getDocs(collection(firestore, "submissions")).catch(() => ({ size: 0, docs: [] } as any)),
         getDocs(collection(firestore, "earnings")).catch(() => ({ size: 0, docs: [] } as any)),
         getDocs(collection(firestore, "campaigns")).catch(() => ({ size: 0, docs: [] } as any)),
         getDocs(collection(firestore, "bank_details")).catch(() => ({ size: 0, docs: [] } as any)),
+        getDocs(collection(firestore, "testimonials")).catch(() => ({ size: 0, docs: [] } as any)),
       ]);
 
       // 1. Publishers
@@ -225,14 +277,26 @@ async function startServer() {
         });
       }
 
-      console.log(`[Server Firestore Sync (Manual)] Synced ${store.publishers.length} publishers, ${store.submissions.length} submissions, ${store.earnings.length} earnings.`);
+      // 6. Testimonials (Reviews)
+      if (testiSnap.size > 0) {
+        const tMap = new Map<string, any>();
+        (store.testimonials || []).forEach(t => tMap.set(t.id, t));
+        testiSnap.docs.forEach((d: any) => {
+          const data = { id: d.id, ...d.data() };
+          tMap.set(d.id, { ...(tMap.get(d.id) || {}), ...data });
+        });
+        store.testimonials = Array.from(tMap.values());
+      }
+
+      console.log(`[Server Firestore Sync (Manual)] Synced ${store.publishers.length} publishers, ${store.submissions.length} submissions, ${store.earnings.length} earnings, ${store.testimonials.length} reviews.`);
       scheduleSaveStore();
       return {
         success: true,
         publishersCount: store.publishers.length,
         submissionsCount: store.submissions.length,
         earningsCount: store.earnings.length,
-        campaignsCount: store.campaigns.length
+        campaignsCount: store.campaigns.length,
+        testimonialsCount: store.testimonials.length
       };
     } catch (err: any) {
       console.warn("[Server Firestore Sync] Sync notice:", err);
@@ -251,54 +315,89 @@ async function startServer() {
       const firebaseApp = initializeApp(config, `server-push-${Date.now()}`);
       const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
 
-      console.log("[Server Firestore Push (Manual)] Writing data to Firestore on demand...");
+      console.log("[Server Firestore Push (Manual)] Writing data to Firestore on demand using high-speed writeBatch...");
       
-      // 1. Write metadata
-      await setDoc(doc(firestore, "system_metadata", "init_done"), { value: true, updatedAt: new Date().toISOString() }).catch(() => {});
+      const ops: { ref: any; data: any }[] = [];
 
-      // 2. Write Campaigns
-      for (const c of store.campaigns) {
+      // 1. Metadata
+      ops.push({
+        ref: doc(firestore, "system_metadata", "init_done"),
+        data: { value: true, updatedAt: new Date().toISOString() }
+      });
+
+      // 2. Campaigns
+      for (const c of (store.campaigns || [])) {
         if (c && c.id) {
-          await setDoc(doc(firestore, "campaigns", c.id), c).catch(() => {});
+          ops.push({ ref: doc(firestore, "campaigns", String(c.id)), data: c });
         }
       }
 
-      // 3. Write Publishers (only non-mock, fresh client registrations)
-      for (const p of store.publishers) {
+      // 3. Publishers
+      for (const p of (store.publishers || [])) {
         if (p && p.id) {
-          await setDoc(doc(firestore, "publishers", p.id), p).catch(() => {});
+          ops.push({ ref: doc(firestore, "publishers", String(p.id)), data: p });
         }
       }
 
-      // 4. Write Submissions
-      for (const s of store.submissions) {
+      // 4. Submissions (clean screenshot to light URL if data:URI to prevent 1MB Firestore document limits)
+      for (const s of (store.submissions || [])) {
         if (s && s.id) {
-          await setDoc(doc(firestore, "submissions", s.id), s).catch(() => {});
+          const cleanSub = {
+            ...s,
+            screenshot: s.screenshot && s.screenshot.length > 500 ? `/api/submission/screenshot/${s.id}` : s.screenshot
+          };
+          ops.push({ ref: doc(firestore, "submissions", String(s.id)), data: cleanSub });
         }
       }
 
-      // 5. Write Earnings
-      for (const e of store.earnings) {
+      // 5. Earnings
+      for (const e of (store.earnings || [])) {
         if (e && e.id) {
-          await setDoc(doc(firestore, "earnings", e.id), e).catch(() => {});
+          ops.push({ ref: doc(firestore, "earnings", String(e.id)), data: e });
         }
       }
 
-      // 6. Write Bank Details
-      for (const [pubId, b] of Object.entries(store.bankDetailsMap)) {
+      // 6. Bank Details
+      for (const [pubId, b] of Object.entries(store.bankDetailsMap || {})) {
         if (pubId && b) {
-          await setDoc(doc(firestore, "bank_details", pubId), b).catch(() => {});
+          const cleanBank = {
+            ...b,
+            qrCode: b.qrCode && b.qrCode.length > 500 ? `/api/bank/qr/${pubId}` : b.qrCode
+          };
+          ops.push({ ref: doc(firestore, "bank_details", String(pubId)), data: cleanBank });
         }
       }
 
-      console.log(`[Server Firestore Push (Manual)] Successfully pushed to Firestore: ${store.campaigns.length} campaigns, ${store.publishers.length} publishers.`);
+      // 7. Testimonials (Reviews)
+      for (const t of (store.testimonials || [])) {
+        if (t && t.id) {
+          ops.push({ ref: doc(firestore, "testimonials", String(t.id)), data: t });
+        }
+      }
+
+      // Commit in batches of 400 (Firestore allows up to 500 operations per batch)
+      const BATCH_SIZE = 400;
+      let committedCount = 0;
+
+      for (let i = 0; i < ops.length; i += BATCH_SIZE) {
+        const batch = writeBatch(firestore);
+        const chunk = ops.slice(i, i + BATCH_SIZE);
+        for (const item of chunk) {
+          batch.set(item.ref, item.data, { merge: true });
+        }
+        await batch.commit();
+        committedCount += chunk.length;
+      }
+
+      console.log(`[Server Firestore Push (Manual)] Successfully pushed ${committedCount} items in batch commits.`);
       return {
         success: true,
-        message: "Data successfully pushed to Firebase on demand",
-        campaignsCount: store.campaigns.length,
-        publishersCount: store.publishers.length,
-        submissionsCount: store.submissions.length,
-        earningsCount: store.earnings.length
+        message: `Successfully pushed ${committedCount} records to Firebase Firestore!`,
+        campaignsCount: (store.campaigns || []).length,
+        publishersCount: (store.publishers || []).length,
+        submissionsCount: (store.submissions || []).length,
+        earningsCount: (store.earnings || []).length,
+        testimonialsCount: (store.testimonials || []).length
       };
     } catch (err: any) {
       console.warn("[Server Firestore Push] Push notice:", err);
@@ -491,14 +590,76 @@ async function startServer() {
 
   // Dedicated manual trigger to force pull latest records from Firestore
   app.post("/api/admin/resync-firestore", async (req, res) => {
-    const result = await syncFromFirestore();
-    res.json(result);
+    try {
+      res.setHeader("Content-Type", "application/json");
+      const result = await syncFromFirestore();
+      res.json(result);
+    } catch (err: any) {
+      console.error("Error in /api/admin/resync-firestore:", err);
+      res.status(500).json({ success: false, message: err?.message || "Failed to sync from Firestore" });
+    }
   });
 
   // Dedicated manual trigger to push local server store data to Firestore
   app.post("/api/admin/push-firestore", async (req, res) => {
-    const result = await pushToFirestore();
-    res.json(result);
+    try {
+      res.setHeader("Content-Type", "application/json");
+      const result = await pushToFirestore();
+      res.json(result);
+    } catch (err: any) {
+      console.error("Error in /api/admin/push-firestore:", err);
+      res.status(500).json({ success: false, message: err?.message || "Failed to push to Firestore" });
+    }
+  });
+
+  // Dedicated Testimonials Management endpoints (Guaranteed cross-device sync & persistence)
+  app.post("/api/testimonials/update", (req, res) => {
+    try {
+      res.setHeader("Content-Type", "application/json");
+      const { testimonials, testimonial } = req.body || {};
+      if (Array.isArray(testimonials)) {
+        store.testimonials = testimonials;
+      } else if (testimonial && testimonial.id) {
+        if (!Array.isArray(store.testimonials)) store.testimonials = [];
+        const idx = store.testimonials.findIndex(t => t.id === testimonial.id);
+        if (idx !== -1) {
+          store.testimonials[idx] = { ...store.testimonials[idx], ...testimonial };
+        } else {
+          store.testimonials.unshift(testimonial);
+        }
+      }
+
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_TESTIMONIALS",
+        payload: store.testimonials
+      });
+
+      console.log(`[Testimonials Updated] Total: ${store.testimonials.length}. Broadcasted to ${sseClients.length} clients.`);
+      res.json({ success: true, testimonials: store.testimonials, connectedClients: sseClients.length });
+    } catch (err: any) {
+      console.error("Error in /api/testimonials/update:", err);
+      res.status(500).json({ success: false, error: err.message });
+    }
+  });
+
+  app.post("/api/testimonials/delete", (req, res) => {
+    try {
+      res.setHeader("Content-Type", "application/json");
+      const { id } = req.body || {};
+      if (id) {
+        if (!Array.isArray(store.testimonials)) store.testimonials = [];
+        store.testimonials = store.testimonials.filter(t => t.id !== id);
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_TESTIMONIALS",
+          payload: store.testimonials
+        });
+      }
+      res.json({ success: true, testimonials: store.testimonials, connectedClients: sseClients.length });
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
+    }
   });
 
   // Dedicated manual trigger to purge all old client records
@@ -777,26 +938,12 @@ async function startServer() {
     return res.status(404).json({ success: false, message: "Bank details not found" });
   });
 
-  // Dedicated Partner Apply endpoint (Zero Firestore quota dependency)
+  // Dedicated Partner Apply endpoint (Direct WhatsApp routing - Zero database/Firestore quota)
   app.post("/api/partner/apply", (req, res) => {
     try {
-      const { partner } = req.body || {};
-      if (!partner || !partner.id) {
-        return res.status(400).json({ error: "Missing partner data" });
-      }
-      if (!Array.isArray(store.partners)) store.partners = [];
-      const idx = store.partners.findIndex(p => p.id === partner.id);
-      if (idx !== -1) {
-        store.partners[idx] = { ...store.partners[idx], ...partner };
-      } else {
-        store.partners.unshift(partner);
-      }
-      scheduleSaveStore();
-      broadcastRealtime({
-        type: "SYNC_PARTNERS",
-        payload: store.partners
-      });
-      res.json({ success: true, partner });
+      res.setHeader('Content-Type', 'application/json');
+      // No server or database persistence needed - data is directly routed to WhatsApp
+      res.json({ success: true, message: "Direct WhatsApp routing active. Zero database storage consumed." });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1350,6 +1497,8 @@ async function startServer() {
         store.bankDetailsMap = { ...(store.bankDetailsMap || {}), ...payload };
       } else if (type === 'SYNC_EMPLOYEES' && Array.isArray(payload)) {
         store.employees = payload;
+      } else if (type === 'SYNC_TESTIMONIALS' && Array.isArray(payload)) {
+        store.testimonials = payload;
       }
 
       scheduleSaveStore();
@@ -1364,7 +1513,7 @@ async function startServer() {
   // 5. Batch sync from client to initialize server store with latest data
   app.post("/api/realtime/sync-batch", (req, res) => {
     try {
-      const { submissions, earnings, campaigns, publishers, bankDetailsMap, employees } = req.body || {};
+      const { submissions, earnings, campaigns, publishers, bankDetailsMap, employees, testimonials } = req.body || {};
 
       if (Array.isArray(submissions) && submissions.length > 0) {
         const map = new Map<string, any>(store.submissions.map(s => [s.id, s]));
@@ -1407,6 +1556,10 @@ async function startServer() {
         store.employees = employees;
       }
 
+      if (Array.isArray(testimonials) && testimonials.length > 0) {
+        store.testimonials = testimonials;
+      }
+
       scheduleSaveStore();
       res.json({
         success: true,
@@ -1414,7 +1567,8 @@ async function startServer() {
           submissions: store.submissions.length,
           earnings: store.earnings.length,
           campaigns: store.campaigns.length,
-          publishers: store.publishers.length
+          publishers: store.publishers.length,
+          testimonials: store.testimonials.length
         }
       });
     } catch (err: any) {
@@ -1422,21 +1576,12 @@ async function startServer() {
     }
   });
 
-  // 6. Advertiser Inquiry submission (Forwards to Admin WhatsApp +91 8934932418 & saves in store)
+  // 6. Advertiser Inquiry submission (Direct WhatsApp routing - Zero database/Firestore quota)
   app.post("/api/advertiser/inquiry", (req, res) => {
     try {
-      const inquiry = req.body;
-      if (!inquiry || !inquiry.name || !inquiry.phone) {
-        return res.status(400).json({ error: "Missing inquiry details" });
-      }
-      if (!Array.isArray(store.advertiserInquiries)) {
-        store.advertiserInquiries = [];
-      }
-      store.advertiserInquiries = [inquiry, ...store.advertiserInquiries.filter(i => i.id !== inquiry.id)].slice(0, 500);
-      scheduleSaveStore();
-      broadcastRealtime({ type: 'SYNC_ADVERTISER_INQUIRIES', payload: store.advertiserInquiries });
-      console.log(`[Advertiser Inquiry] Dispatched from ${inquiry.name} (${inquiry.phone}) to Admin +91 8934932418`);
-      res.json({ success: true, inquiry });
+      res.setHeader('Content-Type', 'application/json');
+      // No server or database persistence needed - data is directly routed to WhatsApp
+      res.json({ success: true, message: "Direct WhatsApp delivery active. Zero database storage consumed." });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

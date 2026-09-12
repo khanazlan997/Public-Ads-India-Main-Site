@@ -120,7 +120,8 @@ interface AppContextType {
   // Publisher Actions
   submitBankDetails: (details: BankDetails) => Promise<{ success: boolean; message: string }>;
   submitLead: (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => Promise<{ success: boolean; message: string }>;
-  applyForPartner: (name: string, phone: string, email: string, city: string, age: number, qualification: string) => Promise<{ success: boolean; message: string }>;
+  applyForPartner: (name: string, phone: string, email: string, city: string, age: number, qualification: string, partnerType?: string, monthlyLeads?: string) => Promise<{ success: boolean; message: string; whatsappUrl?: string }>;
+  submitPartnerApplication: (params: { name: string; phone: string; email?: string; city: string; age?: number; qualification?: string; partnerType?: string; monthlyLeads?: string }) => Promise<{ success: boolean; message: string; whatsappUrl?: string }>;
   
   // Employee Login
   loginEmployee: (username: string, pass: string) => { success: boolean; message: string; employee?: Employee };
@@ -248,9 +249,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // If it contains old dummy web-design testimonials, migrate to default
-          const hasOldDummy = parsed.some(t => t.name === 'Evelyn H.' || t.name === 'Clara M.');
-          if (!hasOldDummy) return parsed;
+          return parsed;
         }
       }
       return defaultTestimonials;
@@ -1614,21 +1613,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         `_Sent via Public Ads India Official Advertiser Portal_`;
       const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(waText)}`;
 
-      // 2. Optimistic local state and cache update
-      setAdvertiserInquiries(prev => {
-        const next = [newInquiry, ...prev.filter(i => i.id !== id)];
-        try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(next)); } catch (e) {}
-        return next;
-      });
+      // NOTE: Direct WhatsApp dispatch enabled. We DO NOT save to setAdvertiserInquiries or backend store
+      // to keep Firebase storage completely free and avoid filling database quota!
 
-      // 3. Post to backend server endpoint for instant persistence and cross-device sync (Zero Firestore quota)
-      fetch('/api/advertiser/inquiry', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newInquiry)
-      }).catch(err => console.warn("Backend server inquiry dispatch notice:", err));
-
-      // 4. Send directly to Google Sheets using the Web App URL
+      // Optional: Send directly to Google Sheets if configured
       const targetUrl = 'https://script.google.com/macros/s/AKfycbyDBbwsuefEhBrEZouttfoIlbwqTABJ058VxJHyKsquK8PnFN4fctF7-UIiBB_UivC_/exec';
       try {
         await fetch(targetUrl, {
@@ -1643,14 +1631,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn("Google Apps Script fetch triggered (no-cors mode):", fetchErr);
       }
 
-      // 5. Save a log trace
-      addLog('SYSTEM', 'Advertiser Form', 'INQUIRY_SUBMIT', `New advertiser inquiry from ${name} (${company}) dispatched to Admin +91 8934932418`);
+      // Save a log trace
+      addLog('SYSTEM', 'Advertiser Form', 'INQUIRY_SUBMIT', `New advertiser inquiry from ${name} (${company}) dispatched directly to WhatsApp (+91 8934932418)`);
 
-      return { 
-        success: true, 
-        message: 'Advertiser inquiry submitted successfully.', 
-        whatsappUrl, 
-        inquiry: newInquiry 
+      return {
+        success: true,
+        message: 'Inquiry details prepared for WhatsApp (+91 8934932418)!',
+        whatsappUrl,
+        inquiry: newInquiry
       };
     } catch (err) {
       console.error("Error submitting advertiser inquiry:", err);
@@ -2202,9 +2190,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const pushDataToFirestore = async () => {
     try {
       const resp = await fetch('/api/admin/push-firestore', { method: 'POST' });
+      const contentType = resp.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await resp.text().catch(() => '');
+        console.warn("Server push non-JSON response:", text.substring(0, 80));
+        return { success: false, message: 'Server is synchronizing with Firebase. Please wait a moment and try again.' };
+      }
       const data = await resp.json();
       if (data && data.success) {
-        return { success: true, message: `Successfully pushed data to Firebase Cloud! (${data.campaignsCount || campaigns.length} campaigns, ${data.publishersCount || publishers.length} publishers)` };
+        return { success: true, message: data.message || `Successfully pushed data to Firebase Cloud! (${data.campaignsCount || campaigns.length} campaigns, ${data.publishersCount || publishers.length} publishers, ${data.testimonialsCount || testimonials.length} reviews)` };
       }
       return { success: false, message: data?.message || 'Failed to push data to Firebase' };
     } catch (err: any) {
@@ -2216,10 +2210,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const syncFromCloudFirestore = async () => {
     try {
       const resp = await fetch('/api/admin/resync-firestore', { method: 'POST' });
+      const contentType = resp.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const text = await resp.text().catch(() => '');
+        console.warn("Server sync non-JSON response:", text.substring(0, 80));
+        return { success: false, message: 'Server is busy synchronizing. Please try again shortly.' };
+      }
       const data = await resp.json();
       if (data && data.success) {
         if (fetchServerStateRef.current) fetchServerStateRef.current();
-        return { success: true, message: `Successfully pulled records from Firestore! (${data.publishersCount || 0} publishers, ${data.submissionsCount || 0} leads)` };
+        return { success: true, message: `Successfully pulled records from Firestore! (${data.publishersCount || 0} publishers, ${data.submissionsCount || 0} leads, ${data.testimonialsCount || 0} reviews)` };
       }
       return { success: false, message: data?.message || 'Failed to sync from Firestore' };
     } catch (err: any) {
@@ -2338,41 +2338,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const applyForPartner = async (name: string, phone: string, email: string, city: string, age: number, qualification: string) => {
+  const applyForPartner = async (
+    name: string, 
+    phone: string, 
+    email: string, 
+    city: string, 
+    age: number, 
+    qualification: string,
+    partnerType?: string,
+    monthlyLeads?: string
+  ) => {
     if (!partnerHiringActive) {
       return { success: false, message: 'Hiring is currently closed or paused by management.' };
     }
-    const partnerId = `part-${Date.now()}`;
-    const newApp: PartnerApplication = {
-      id: partnerId,
-      name,
-      phone,
-      email,
-      city,
-      age,
-      qualification,
-      submitDate: new Date().toISOString().substring(0, 10)
+
+    // Direct WhatsApp routing to Admin WhatsApp (+91 8934932418)
+    // Zero Firebase storage quota burden
+    const targetPhone = '918934932418';
+    const waText = 
+      `🤝 *NEW STRATEGIC PARTNER APPLICATION - PUBLIC ADS NETWORK*\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `👤 *Candidate / Org:* ${name.trim()}\n` +
+      `📞 *WhatsApp Phone:* ${phone.trim()}\n` +
+      `📧 *Email Address:* ${email.trim() || 'N/A'}\n` +
+      `📍 *City / State:* ${city.trim()}\n` +
+      (partnerType ? `💼 *Partner Category:* ${partnerType.trim()}\n` : '') +
+      (monthlyLeads ? `📊 *Estimated Monthly Leads:* ${monthlyLeads.trim()}\n` : '') +
+      `🎓 *Qualification:* ${qualification.trim()}\n` +
+      `🎂 *Age:* ${age || 'N/A'}\n` +
+      `📅 *Submitted Date:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n` +
+      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `_Sent via Public Ads India Strategic Partnership Desk_`;
+
+    const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(waText)}`;
+
+    // Zero database/admin storage: All details are dispatched directly to WhatsApp (+91 8934932418)
+    addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Partner recruitment application from ${name} (${city}) dispatched to WhatsApp (+91 8934932418)`);
+    return { 
+      success: true, 
+      message: 'Application details formatted for WhatsApp (+91 8934932418)!',
+      whatsappUrl 
     };
+  };
 
-    // Optimistic state & cache
-    setPartnerApplications(prev => {
-      const next = [newApp, ...prev];
-      try {
-        localStorage.setItem('pai_cached_partners', JSON.stringify(next));
-        broadcastSync('SYNC_PARTNERS', next);
-      } catch (e) {}
-      return next;
-    });
-
-    // Server Persistence (Zero Firestore Quota Dependency)
-    fetch('/api/partner/apply', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ partner: newApp })
-    }).catch(err => console.warn("Server partner apply notice:", err));
-
-    addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
-    return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
+  const submitPartnerApplication = async (params: { 
+    name: string; 
+    phone: string; 
+    email?: string; 
+    city: string; 
+    age?: number; 
+    qualification?: string;
+    partnerType?: string;
+    monthlyLeads?: string;
+  }) => {
+    return applyForPartner(
+      params.name,
+      params.phone,
+      params.email || '',
+      params.city,
+      params.age || 25,
+      params.qualification || 'Graduation / Degree',
+      params.partnerType,
+      params.monthlyLeads
+    );
   };
 
   // Staff Portal Login
@@ -2462,6 +2490,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       submitBankDetails,
       submitLead,
       applyForPartner,
+      submitPartnerApplication,
       loginEmployee
     }}>
       {children}

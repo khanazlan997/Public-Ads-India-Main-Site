@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppState } from '../context/AppContext';
-import { HeartHandshake, ShieldCheck, Mail, Phone, MapPin, UserCheck, CalendarDays, Award, ArrowLeft } from 'lucide-react';
+import { HeartHandshake, ShieldCheck, Mail, Phone, MapPin, UserCheck, CalendarDays, Award, ArrowLeft, MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface PartnerPanelProps {
@@ -20,6 +20,8 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
   });
 
   const [submitted, setSubmitted] = useState(false);
+  const [submittedWaUrl, setSubmittedWaUrl] = useState('');
+  const [submittedData, setSubmittedData] = useState<any>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -52,8 +54,16 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
     );
 
     if (res.success) {
+      setSubmittedData({ ...formData });
+      const waUrl = res.whatsappUrl || 'https://wa.me/918934932418';
+      setSubmittedWaUrl(waUrl);
       setSubmitted(true);
       setFormData({ name: '', phone: '', email: '', city: '', age: '', qualification: '' });
+      try {
+        window.open(waUrl, '_blank', 'noopener,noreferrer');
+      } catch (err) {
+        console.warn("Auto open popup blocked:", err);
+      }
     } else {
       setErrorMsg(res.message);
     }
@@ -120,23 +130,56 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
               // Case A: Hiring active
               <div>
                 {submitted ? (
-                  <div id="partner-success-screen" className="text-center py-10 animate-fade-up">
-                    <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 rounded-full flex items-center justify-center text-emerald-500 mx-auto mb-6">
+                  <div id="partner-success-screen" className="text-center py-8 animate-fade-up space-y-4">
+                    <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/40 rounded-full flex items-center justify-center text-emerald-500 mx-auto">
                       <UserCheck className="w-10 h-10" />
                     </div>
                     
-                    <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Application Received!</h2>
-                    <p className="text-sm text-slate-600 dark:text-slate-300 font-medium max-w-sm mx-auto leading-relaxed mt-3">
-                      We have logged your candidate details. The Public Ads India regional recruitment board evaluates profiles and coordinates contact processes in 3-5 office working days.
-                    </p>
+                    <div>
+                      <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Application Dispatched to WhatsApp!</h2>
+                      <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium max-w-sm mx-auto leading-relaxed mt-1">
+                        Aapki application details seedha official admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par dispatch kar di gayi hain.
+                      </p>
+                      <div className="mt-2 inline-block text-[10px] font-extrabold px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded-full">
+                        ✓ Direct WhatsApp Routing • Zero Firebase / Database Load
+                      </div>
+                    </div>
+
+                    {submittedData && (
+                      <div className="p-4 bg-slate-50 dark:bg-[#070e1b] border border-slate-200/80 dark:border-slate-800 rounded-xl text-left text-xs space-y-1.5 text-slate-700 dark:text-slate-300 max-w-md mx-auto">
+                        <div className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider border-b border-slate-200 dark:border-slate-800 pb-1 mb-1">
+                          Applicant Overview:
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-[11px]">
+                          <div><span className="text-slate-400">Name:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedData.name}</span></div>
+                          <div><span className="text-slate-400">Phone:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedData.phone}</span></div>
+                          <div><span className="text-slate-400">City:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedData.city}</span></div>
+                          <div><span className="text-slate-400">Qualification:</span> <span className="font-bold text-slate-900 dark:text-white">{submittedData.qualification}</span></div>
+                        </div>
+                      </div>
+                    )}
                     
-                    <button
-                      id="partner-success-done"
-                      onClick={() => setSubmitted(false)}
-                      className="mt-8 px-6 py-3 bg-brand-primary hover:bg-blue-700 text-white font-bold text-xs rounded-xl tracking-wider uppercase transition-colors"
-                    >
-                      Fill another application
-                    </button>
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <a
+                        href={submittedWaUrl || "https://wa.me/918934932418"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="w-full sm:w-auto px-6 py-2.5 bg-[#25D366] hover:bg-[#20ba59] text-white font-extrabold text-xs sm:text-sm rounded-xl inline-flex items-center justify-center gap-2 shadow-md shadow-emerald-500/20 transition-all hover:scale-[1.02]"
+                      >
+                        <MessageCircle className="w-4 h-4 fill-current" />
+                        Chat on WhatsApp (+91 8934932418)
+                      </a>
+                      <button
+                        id="partner-success-done"
+                        onClick={() => {
+                          setSubmitted(false);
+                          setSubmittedData(null);
+                        }}
+                        className="w-full sm:w-auto px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-xs rounded-xl tracking-wider transition-colors"
+                      >
+                        Fill another application
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <form id="partner-registration-form" onSubmit={handleSubmit} className="space-y-4">

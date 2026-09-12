@@ -108,6 +108,8 @@ interface AppContextType {
   triggerBackup: () => void;
   backupLogs: Array<{ id: string; time: string; scope: string; size: string; status: string }>;
   purgeAllSystemData: () => Promise<{ success: boolean; message: string }>;
+  pushDataToFirestore: () => Promise<{ success: boolean; message: string }>;
+  syncFromCloudFirestore: () => Promise<{ success: boolean; message: string }>;
   addTestimonial: (t: Omit<Testimonial, 'id'>) => void;
   editTestimonial: (id: string, updated: Partial<Testimonial>) => void;
   deleteTestimonial: (id: string) => void;
@@ -127,107 +129,50 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Initial campaigns
-const defaultCampaigns: Campaign[] = [
-  {
-    id: 'camp-1',
-    name: 'PhonePe Demat Account',
-    vertical: 'Fintech',
-    model: 'CPA',
-    platform: 'app',
-    kpi: 'Free Account opening + First Trade within 7 days',
-    geo: 'India (PAN)',
-    payout: 250,
-    terms: 'Only unique users. Age limit: 18-35. Aadhaar-linked mobile is mandatory.',
-    link: 'https://phonepe-demat.onereferral.in/pub/ads-india-track-1',
-    image: 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?auto=format&fit=crop&q=80&w=200', // standard generic finance illustration
-    active: true
-  },
-  {
-    id: 'camp-2',
-    name: 'Angel One Demat & Trading',
-    vertical: 'Finance',
-    model: 'CPA',
-    platform: 'both',
-    kpi: 'Successful Mobile App installation + Instant Demat opening',
-    geo: 'India',
-    payout: 350,
-    terms: 'Valid PAN card, Aadhaar, and active bank account required. Minimum 1 trade recommended for quick payout approval.',
-    link: 'https://angelone.directtrack.in/campaign/ads-india-23',
-    image: 'https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?auto=format&fit=crop&q=80&w=200',
-    active: true
-  },
-  {
-    id: 'camp-3',
-    name: 'SBI Credit Card Gold Pro',
-    vertical: 'Credit Cards',
-    model: 'CPL',
-    platform: 'web',
-    kpi: 'Lead registration with completed Video KYC',
-    geo: 'Tier 1 & Tier 2 India',
-    payout: 1200,
-    terms: 'Salary target: ₹25k+/month. Excellent credit history is required. Fake details are filtered within 48 hours.',
-    link: 'https://sbicard.com/lead/gold-pub-india-6385_ads',
-    image: 'https://images.unsplash.com/photo-1589758438368-0ad531db3366?auto=format&fit=crop&q=80&w=200',
-    active: true
-  },
-  {
-    id: 'camp-4',
-    name: 'mStock Zero Brokerage Account',
-    vertical: 'Investing',
-    model: 'CPA',
-    platform: 'app',
-    kpi: 'Account Opening completion + F&O Activating',
-    geo: 'India',
-    payout: 400,
-    terms: 'Must complete user on-boarding. Self-leads are strictly rejected by the bank audit.',
-    link: 'https://mstock.direct.pro/campaign/ads-india-42',
-    image: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200',
-    active: true
-  }
-];
+const defaultCampaigns: Campaign[] = [];
 
 const defaultTestimonials: Testimonial[] = [
   {
     id: "testi-1",
-    name: "Evelyn H.",
-    profession: "Designer",
-    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300",
-    message: "The web design team transformed our platform into a masterpiece! The attention to detail, spacing, and modern typography completely elevated our traffic and conversion rates."
+    name: "Rahul Sharma",
+    profession: "Demat Publisher, Kanpur",
+    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
+    message: "Maine zero investment se Demat account opening work start kiya tha. Daily UPI se payout exact time pe mil jata hai. Transparent tracking and 100% trusted network."
   },
   {
     id: "testi-2",
-    name: "Clara M.",
-    profession: "App Developer",
-    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300",
-    message: "Incredible UX capability! They delivered a stunning and smart UI layout with clean modern interactions that work effortlessly across any mobile device or device scale. Absolutely elite."
+    name: "Pooja Verma",
+    profession: "Telecalling & BPO Partner, Lucknow",
+    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
+    message: "Work from home calling work ke liye sabse reliable platform hai. Lead verification bahut fast hota hai aur payment me kabhi delay nahi hua. 5-star support!"
   },
   {
     id: "testi-3",
-    name: "Sarah K.",
-    profession: "Marketing Lead",
-    image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
-    message: "Our conversion rate skyrocketed by 45% after applying this new clean interface. The design feels trustworthy, professional, and visually spectacular. Client feedback has been stellar!"
+    name: "Amit Patel",
+    profession: "Master Affiliate Partner, Gujarat",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300",
+    message: "Public Ads India ke fintech CPA campaigns ka conversion rate aur payout industry me sabse best hai. Inka MIS portal aur lead dashboard behad user-friendly hai."
   },
   {
     id: "testi-4",
-    name: "Michelle P.",
-    profession: "Creative Director",
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=300",
-    message: "The team is exceptionally skilled in premium UI aesthetics. They took our vague feedback and engineered a highly optimized, state-of-the-art layout that exceeded our digital standards."
+    name: "Neha Singh",
+    profession: "Student & Part-Time Publisher, Delhi",
+    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300",
+    message: "Bina kisi investment ke daily 2-3 hours work karke achi income generate ho rahi hai. Customer support team hamesha guide karti hai. Truly India's trusted platform."
   },
   {
     id: "testi-5",
-    name: "Natasha R.",
-    profession: "Founder, Studio-X",
-    image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
-    message: "Exceptional UI precision and speed. The custom integrations, interactive widgets, and seamless responsiveness on both phone and PC make this platform an absolute treasure to use daily."
+    name: "Vikas Yadav",
+    profession: "Agency Owner (25+ Agents), Kanpur",
+    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300",
+    message: "Hamari Puri calling team PAI ke banking aur Demat campaigns par kaam karti hai. Bulk payment processing aur live status tracking system unmatchable hai."
   },
   {
     id: "testi-6",
-    name: "Jessica L.",
-    profession: "Project Manager",
-    image: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&q=80&w=300",
-    message: "Flawless communication and aesthetic execution! They designed a highly intuitive website layout with perfect accessibility and polished animations. It feels incredibly premium."
+    name: "Sunil Gupta",
+    profession: "Digital Marketer & Publisher, Jaipur",
+    image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=300",
+    message: "Fintech affiliate offers aur calling projects ke liye India ka #1 portal. Admin aur support team ka response instant rehta hai. Highly recommended!"
   }
 ];
 
@@ -260,57 +205,7 @@ const sanitizeError = (error: any): string => {
   return msg;
 };
 
-const defaultPaymentEmailRecords: PaymentEmailRecord[] = [
-  {
-    id: 'pem-101',
-    customerName: 'Rahul Verma',
-    emailAddress: 'rahul.v@gmail.com',
-    transactionId: 'TXN9842104812',
-    amount: 15400,
-    paymentMethod: 'UPI (GPay / PhonePe)',
-    emailStatus: 'Delivered',
-    sentTime: '2026-07-28 10:15:22',
-    paymentStatus: 'Completed',
-    publisherId: 'PUB1001'
-  },
-  {
-    id: 'pem-102',
-    customerName: 'Priya Sharma',
-    emailAddress: 'priya.s22@yahoo.com',
-    transactionId: 'TXN8821039481',
-    amount: 8500,
-    paymentMethod: 'IMPS Direct Bank Transfer',
-    emailStatus: 'Processing',
-    sentTime: '2026-07-28 11:30:10',
-    paymentStatus: 'Processing',
-    publisherId: 'PUB1002'
-  },
-  {
-    id: 'pem-103',
-    customerName: 'Amit Patel',
-    emailAddress: 'amit.patel@outloook.com',
-    transactionId: 'TXN7730192834',
-    amount: 12200,
-    paymentMethod: 'NEFT / Net Banking',
-    emailStatus: 'Failed',
-    sentTime: '2026-07-28 09:45:00',
-    errorMessage: 'SMTP Error 550: Mailbox unavailable or rejected by recipient server',
-    paymentStatus: 'Failed',
-    publisherId: 'PUB1003'
-  },
-  {
-    id: 'pem-104',
-    customerName: 'Vikram Singh',
-    emailAddress: 'vikram.singh@gmail.com',
-    transactionId: 'TXN6620194821',
-    amount: 25000,
-    paymentMethod: 'UPI Transfer',
-    emailStatus: 'Sending',
-    sentTime: '2026-07-28 12:05:14',
-    paymentStatus: 'Success',
-    publisherId: 'PUB1004'
-  }
-];
+const defaultPaymentEmailRecords: PaymentEmailRecord[] = [];
 
 // Real-time cross-tab synchronization channel
 const syncChannel = typeof window !== 'undefined' && 'BroadcastChannel' in window 
@@ -336,20 +231,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const stored = localStorage.getItem('pai_cached_campaigns');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const map = new Map<string, Campaign>();
-          snapshotCampaigns.forEach(c => map.set(c.id, { ...c, active: true }));
-          parsed.forEach(c => {
-            if (c && c.id) {
-              const snap = map.get(c.id);
-              map.set(c.id, {
-                ...c,
-                ...(snap ? { image: (c.image && !c.image.startsWith('/api/campaign/image/')) ? c.image : snap.image } : {}),
-                active: c.active !== undefined ? c.active : true
-              });
-            }
-          });
-          return Array.from(map.values());
+        if (Array.isArray(parsed)) {
+          return parsed;
         }
       }
       return snapshotCampaigns.length > 0 ? snapshotCampaigns.map(c => ({ ...c, active: true })) : defaultCampaigns;
@@ -362,7 +245,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [testimonials, setTestimonials] = useState<Testimonial[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_testimonials');
-      return stored ? JSON.parse(stored) : defaultTestimonials;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // If it contains old dummy web-design testimonials, migrate to default
+          const hasOldDummy = parsed.some(t => t.name === 'Evelyn H.' || t.name === 'Clara M.');
+          if (!hasOldDummy) return parsed;
+        }
+      }
+      return defaultTestimonials;
     } catch {
       return defaultTestimonials;
     }
@@ -817,25 +708,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setPartnerApplications(data.partners);
         safeSetLocal('pai_cached_partners', data.partners);
       }
-    };
 
-    const fetchDirectFirestoreFallback = async () => {
-      try {
-        const pubSnap = await getDocs(collection(db, 'publishers'));
-        if (!pubSnap.empty) {
-          const directPubs: Publisher[] = [];
-          pubSnap.forEach(d => directPubs.push({ id: d.id, ...d.data() } as Publisher));
-          setPublishers(directPubs);
-          safeSetLocal('pai_cached_publishers', directPubs);
-        }
-        const subSnap = await getDocs(collection(db, 'submissions'));
-        if (!subSnap.empty) {
-          const directSubs: DataSubmission[] = [];
-          subSnap.forEach(d => directSubs.push({ id: d.id, ...d.data() } as DataSubmission));
-          setSubmissions(directSubs);
-          safeSetLocal('pai_cached_submissions', directSubs);
-        }
-      } catch (e) {}
+      if (data.settings && typeof data.settings === 'object') {
+        const s = data.settings;
+        if (s.supportPhone) { setSupportPhone(s.supportPhone); safeSetLocal('pai_support_phone', s.supportPhone); }
+        if (s.supportEmail) { setSupportEmail(s.supportEmail); safeSetLocal('pai_support_email', s.supportEmail); }
+        if (s.googleSheetUrl !== undefined) { setGoogleSheetUrl(s.googleSheetUrl); safeSetLocal('pai_google_sheet_url', s.googleSheetUrl); }
+        if (s.offer) { setOffer(s.offer); safeSetLocal('pai_offer', s.offer); }
+        if (s.partnerHiringActive !== undefined) { setPartnerHiringActive(s.partnerHiringActive); safeSetLocal('pai_hiring_active', s.partnerHiringActive); }
+      }
+
+      if (Array.isArray(data.testimonials) && data.testimonials.length > 0) {
+        setTestimonials(data.testimonials);
+        safeSetLocal('pai_cached_testimonials', data.testimonials);
+      }
     };
 
     const fetchServerState = async () => {
@@ -850,10 +736,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       } catch (err) {
-        // Fallback to Firestore only if server fetch fails
-        try {
-          await fetchDirectFirestoreFallback();
-        } catch (e) {}
+        // Zero Firestore reads on server glitch - safely use local memory & cache
       }
     };
 
@@ -862,66 +745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Initial state fetch from server memory (0 Firestore reads)
     fetchServerState();
 
-    // Firestore onSnapshot real-time listeners for instant zero-refresh updates
-    let unsubCampaigns: (() => void) | undefined;
-    let unsubPublishers: (() => void) | undefined;
-    let unsubSubmissions: (() => void) | undefined;
-    let unsubEarnings: (() => void) | undefined;
-
-    try {
-      unsubCampaigns = onSnapshot(collection(db, 'campaigns'), (snapshot) => {
-        if (!snapshot.empty) {
-          const fetchedCamps: Campaign[] = [];
-          snapshot.forEach(docSnap => {
-            fetchedCamps.push({ id: docSnap.id, ...docSnap.data() } as Campaign);
-          });
-          if (fetchedCamps.length > 0) {
-            setCampaigns(fetchedCamps);
-            safeSetLocal('pai_cached_campaigns', fetchedCamps);
-          }
-        }
-      }, (err) => console.warn("Campaigns onSnapshot error:", err));
-
-      unsubPublishers = onSnapshot(collection(db, 'publishers'), (snapshot) => {
-        if (!snapshot.empty) {
-          const fetchedPubs: Publisher[] = [];
-          snapshot.forEach(docSnap => {
-            fetchedPubs.push({ id: docSnap.id, ...docSnap.data() } as Publisher);
-          });
-          if (fetchedPubs.length > 0) {
-            setPublishers(fetchedPubs);
-            safeSetLocal('pai_cached_publishers', fetchedPubs);
-          }
-        }
-      }, (err) => console.warn("Publishers onSnapshot error:", err));
-
-      unsubSubmissions = onSnapshot(collection(db, 'submissions'), (snapshot) => {
-        if (!snapshot.empty) {
-          const fetchedSubs: DataSubmission[] = [];
-          snapshot.forEach(docSnap => {
-            fetchedSubs.push({ id: docSnap.id, ...docSnap.data() } as DataSubmission);
-          });
-          fetchedSubs.sort((a, b) => (b.submitDate || '').localeCompare(a.submitDate || ''));
-          setSubmissions(fetchedSubs);
-          safeSetLocal('pai_cached_submissions', fetchedSubs);
-        }
-      }, (err) => console.warn("Submissions onSnapshot error:", err));
-
-      unsubEarnings = onSnapshot(collection(db, 'earnings'), (snapshot) => {
-        if (!snapshot.empty) {
-          const fetchedEarn: EarningRecord[] = [];
-          snapshot.forEach(docSnap => {
-            fetchedEarn.push({ id: docSnap.id, ...docSnap.data() } as EarningRecord);
-          });
-          fetchedEarn.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
-          setEarnings(fetchedEarn);
-          safeSetLocal('pai_cached_earnings', fetchedEarn);
-        }
-      }, (err) => console.warn("Earnings onSnapshot error:", err));
-    } catch (e) {
-      console.warn("Firestore onSnapshot setup notice:", e);
-    }
-
+    // Real-time synchronization handled 100% via zero-quota SSE and local state stream
     // Connect to Server-Sent Events stream for instant cross-device delivery (< 50ms)
     try {
       es = new EventSource('/api/realtime/stream');
@@ -1039,8 +863,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
           } else if (type === 'NEW_SUBMISSION' && payload) {
             setSubmissions(prev => {
-              if (prev.some(s => s.id === payload.id)) return prev;
-              const next = [payload, ...prev];
+              const filtered = prev.filter(s => s.id !== payload.id);
+              const next = [payload, ...filtered];
               try { localStorage.setItem('pai_cached_submissions', JSON.stringify(next)); } catch (e) {}
               return next;
             });
@@ -1087,7 +911,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setPublishers(payload);
             try { localStorage.setItem('pai_cached_publishers', JSON.stringify(payload)); } catch (e) {}
           } else if (type === 'SYNC_BANK_DETAILS' && payload) {
-            setBankDetailsMap(payload);
+            setBankDetailsMap(prev => ({ ...prev, ...payload }));
             try { localStorage.setItem('pai_cached_bank_details', JSON.stringify(payload)); } catch (e) {}
           } else if (type === 'SYNC_ADVERTISER_INQUIRIES' && Array.isArray(payload)) {
             setAdvertiserInquiries(payload);
@@ -1095,6 +919,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else if (type === 'SYNC_PARTNERS' && Array.isArray(payload)) {
             setPartnerApplications(payload);
             try { localStorage.setItem('pai_cached_partners', JSON.stringify(payload)); } catch (e) {}
+          } else if (type === 'SYNC_SETTINGS' && payload && typeof payload === 'object') {
+            const s = payload;
+            if (s.supportPhone) { setSupportPhone(s.supportPhone); safeSetLocal('pai_support_phone', s.supportPhone); }
+            if (s.supportEmail) { setSupportEmail(s.supportEmail); safeSetLocal('pai_support_email', s.supportEmail); }
+            if (s.googleSheetUrl !== undefined) { setGoogleSheetUrl(s.googleSheetUrl); safeSetLocal('pai_google_sheet_url', s.googleSheetUrl); }
+            if (s.offer) { setOffer(s.offer); safeSetLocal('pai_offer', s.offer); }
+            if (s.partnerHiringActive !== undefined) { setPartnerHiringActive(s.partnerHiringActive); safeSetLocal('pai_hiring_active', s.partnerHiringActive); }
+          } else if (type === 'SYNC_TESTIMONIALS' && Array.isArray(payload)) {
+            setTestimonials(payload);
+            safeSetLocal('pai_cached_testimonials', payload);
+          } else if (type === 'SYNC_EMPLOYEES' && Array.isArray(payload)) {
+            setEmployees(payload);
           }
         } catch (e) {}
       };
@@ -1107,190 +943,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn("EventSource setup error:", err);
     }
 
-    // 8s backup heartbeat fetch (Zero Firestore reads, purely local Node.js Express memory)
-    pollInterval = setInterval(fetchServerState, 8000);
+    // 4s backup heartbeat fetch (Zero Firestore reads, purely local Node.js Express memory)
+    pollInterval = setInterval(fetchServerState, 4000);
 
     return () => {
       if (es) es.close();
       if (pollInterval) clearInterval(pollInterval);
-      if (unsubCampaigns) unsubCampaigns();
-      if (unsubPublishers) unsubPublishers();
-      if (unsubSubmissions) unsubSubmissions();
-      if (unsubEarnings) unsubEarnings();
     };
   }, []);
-
-  // Sync client state to warm up the backend server memory
-  useEffect(() => {
-    const isAdmin = currentUser?.type === 'admin';
-    if (isAdmin && (submissions.length > 0 || earnings.length > 0 || campaigns.length > 0)) {
-      const isMock = campaigns.some(c => c.id === 'camp-1' || c.id === 'camp-2');
-      const timer = setTimeout(() => {
-        fetch('/api/realtime/sync-batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            submissions: submissions.slice(0, 500),
-            earnings: earnings.slice(0, 500),
-            campaigns: isMock ? [] : campaigns,
-            publishers: publishers.slice(0, 500),
-            bankDetailsMap
-          })
-        }).catch(() => {});
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentUser?.type, submissions.length, earnings.length, campaigns.length]);
 
   // Real-time synchronization is 100% handled with 0-Quota Server SSE Engine & Local Persistence
-  // Testimonials fast one-time startup load
+  // Testimonials fast one-time startup load (Zero Firestore reads)
   useEffect(() => {
-    const fetchTestimonials = async () => {
+    const stored = localStorage.getItem('pai_cached_testimonials');
+    if (stored) {
       try {
-        const q = collection(db, 'testimonials');
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) {
-          setTestimonials(defaultTestimonials);
-          localStorage.setItem('pai_cached_testimonials', JSON.stringify(defaultTestimonials));
-        } else {
-          const list: Testimonial[] = [];
-          snapshot.forEach((docSnap) => {
-            list.push(docSnap.data() as Testimonial);
-          });
-          const defaultOrder = ["testi-1", "testi-2", "testi-3", "testi-4", "testi-5", "testi-6", "testi-7", "testi-8", "testi-9", "testi-10"];
-          list.sort((a, b) => {
-            const idxA = defaultOrder.indexOf(a.id);
-            const idxB = defaultOrder.indexOf(b.id);
-            if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-            if (idxA !== -1) return -1;
-            if (idxB !== -1) return 1;
-            return a.id.localeCompare(b.id);
-          });
-          setTestimonials(list);
-          localStorage.setItem('pai_cached_testimonials', JSON.stringify(list));
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setTestimonials(parsed);
+          return;
         }
-      } catch (err) {
-        const stored = localStorage.getItem('pai_cached_testimonials');
-        if (stored) {
-          try {
-            setTestimonials(JSON.parse(stored));
-          } catch {
-            setTestimonials(defaultTestimonials);
-          }
-        } else {
-          setTestimonials(defaultTestimonials);
-        }
-      }
-    };
-    fetchTestimonials();
+      } catch {}
+    }
+    setTestimonials(defaultTestimonials);
   }, []);
 
-  // Sync Advertiser Inquiries - safely preserved in memory and persistent storage
-
-  // 8. Sync Activity Logs (Bypassed to protect Firestore quota limits)
+  // Sync Activity Logs (Zero Firestore logging to protect daily free-tier limits)
   useEffect(() => {
     setActivityLogs([
       { id: 'l1', timestamp: new Date().toISOString().substring(0, 19).replace('T', ' '), userId: 'SYSTEM', userName: 'Server Core', action: 'BOOT', details: 'Bypassed Firestore logging to protect daily free-tier limits.' }
     ]);
   }, []);
 
-  // 9. Sync Settings (Optimized from onSnapshot real-time listener to a fast one-time startup getDoc fetch with localStorage cache)
+  // Sync Settings (Zero Firestore reads - loaded from local cache and updated instantly via Server SSE)
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const docRef = doc(db, 'configs', 'settings');
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) {
-          const initialSettings = {
-            supportPhone: '+91 8934932418',
-            supportEmail: 'publicadsnetwork@gmail.com',
-            partnerHiringActive: true,
-            googleSheetUrl: '',
-            offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: false }
-          };
-          await setDoc(docRef, initialSettings).catch(() => {});
-          localStorage.setItem('pai_support_phone', initialSettings.supportPhone);
-          localStorage.setItem('pai_support_email', initialSettings.supportEmail);
-          localStorage.setItem('pai_hiring_active', String(initialSettings.partnerHiringActive));
-          localStorage.setItem('pai_google_sheet_url', '');
-          localStorage.setItem('pai_offer', JSON.stringify(initialSettings.offer));
-          setSupportPhone(initialSettings.supportPhone);
-          setSupportEmail(initialSettings.supportEmail);
-          setGoogleSheetUrl('');
-        } else {
-          const data = docSnap.data();
-          if (data) {
-            let phone = data.supportPhone || '+91 8934932418';
-            let email = data.supportEmail || 'publicadsnetwork@gmail.com';
-            
-            // Auto-upgrade legacy defaults in Firestore database to current permanent contact details
-            if (phone === '+91 9110022334') {
-              phone = '+91 8934932418';
-              updateDoc(docRef, { supportPhone: phone }).catch(() => {});
-            }
-            if (email === 'support@publicadsindia.com') {
-              email = 'publicadsnetwork@gmail.com';
-              updateDoc(docRef, { supportEmail: email }).catch(() => {});
-            }
-
-            setSupportPhone(phone);
-            localStorage.setItem('pai_support_phone', phone);
-
-            setSupportEmail(email);
-            localStorage.setItem('pai_support_email', email);
-
-            if (data.googleSheetUrl !== undefined) {
-              setGoogleSheetUrl(data.googleSheetUrl);
-              localStorage.setItem('pai_google_sheet_url', data.googleSheetUrl);
-            }
-
-            if (data.partnerHiringActive !== undefined) {
-              setPartnerHiringActive(data.partnerHiringActive);
-              localStorage.setItem('pai_hiring_active', String(data.partnerHiringActive));
-            }
-            if (data.offer) {
-              setOffer(data.offer);
-              localStorage.setItem('pai_offer', JSON.stringify(data.offer));
-            }
-          }
-        }
-      } catch (err: any) {
-        console.warn("Notice loading settings config (using cached settings):", err?.message || err);
-        const cachedPhone = localStorage.getItem('pai_support_phone') || '+91 8934932418';
-        const cachedEmail = localStorage.getItem('pai_support_email') || 'publicadsnetwork@gmail.com';
-        const cachedHiring = localStorage.getItem('pai_hiring_active') !== 'false';
-        const cachedUrl = localStorage.getItem('pai_google_sheet_url') || '';
-        setSupportPhone(cachedPhone);
-        setSupportEmail(cachedEmail);
-        setPartnerHiringActive(cachedHiring);
-        if (cachedUrl) setGoogleSheetUrl(cachedUrl);
-        const cachedOffer = localStorage.getItem('pai_offer');
-        if (cachedOffer) {
-          try { setOffer(JSON.parse(cachedOffer)); } catch (e) {}
-        }
-      }
-    };
-    fetchSettings();
+    const cachedPhone = localStorage.getItem('pai_support_phone') || '+91 8934932418';
+    const cachedEmail = localStorage.getItem('pai_support_email') || 'publicadsnetwork@gmail.com';
+    const cachedHiring = localStorage.getItem('pai_hiring_active') !== 'false';
+    const cachedUrl = localStorage.getItem('pai_google_sheet_url') || '';
+    setSupportPhone(cachedPhone === '+91 9110022334' ? '+91 8934932418' : cachedPhone);
+    setSupportEmail(cachedEmail === 'support@publicadsindia.com' ? 'publicadsnetwork@gmail.com' : cachedEmail);
+    setPartnerHiringActive(cachedHiring);
+    if (cachedUrl) setGoogleSheetUrl(cachedUrl);
+    const cachedOffer = localStorage.getItem('pai_offer');
+    if (cachedOffer) {
+      try { setOffer(JSON.parse(cachedOffer)); } catch (e) {}
+    }
   }, []);
 
-  // 9. Sync Payment Confirmation Email Records
+  // 9. Payment Confirmation Email Records (Local + on-demand sync)
   useEffect(() => {
-    const q = collection(db, 'payment_emails');
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) {
-        setPaymentEmailRecords(defaultPaymentEmailRecords);
-      } else {
-        const list: PaymentEmailRecord[] = [];
-        snapshot.forEach((docSnap) => {
-          list.push(docSnap.data() as PaymentEmailRecord);
-        });
-        list.sort((a, b) => (b.sentTime || '').localeCompare(a.sentTime || ''));
-        setPaymentEmailRecords(list);
+    try {
+      const stored = localStorage.getItem('pai_cached_payment_emails');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setPaymentEmailRecords(parsed);
+        }
       }
-    }, (error) => {
-      console.warn("onSnapshot payment_emails info (using local cache):", error.message);
-    });
-    return unsubscribe;
+    } catch (e) {}
   }, []);
 
   // Send Payment Confirmation Email (Fast One Click Send with status updates & Google Sheets)
@@ -1579,26 +1290,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (!candidateId) {
-        candidateId = `PUB${Math.floor(1000 + Math.random() * 9000)}`;
-      }
-
-      // Check Firestore document existence to prevent collisions across distributed devices
-      try {
-        const docRef = doc(db, 'publishers', candidateId);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          for (let i = 0; i < 50; i++) {
-            const random4Digit = Math.floor(1000 + Math.random() * 9000);
-            const testId = `PUB${random4Digit}`;
-            const testSnap = await getDoc(doc(db, 'publishers', testId));
-            if (!testSnap.exists()) {
-              candidateId = testId;
-              break;
-            }
+        let attempts = 0;
+        let foundId = '';
+        while (attempts < 50) {
+          const rand = Math.floor(1000 + Math.random() * 9000);
+          const testId = `PUB${rand}`;
+          if (!publishers.some(p => p.id.toLowerCase() === testId.toLowerCase())) {
+            foundId = testId;
+            break;
           }
+          attempts++;
         }
-      } catch (err) {
-        console.warn("Firestore ID verification notice:", err);
+        candidateId = foundId || `PUB${Date.now().toString().slice(-4)}`;
       }
 
       const newId = candidateId;
@@ -1653,12 +1356,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({ publisherId: newId, details: emptyBank })
       }).catch(err => console.warn("Server bank init notice:", err));
 
-      // 6. Background Firestore write
-      try {
-        setDoc(doc(db, 'publishers', newId), newPub).catch(() => {});
-        setDoc(doc(db, 'bank_details', newId), emptyBank).catch(() => {});
-      } catch (e) {}
-
       const sess = { type: 'publisher' as const, id: newId, name, avatar: newPub.avatar };
       setCurrentUser(sess);
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
@@ -1684,8 +1381,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const pubId = currentUser.id;
     
     try {
-      await updateDoc(doc(db, 'publishers', pubId), { name, avatar }).catch(() => {});
-      
       const upSess = { ...currentUser, name, avatar };
       setCurrentUser(upSess);
       try {
@@ -1725,7 +1420,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const resetUserPasswordByAdmin = (phone: string, email: string, newPass: string) => {
     const pub = publishers.find(p => p.phone === phone && p.email === email);
     if (pub) {
-      updateDoc(doc(db, 'publishers', pub.id), { password: newPass });
+      fetch('/api/publisher/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId: pub.id, password: newPass })
+      }).catch(() => {});
       addLog('ADMIN', 'Admin Manager', 'PASS_RESET', `Force changed credentials of ${pub.id}`);
       return { success: true, message: `Successfully allocated new password '${newPass}' for ${pub.name} (${pub.id}).` };
     }
@@ -1751,18 +1450,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
-    // Realtime Server Persistence & Broadcast to ALL Connected Devices
+    // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
     fetch('/api/campaign/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ campaign: newCamp })
     }).catch(err => console.warn("Server campaign add dispatch notice:", err));
 
-    try {
-      setDoc(doc(db, 'campaigns', newId), newCamp).catch(err => {
-        console.warn("Firestore setDoc campaign notice:", err.message);
-      });
-    } catch (err) {}
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_ADD', `Created campaign '${c.name}' with payout ₹${c.payout}`);
   };
 
@@ -1779,18 +1473,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Realtime Server Persistence & Broadcast to ALL Connected Devices
+      // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
       fetch('/api/campaign/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, active: newActive })
       }).catch(err => console.warn("Server campaign toggle dispatch notice:", err));
 
-      try {
-        updateDoc(doc(db, 'campaigns', id), { active: newActive }).catch(err => {
-          console.warn("Firestore updateDoc campaign notice:", err.message);
-        });
-      } catch (err) {}
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${newActive}`);
     }
   };
@@ -1808,18 +1497,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Realtime Server Persistence & Broadcast to ALL Connected Devices
+      // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
       fetch('/api/campaign/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, campaign: merged })
       }).catch(err => console.warn("Server campaign edit dispatch notice:", err));
 
-      try {
-        updateDoc(doc(db, 'campaigns', id), updatedCamp).catch(err => {
-          console.warn("Firestore updateDoc campaign notice:", err.message);
-        });
-      } catch (err) {}
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${c.name}' specs`);
     }
   };
@@ -1836,44 +1520,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Realtime Server Persistence & Broadcast to ALL Connected Devices
+      // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
       fetch('/api/campaign/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       }).catch(err => console.warn("Server campaign delete dispatch notice:", err));
 
-      try {
-        deleteDoc(doc(db, 'campaigns', id)).catch(err => {
-          console.warn("Firestore deleteDoc campaign notice:", err.message);
-        });
-      } catch (err) {}
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_DELETE', `Deleted campaign '${target.name}' from active registry`);
     }
   };
 
   const updateOfferPopup = (image: string, active: boolean, title?: string, description?: string, buttonText?: string, link?: string, showButton?: boolean) => {
     const newOffer = { image, active, title, description, buttonText, link, showButton };
-    updateDoc(doc(db, 'configs', 'settings'), { offer: newOffer }).catch(() => {});
     setOffer(newOffer);
     localStorage.setItem('pai_offer', JSON.stringify(newOffer));
+    fetch('/api/settings/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { offer: newOffer } })
+    }).catch(() => {});
     addLog('ADMIN', 'Administrator', 'OFFER_UPDATE', `Admin modified promo banner popup (Activated: ${active})`);
   };
 
   const updateSupportDetails = (phone: string, email: string) => {
-    updateDoc(doc(db, 'configs', 'settings'), { supportPhone: phone, supportEmail: email }).catch(() => {});
     setSupportPhone(phone);
     setSupportEmail(email);
     localStorage.setItem('pai_support_phone', phone);
     localStorage.setItem('pai_support_email', email);
+    fetch('/api/settings/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { supportPhone: phone, supportEmail: email } })
+    }).catch(() => {});
     addLog('ADMIN', 'Administrator', 'SUPPORT_EDIT', `Site-wide contacts updated. Phone: ${phone}, Email: ${email}`);
   };
 
   const updateGoogleSheetUrl = async (url: string) => {
     try {
-      await updateDoc(doc(db, 'configs', 'settings'), { googleSheetUrl: url });
       setGoogleSheetUrl(url);
       localStorage.setItem('pai_google_sheet_url', url);
+      fetch('/api/settings/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: { googleSheetUrl: url } })
+      }).catch(() => {});
       addLog('ADMIN', 'Administrator', 'GOOGLESHEET_EDIT', `Updated Google Sheet App Script Web App URL to: ${url}`);
     } catch (err) {
       console.error("Error saving Google Sheet URL:", err);
@@ -1887,7 +1578,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try { localStorage.setItem('pai_cached_advertiser_inquiries', JSON.stringify(next)); } catch (e) {}
         return next;
       });
-      await deleteDoc(doc(db, 'advertiserInquiries', id)).catch(() => {});
       addLog('ADMIN', 'Administrator', 'INQUIRY_DELETE', `Deleted advertiser inquiry: ${id}`);
     } catch (err) {
       console.error("Error deleting inquiry:", err);
@@ -1931,7 +1621,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // 3. Post to backend server endpoint for instant persistence and cross-device sync
+      // 3. Post to backend server endpoint for instant persistence and cross-device sync (Zero Firestore quota)
       fetch('/api/advertiser/inquiry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1953,12 +1643,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.warn("Google Apps Script fetch triggered (no-cors mode):", fetchErr);
       }
 
-      // 5. Asynchronously persist to Firestore with error protection
-      try {
-        setDoc(doc(db, 'advertiserInquiries', id), newInquiry).catch(() => {});
-      } catch (e) {}
-
-      // 6. Save a log trace
+      // 5. Save a log trace
       addLog('SYSTEM', 'Advertiser Form', 'INQUIRY_SUBMIT', `New advertiser inquiry from ${name} (${company}) dispatched to Admin +91 8934932418`);
 
       return { 
@@ -1974,9 +1659,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const togglePartnerHiring = (active: boolean) => {
-    updateDoc(doc(db, 'configs', 'settings'), { partnerHiringActive: active }).catch(() => {});
     setPartnerHiringActive(active);
     localStorage.setItem('pai_hiring_active', String(active));
+    fetch('/api/settings/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ settings: { partnerHiringActive: active } })
+    }).catch(() => {});
     addLog('ADMIN', 'Administrator', 'HIRING_TOGGLE', `Hiring availability program toggled to ${active ? 'Active' : 'Paused'}`);
   };
 
@@ -2121,24 +1810,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         payout: oldSub.payout
       })
     }).catch(err => console.warn("Realtime server status dispatch notice:", err));
-
-    // 5. Persist to Firestore asynchronously with error resilience
-    try {
-      updateDoc(doc(db, 'submissions', submissionId), { status }).catch(err => {
-        console.warn("Firestore updateDoc submission notice:", err.message);
-      });
-      if (newEarning) {
-        setDoc(doc(db, 'earnings', newEarning.id), newEarning).catch(err => {
-          console.warn("Firestore setDoc earning notice:", err.message);
-        });
-      } else if (removedEarningId) {
-        deleteDoc(doc(db, 'earnings', removedEarningId)).catch(err => {
-          console.warn("Firestore deleteDoc earning notice:", err.message);
-        });
-      }
-    } catch (err: any) {
-      console.warn("Firestore deferred update notice:", err);
-    }
   };
 
   const deleteSubmission = (id: string) => {
@@ -2151,32 +1822,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch (e) {}
       return next;
     });
-    try {
-      deleteDoc(doc(db, 'earnings', earningId)).catch(() => {});
-    } catch (err) {}
 
     setSubmissions(prev => {
       const next = prev.filter(s => s.id !== id);
       try {
         localStorage.setItem('pai_cached_submissions', JSON.stringify(next));
         broadcastSync('SYNC_SUBMISSIONS', next);
-        fetch('/api/realtime/broadcast', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'SYNC_SUBMISSIONS',
-            payload: next
-          })
-        }).catch(() => {});
       } catch (err) {}
       return next;
     });
 
-    try {
-      deleteDoc(doc(db, 'submissions', id)).catch(err => {
-        console.warn("Firestore deleteDoc submission notice:", err.message);
-      });
-    } catch (err) {}
+    // Server-side instant deletion and cross-client SSE sync
+    fetch('/api/submission/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).catch(err => console.warn("Server submission delete notice:", err));
+
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'DELETE_SUBMISSION', `Lead submission deleted for reference ID: ${id}`);
   };
 
@@ -2202,9 +1864,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (e) {}
         return next;
       });
-      try {
-        updateDoc(doc(db, 'submissions', matchedSub.id), { payout: newAmt }).catch(() => {});
-      } catch (e) {}
     }
 
     // Persist to server store
@@ -2213,12 +1872,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ earningId, amount: newAmt })
     }).catch(err => console.warn("Server earning update notice:", err));
-
-    try {
-      updateDoc(doc(db, 'earnings', earningId), { amount: newAmt }).catch(err => {
-        console.warn("Firestore updateDoc earning notice:", err.message);
-      });
-    } catch (err) {}
 
     broadcastSync('EARNING_UPDATED', { earningId, amount: newAmt, submissionId: matchedSub?.id });
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'UPDATE_EARNING_AMOUNT', `Updated earning ID ${earningId} amount to ₹${newAmt}`);
@@ -2302,22 +1955,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Update in Firestore
-      try {
-        updateDoc(doc(db, 'submissions', revertedSubId), { status: 'Process' }).catch(err => {
-          console.warn("Firestore updateDoc submission revert notice:", err.message);
-        });
-      } catch (err) {}
+      // Update in server store
+      fetch('/api/submission/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ submissionId: revertedSubId, status: 'Process' })
+      }).catch(() => {});
     }
 
-    // 3. Delete earning doc from Firestore
-    try {
-      deleteDoc(doc(db, 'earnings', earningId)).catch(err => {
-        console.warn("Firestore deleteDoc earning notice:", err.message);
-      });
-    } catch (err) {}
-
-    // 4. Dispatch to Server endpoint /api/earning/delete for instant persistent deletion & SSE broadcast across all devices
+    // 3. Dispatch to Server endpoint /api/earning/delete for instant persistent deletion & SSE broadcast across all devices
     fetch('/api/earning/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2344,8 +1990,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleBlockPublisher = (pubId: string) => {
     const p = publishers.find(item => item.id === pubId);
     if (p) {
+      const nextBlocked = !p.blocked;
       setPublishers(prev => {
-        const next = prev.map(item => item.id === pubId ? { ...item, blocked: !item.blocked } : item);
+        const next = prev.map(item => item.id === pubId ? { ...item, blocked: nextBlocked } : item);
         try {
           localStorage.setItem('pai_cached_publishers', JSON.stringify(next));
           broadcastSync('SYNC_PUBLISHERS', next);
@@ -2353,11 +2000,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      try {
-        updateDoc(doc(db, 'publishers', pubId), { blocked: !p.blocked }).catch(err => {
-          console.warn("Firestore updateDoc publisher notice:", err.message);
-        });
-      } catch (err) {}
+      fetch('/api/publisher/toggle-block', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId: pubId, blocked: nextBlocked })
+      }).catch(() => {});
+
       addLog('ADMIN', 'Administrator', p.blocked ? 'UNBLOCK_USER' : 'BLOCK_USER', `Account access modify for ${p.name} (${p.id})`);
     }
   };
@@ -2374,11 +2022,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      try {
-        deleteDoc(doc(db, 'publishers', pubId)).catch(err => {
-          console.warn("Firestore deleteDoc publisher notice:", err.message);
-        });
-      } catch (err) {}
+      fetch('/api/publisher/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId: pubId })
+      }).catch(() => {});
+
       addLog('ADMIN', 'Administrator', 'DELETE_USER', `Account permanently deleted for ${p.name} (${p.id})`);
     }
   };
@@ -2397,20 +2046,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       role
     };
 
-    setEmployees(prev => {
-      const next = [...prev, newEmp];
-      try {
-        localStorage.setItem('pai_cached_employees', JSON.stringify(next));
-        broadcastSync('SYNC_EMPLOYEES', next);
-      } catch (err) {}
-      return next;
-    });
-
+    const next = [...employees, newEmp];
+    setEmployees(next);
     try {
-      setDoc(doc(db, 'employees', empId), newEmp).catch(err => {
-        console.warn("Firestore setDoc employee notice:", err.message);
-      });
+      localStorage.setItem('pai_cached_employees', JSON.stringify(next));
+      broadcastSync('SYNC_EMPLOYEES', next);
     } catch (err) {}
+
+    fetch('/api/employee/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee: newEmp })
+    }).catch(() => {});
+
     addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${name} (Role: ${role})`);
     return { success: true, message: 'Staff Employee account generated successfully!' };
   };
@@ -2419,20 +2067,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const target = employees.find(e => e.id === id);
     if (!target) return;
 
-    setEmployees(prev => {
-      const next = prev.filter(e => e.id !== id);
-      try {
-        localStorage.setItem('pai_cached_employees', JSON.stringify(next));
-        broadcastSync('SYNC_EMPLOYEES', next);
-      } catch (err) {}
-      return next;
-    });
-
+    const next = employees.filter(e => e.id !== id);
+    setEmployees(next);
     try {
-      deleteDoc(doc(db, 'employees', id)).catch(err => {
-        console.warn("Firestore deleteDoc employee notice:", err.message);
-      });
+      localStorage.setItem('pai_cached_employees', JSON.stringify(next));
+      broadcastSync('SYNC_EMPLOYEES', next);
     } catch (err) {}
+
+    fetch('/api/employee/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).catch(() => {});
+
     addLog('ADMIN', 'Administrator', 'STAFF_REMOVED', `Revoked access tokens for staff: ${target.name}`);
   };
 
@@ -2442,34 +2089,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       ...t,
       id: newId
     };
-    setDoc(doc(db, 'testimonials', newId), newTestimonial);
 
-    // Update local state and cache immediately
     const updatedList = [...testimonials, newTestimonial];
     setTestimonials(updatedList);
-    localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+    try {
+      localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+      broadcastSync('SYNC_TESTIMONIALS', updatedList);
+    } catch (e) {}
+
+    fetch('/api/testimonials/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testimonials: updatedList })
+    }).catch(() => {});
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_ADD', `Added testimonial/feedback from '${t.name}'`);
   };
 
   const editTestimonial = (id: string, updated: Partial<Testimonial>) => {
-    updateDoc(doc(db, 'testimonials', id), updated);
-
-    // Update local state and cache immediately
     const updatedList = testimonials.map(t => t.id === id ? { ...t, ...updated } : t);
     setTestimonials(updatedList);
-    localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+    try {
+      localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+      broadcastSync('SYNC_TESTIMONIALS', updatedList);
+    } catch (e) {}
+
+    fetch('/api/testimonials/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testimonials: updatedList })
+    }).catch(() => {});
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_EDIT', `Modified testimonial/feedback from '${updated.name || id}'`);
   };
 
   const deleteTestimonial = (id: string) => {
-    deleteDoc(doc(db, 'testimonials', id));
-
-    // Update local state and cache immediately
     const updatedList = testimonials.filter(t => t.id !== id);
     setTestimonials(updatedList);
-    localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+    try {
+      localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
+      broadcastSync('SYNC_TESTIMONIALS', updatedList);
+    } catch (e) {}
+
+    fetch('/api/testimonials/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testimonials: updatedList })
+    }).catch(() => {});
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_DELETE', `Deleted testimonial with ID '${id}'`);
   };
@@ -2489,34 +2155,75 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const purgeAllSystemData = async () => {
     try {
-      // 1. Mark init_done as true in Firestore to prevent mock data recreation
-      await setDoc(doc(db, 'system_metadata', 'init_done'), { value: true });
+      // 1. Call server purge endpoint
+      await fetch('/api/admin/purge-old-data', { method: 'POST' }).catch(() => {});
 
-      // 2. Clear collections
-      const collectionsToPurge = ['publishers', 'bank_details', 'submissions', 'earnings', 'partners', 'activity_logs', 'backups'];
+      // 2. Mark init_done as true in Firestore to prevent mock data recreation
+      try {
+        await setDoc(doc(db, 'system_metadata', 'init_done'), { value: true, purgedAt: new Date().toISOString() });
+      } catch (e) {}
 
-      for (const colName of collectionsToPurge) {
-        const snap = await getDocs(collection(db, colName));
-        for (const docSnap of snap.docs) {
-          await deleteDoc(doc(db, colName, docSnap.id));
-        }
-      }
+      // 3. Clear local state and localStorage caches
+      setPublishers([]);
+      setSubmissions([]);
+      setEarnings([]);
+      setCampaigns([]);
+      setBankDetailsMap({});
+      setPartnerApplications([]);
+      setEmployees([]);
+      setAdvertiserInquiries([]);
+      setPaymentEmailRecords([]);
 
-      // Add a fresh launch message
-      const initialLogsDoc = doc(db, 'activity_logs', 'l-fresh-start');
-      await setDoc(initialLogsDoc, {
-        id: 'l-fresh-start',
-        timestamp: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        userId: 'SYSTEM',
-        userName: 'Server Core',
-        action: 'BOOT',
-        details: 'Database registers fully purged. Ready for fresh publisher registration cycle!'
+      const cacheKeys = [
+        'pai_cached_publishers',
+        'pai_cached_submissions',
+        'pai_cached_earnings',
+        'pai_cached_campaigns',
+        'pai_cached_bank_details',
+        'pai_cached_partners',
+        'pai_cached_employees',
+        'pai_cached_advertiser_inquiries',
+        'pai_cached_payment_emails'
+      ];
+      cacheKeys.forEach(k => {
+        try { localStorage.removeItem(k); } catch (e) {}
       });
 
-      return { success: true, message: 'All old registers, bank records, and lead submissions successfully deleted! System is now fresh for new client registrations.' };
+      addLog('SYSTEM', 'Core Database Manager', 'PURGE', 'All old client records, leads, and campaigns purged. System reset for fresh setup.');
+
+      return { success: true, message: 'All old client records, leads, awaiting checks, and active offers/campaigns successfully deleted! System is now fresh for new data entry.' };
     } catch (err: any) {
       console.error('Purge error:', err);
       return { success: false, message: 'Purge failed: ' + err.message };
+    }
+  };
+
+  // Push local data to Firestore on demand (Admin triggered only - 0 background quota waste)
+  const pushDataToFirestore = async () => {
+    try {
+      const resp = await fetch('/api/admin/push-firestore', { method: 'POST' });
+      const data = await resp.json();
+      if (data && data.success) {
+        return { success: true, message: `Successfully pushed data to Firebase Cloud! (${data.campaignsCount || campaigns.length} campaigns, ${data.publishersCount || publishers.length} publishers)` };
+      }
+      return { success: false, message: data?.message || 'Failed to push data to Firebase' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Error communicating with server push API' };
+    }
+  };
+
+  // Sync from Cloud Firestore on demand (Admin triggered only)
+  const syncFromCloudFirestore = async () => {
+    try {
+      const resp = await fetch('/api/admin/resync-firestore', { method: 'POST' });
+      const data = await resp.json();
+      if (data && data.success) {
+        if (fetchServerStateRef.current) fetchServerStateRef.current();
+        return { success: true, message: `Successfully pulled records from Firestore! (${data.publishersCount || 0} publishers, ${data.submissionsCount || 0} leads)` };
+      }
+      return { success: false, message: data?.message || 'Failed to sync from Firestore' };
+    } catch (err: any) {
+      return { success: false, message: err?.message || 'Error communicating with server sync API' };
     }
   };
 
@@ -2535,22 +2242,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
-    // Server Persistence & Broadcast
+    // Server Persistence & Realtime Broadcast to All Connected Devices
     fetch('/api/bank/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ publisherId: currentUser.id, details: updated })
     }).catch(err => console.warn("Server bank update notice:", err));
 
-    try {
-      setDoc(doc(db, 'bank_details', currentUser.id), updated).catch(err => {
-        console.warn("Firestore bank details save notice:", err.message);
-      });
-      addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
-      return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
-    } catch (err: any) {
-      return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
-    }
+    addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
+    return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
   };
 
   const submitLead = async (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => {
@@ -2618,17 +2318,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('NEW_SUBMISSION', newSub);
     } catch (e) {}
 
-    // 4. Guaranteed Persistence on Backend Server & Firestore
+    // 4. Guaranteed Persistence on Backend Server (Zero Firestore Quota Burden)
     try {
-      await setDoc(doc(db, 'submissions', subId), newSub).catch(err => {
-        console.warn("Firestore submission save notice:", err.message);
-      });
-
-      const response = await fetch('/api/submission/create', {
+      // Dispatch immediately to server first to trigger instant SSE real-time broadcast to Admin!
+      const serverFetchPromise = fetch('/api/submission/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ submission: newSub })
       });
+
+      const response = await serverFetchPromise;
       if (!response.ok) throw new Error('Backend submission failed');
 
       addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
@@ -2671,11 +2370,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ partner: newApp })
     }).catch(err => console.warn("Server partner apply notice:", err));
-
-    // Non-blocking background Firestore write
-    try {
-      setDoc(doc(db, 'partners', partnerId), newApp).catch(() => {});
-    } catch (e) {}
 
     addLog('PARTNER_PORTAL', name, 'PARTNER_APPLY', `Received recruitment application from partner candidate ${city}`);
     return { success: true, message: 'Application submitted successfully! Our HR Board will review and get back within 48-72 Hours.' };
@@ -2757,6 +2451,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       triggerBackup,
       backupLogs,
       purgeAllSystemData,
+      pushDataToFirestore,
+      syncFromCloudFirestore,
       addTestimonial,
       editTestimonial,
       deleteTestimonial,

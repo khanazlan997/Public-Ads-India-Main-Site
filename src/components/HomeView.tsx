@@ -1355,71 +1355,85 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           
           {/* Top Footer: Brand + Multi-column Links */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-left">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-left">
             {/* Col 1: Brand Info & ISO Badge */}
-            <div className="md:col-span-1 space-y-4">
+            <div className="col-span-2 md:col-span-1 space-y-4">
               <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
+                  PAI
+                </div>
                 <span className="font-black text-slate-900 dark:text-white tracking-tight text-base">Public Ads India</span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium max-w-sm">
                 India's premier performance marketing ecosystem empowering publishers, media buyers, and financial creators.
               </p>
               
               {/* ISO 9001:2015 Compact Badge */}
-              <div className="inline-flex items-center bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-xl px-3 py-2 shadow-xs">
-                <div className="pr-2 border-r border-slate-200 dark:border-slate-800">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">CERTIFIED</span>
-                  <span className="text-xs font-black text-slate-900 dark:text-white whitespace-nowrap">ISO 9001:2015</span>
+              <div className="flex sm:inline-flex items-center gap-3 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:px-3.5 sm:py-2.5 shadow-xs max-w-sm">
+                <div className="flex items-center gap-2.5 pr-3 border-r border-slate-200 dark:border-slate-800 shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                  <div>
+                    <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block leading-none">CERTIFIED</span>
+                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white whitespace-nowrap mt-0.5 block">ISO 9001:2015</span>
+                  </div>
                 </div>
-                <div className="pl-2">
-                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 block leading-none">Quality Management</span>
+                <div className="min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-300 block leading-tight truncate">Quality Management</span>
+                  <span className="text-[9px] sm:text-[10px] font-extrabold text-blue-600 dark:text-amber-400 block tracking-tight mt-0.5">Public Ads India</span>
                 </div>
               </div>
             </div>
 
             {/* Col 2: Ecosystem */}
-            <div className="space-y-3">
+            <div className="col-span-1 space-y-3">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Ecosystem</h4>
-              <ul className="space-y-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                <li><button onClick={() => onNavigate('/overview')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Platform Overview</button></li>
-                <li><button onClick={() => onNavigate('/sitemap')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Business Sitemap (Diagram)</button></li>
-                <li><button onClick={() => onNavigate('/industry')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Industry Solutions</button></li>
-                <li><button onClick={() => onNavigate('/becomeapartner')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Become a Partner</button></li>
-                <li><button onClick={() => onNavigate('/aboutus')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">About Us</button></li>
+              <ul className="space-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => onNavigate('/overview')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Platform Overview</button></li>
+                <li><button onClick={() => onNavigate('/sitemap')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Business Sitemap</button></li>
+                <li><button onClick={() => onNavigate('/industry')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Industry Solutions</button></li>
+                <li><button onClick={() => onNavigate('/becomeapartner')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Become a Partner</button></li>
+                <li><button onClick={() => onNavigate('/aboutus')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">About Us</button></li>
               </ul>
             </div>
 
             {/* Col 3: Resources & Playbooks */}
-            <div className="space-y-3">
+            <div className="col-span-1 space-y-3">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Knowledge & Guides</h4>
-              <ul className="space-y-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                <li><button onClick={() => onNavigate('/blogpage')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Blog & Earning Playbooks</button></li>
-                <li><button onClick={() => onNavigate('/resource')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Resource Hub & Toolkits</button></li>
-                <li><button onClick={() => onNavigate('/termandcondition')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Terms & Conditions</button></li>
+              <ul className="space-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => onNavigate('/blogpage')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Blog & Guides</button></li>
+                <li><button onClick={() => onNavigate('/resource')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Resource Hub</button></li>
+                <li><button onClick={() => onNavigate('/termandcondition')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Terms & Conditions</button></li>
               </ul>
             </div>
 
             {/* Col 4: Portals & Workspaces */}
-            <div className="space-y-3">
+            <div className="col-span-2 sm:col-span-1 space-y-3">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Access Desks</h4>
-              <ul className="space-y-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-                <li><button onClick={() => onNavigate('/Dashboard')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Publisher Portal</button></li>
-                <li><button onClick={() => onNavigate('/Partner')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Partner Desk</button></li>
-                <li><button onClick={() => onNavigate('/Employee')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Employee Desk</button></li>
-                <li><button onClick={() => onNavigate('/Admin')} className="hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Administration Console</button></li>
+              <ul className="space-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <li><button onClick={() => onNavigate('/Dashboard')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Publisher Portal</button></li>
+                <li><button onClick={() => onNavigate('/Partner')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Partner Desk</button></li>
+                <li><button onClick={() => onNavigate('/Employee')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Employee Desk</button></li>
+                <li><button onClick={() => onNavigate('/Admin')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Administration Console</button></li>
               </ul>
             </div>
           </div>
 
           {/* Bottom Row: Copyright and Agency Credits */}
           <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400 border-t border-slate-200/60 dark:border-slate-800/60 pt-6">
-            <div className="flex flex-col items-center sm:items-start gap-0.5">
+            <div className="flex flex-col items-center sm:items-start gap-0.5 text-center sm:text-left">
               <span>&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
               <span className="text-[11px] text-slate-500 font-medium">Established in 2023 • Registered Enterprise</span>
             </div>
-            <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold">
+            <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold text-center">
               Design by. BharatX Web Agency
             </a>
+          </div>
+
+          {/* Dedicated Public Ads India mark below footer */}
+          <div className="w-full text-center border-t border-slate-200/40 dark:border-slate-800/40 pt-4 pb-2">
+            <p className="text-sm sm:text-base font-extrabold tracking-wider text-slate-800 dark:text-slate-200 uppercase">
+              Public Ads India
+            </p>
           </div>
 
         </div>

@@ -7,7 +7,7 @@ import {
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
   Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Target, Mail,
-  MessageCircle, Phone
+  MessageCircle, Phone, UploadCloud, DownloadCloud
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -66,6 +66,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     triggerBackup, 
     activityLogs,
     purgeAllSystemData,
+    pushDataToFirestore,
+    syncFromCloudFirestore,
     testimonials,
     addTestimonial,
     editTestimonial,
@@ -168,27 +170,35 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   // Overview feed display control
   const [showAllOverviewClients, setShowAllOverviewClients] = useState(false);
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [isPushingCloud, setIsPushingCloud] = useState(false);
   const [cloudSyncMsg, setCloudSyncMsg] = useState('');
 
   const handleManualCloudSync = async () => {
     setIsCloudSyncing(true);
-    setCloudSyncMsg('Syncing live data from cloud...');
+    setCloudSyncMsg('Pulling latest records from Cloud Firestore...');
     try {
-      const res = await fetch('/api/admin/resync-firestore', { method: 'POST' });
-      const json = await res.json();
-      if (json.success) {
-        setCloudSyncMsg(`Synchronized ${json.publishersCount} clients & ${json.submissionsCount} leads!`);
-        setTimeout(() => {
-          window.location.reload();
-        }, 1200);
-      } else {
-        setCloudSyncMsg('Cloud sync done.');
-      }
-    } catch (e) {
-      setCloudSyncMsg('Sync complete.');
+      const res = await syncFromCloudFirestore();
+      setCloudSyncMsg(res.message);
+    } catch (e: any) {
+      setCloudSyncMsg(e?.message || 'Sync failed.');
     } finally {
       setIsCloudSyncing(false);
-      setTimeout(() => setCloudSyncMsg(''), 4000);
+      setTimeout(() => setCloudSyncMsg(''), 5000);
+    }
+  };
+
+  const handleManualCloudPush = async () => {
+    if (!window.confirm("Manual Push: Kya aap local database ko Firebase Cloud me push karna chahte hain? Auto-sync band hai taaki Firestore quota safe rahe.")) return;
+    setIsPushingCloud(true);
+    setCloudSyncMsg('Pushing local data to Firebase Firestore...');
+    try {
+      const res = await pushDataToFirestore();
+      setCloudSyncMsg(res.message);
+    } catch (e: any) {
+      setCloudSyncMsg(e?.message || 'Push failed.');
+    } finally {
+      setIsPushingCloud(false);
+      setTimeout(() => setCloudSyncMsg(''), 6000);
     }
   };
 
@@ -878,28 +888,47 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 {/* Cloud Sync Action and Live Status */}
                 <div className="flex flex-wrap items-center gap-2">
                   {cloudSyncMsg && (
-                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2.5 py-1 rounded-lg animate-fade-in border border-indigo-100">
+                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg animate-fade-in border border-indigo-200 shadow-xs">
                       {cloudSyncMsg}
                     </span>
                   )}
                   <button
+                    onClick={handleManualCloudPush}
+                    disabled={isPushingCloud || isCloudSyncing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
+                    title="Push current local changes to Firestore Cloud on demand"
+                  >
+                    <UploadCloud className={`w-3.5 h-3.5 ${isPushingCloud ? 'animate-bounce' : ''}`} />
+                    <span>{isPushingCloud ? 'Pushing...' : 'Push to Cloud'}</span>
+                  </button>
+                  <button
                     onClick={handleManualCloudSync}
-                    disabled={isCloudSyncing}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                    disabled={isCloudSyncing || isPushingCloud}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
                     title="Pull all latest clients and submissions from cloud"
                   >
                     <RefreshCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-                    <span>{isCloudSyncing ? 'Syncing...' : 'Sync Cloud Data'}</span>
+                    <span>{isCloudSyncing ? 'Pulling...' : 'Pull from Cloud'}</span>
                   </button>
-                  <div className="flex items-center gap-2 px-2.5 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl max-w-max self-start sm:self-auto">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-widest font-mono">
-                      Live Synchronized
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl max-w-max self-start sm:self-auto" title="Automatic Firestore writes are disabled to conserve quota">
+                    <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider font-mono">
+                      Auto-Sync OFF (Quota Guard)
                     </span>
                   </div>
+                </div>
+              </div>
+
+              {/* Informational Alert about Fresh Start & Quota Guard */}
+              <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-2xl flex items-start gap-3 text-sky-900 text-xs">
+                <div className="p-1.5 bg-sky-100 rounded-xl text-sky-700 shrink-0 mt-0.5">
+                  <Database className="w-4 h-4" />
+                </div>
+                <div className="flex-1">
+                  <span className="font-extrabold text-sky-950 block mb-0.5">Fresh Account System & Quota Protection Active</span>
+                  <p className="text-sky-800 leading-relaxed">
+                    Purane sabhi inactive/empty clients ka data clear kar diya gaya hai. Sabhi clients ab naye seere se account register karenge. Firestore quota bachane ke liye background auto-sync bilkul band hai — data sirf manual <strong>&quot;Push to Cloud&quot;</strong> dabane par hi sync hoga.
+                  </p>
                 </div>
               </div>
 
@@ -1815,10 +1844,19 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     </h3>
                     <p className="text-xs text-slate-450 mt-1">Audit active profiles, search by name or mobile, or lock suspicious operations immediately.</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={handleManualCloudPush}
+                      disabled={isPushingCloud || isCloudSyncing}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs"
+                      title="Push current local publishers to Firebase Cloud"
+                    >
+                      <UploadCloud className={`w-3.5 h-3.5 ${isPushingCloud ? 'animate-bounce' : ''}`} />
+                      <span>{isPushingCloud ? 'Pushing...' : 'Push to Cloud'}</span>
+                    </button>
                     <button
                       onClick={handleManualCloudSync}
-                      disabled={isCloudSyncing}
+                      disabled={isCloudSyncing || isPushingCloud}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50"
                     >
                       <RefreshCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
@@ -1866,6 +1904,22 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                             const keyB = (b.joinedDate || '') + '_' + (b.id || '');
                             return keyB.localeCompare(keyA);
                           });
+
+                        if (filtered.length === 0) {
+                          return (
+                            <tr>
+                              <td colSpan={7} className="p-8 text-center">
+                                <div className="flex flex-col items-center justify-center text-slate-400 py-4">
+                                  <Users className="w-10 h-10 text-slate-300 mb-2" />
+                                  <p className="font-bold text-sm text-slate-700">Koi Old Client Record Nahi Hai</p>
+                                  <p className="text-xs text-slate-500 mt-1 max-w-md">
+                                    Purane clients ka data saf kar diya gaya hai. Ab sabhi naye clients naye seere se account register karenge.
+                                  </p>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        }
 
                         const totalPages = Math.ceil(filtered.length / 50) || 1;
                         const currentSlice = filtered.slice((pubPage - 1) * 50, pubPage * 50);
@@ -1934,13 +1988,24 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 <button
                                   id={`view-bank-pub-${pub.id}`}
                                   onClick={async () => {
-                                    let bank = bankDetailsMap[pub.id] || null;
-                                    console.log("DEBUG: bank fetch for", pub.id, ":", bank);
+                                    let bank = bankDetailsMap[pub.id] || 
+                                      Object.entries(bankDetailsMap).find(([k]) => k.toLowerCase() === pub.id.toLowerCase())?.[1] || 
+                                      null;
+                                    if (!bank) {
+                                      try {
+                                        const res = await fetch(`/api/bank/${pub.id}`);
+                                        if (res.ok) {
+                                          const json = await res.json();
+                                          if (json.bankDetails) {
+                                            bank = json.bankDetails;
+                                          }
+                                        }
+                                      } catch (e) {}
+                                    }
                                     if (!bank) {
                                       try {
                                         const docRef = doc(db, 'bank_details', pub.id);
                                         const docSnap = await getDoc(docRef);
-                                        console.log("DEBUG: Firestore docSnap exists for", pub.id, ":", docSnap.exists(), "Data:", docSnap.exists() ? docSnap.data() : "none");
                                         if (docSnap.exists()) {
                                           bank = docSnap.data() as any;
                                         }

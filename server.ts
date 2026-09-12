@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp } from "firebase/app";
-import { getFirestore, collection, getDocs } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
 
 async function startServer() {
@@ -53,8 +53,18 @@ async function startServer() {
     employees: any[];
     advertiserInquiries: any[];
     partners: any[];
+    testimonials?: any[];
+    settings?: any;
     updatedAt: number;
   }
+
+  const defaultSettings = {
+    supportPhone: '+91 8934932418',
+    supportEmail: 'publicadsnetwork@gmail.com',
+    partnerHiringActive: true,
+    googleSheetUrl: '',
+    offer: { image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&q=80&w=600', active: false }
+  };
 
   let store: ServerStore = {
     submissions: [],
@@ -65,6 +75,8 @@ async function startServer() {
     employees: [],
     advertiserInquiries: [],
     partners: [],
+    testimonials: [],
+    settings: defaultSettings,
     updatedAt: Date.now()
   };
 
@@ -74,42 +86,22 @@ async function startServer() {
       const raw = fs.readFileSync(DATA_FILE, "utf-8");
       const parsed = JSON.parse(raw);
       store = { ...store, ...parsed };
+      if (!store.settings) store.settings = defaultSettings;
+      else store.settings = { ...defaultSettings, ...store.settings };
+      if (!Array.isArray(store.testimonials)) store.testimonials = [];
       console.log(`Loaded ${store.submissions.length} submissions and ${store.earnings.length} earnings from server storage.`);
     }
   } catch (e) {
     console.warn("Could not read server_data/store.json, using initialized store:", e);
   }
 
-  if (!store.publishers || store.publishers.length === 0) {
-    store.publishers = snapshotPublishers;
-  } else {
-    const pubMap = new Map();
-    snapshotPublishers.forEach(p => pubMap.set(p.id, p));
-    store.publishers.forEach(p => {
-      const snap = pubMap.get(p.id);
-      if (snap && snap.avatar && snap.avatar !== '👤' && (!p.avatar || p.avatar === '👤')) {
-        p.avatar = snap.avatar;
-      }
-      pubMap.set(p.id, p);
-    });
-    store.publishers = Array.from(pubMap.values());
+  if (!store.publishers) {
+    store.publishers = [];
   }
 
   // Campaigns Initialization & Synchronization
-  if (!store.campaigns || store.campaigns.length === 0) {
-    store.campaigns = snapshotCampaigns.map(c => ({ ...c, active: true }));
-  } else {
-    const campMap = new Map();
-    snapshotCampaigns.forEach(c => campMap.set(c.id, { ...c, active: true }));
-    store.campaigns.forEach(c => {
-      const snap = campMap.get(c.id);
-      campMap.set(c.id, {
-        ...c,
-        ...(snap ? { image: (c.image && !c.image.startsWith('/api/campaign/image/')) ? c.image : snap.image } : {}),
-        active: c.active !== undefined ? c.active : true
-      });
-    });
-    store.campaigns = Array.from(campMap.values());
+  if (!store.campaigns) {
+    store.campaigns = [];
   }
 
   // Auto-reconciliation: ensure every submission marked 'Payment Done' has a corresponding record in store.earnings
@@ -160,19 +152,19 @@ async function startServer() {
     }, 1000);
   }
 
-  // Automatic Firestore Cloud Synchronization
-  // Pulls all live publishers, submissions, earnings, campaigns, and bank details from Firestore
+  // Manual / Explicit Firestore Cloud Synchronization
+  // Only called when Admin explicitly triggers a Push or Pull, avoiding automatic background quota consumption
   async function syncFromFirestore() {
     try {
       const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      if (!fs.existsSync(configPath)) return;
+      if (!fs.existsSync(configPath)) return { success: false, message: "No Firebase config found" };
       const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (!config.apiKey || !config.projectId) return;
+      if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
 
       const firebaseApp = initializeApp(config, `server-sync-${Date.now()}`);
       const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
 
-      console.log("[Server Firestore Sync] Fetching collections from Firestore...");
+      console.log("[Server Firestore Sync (Manual)] Fetching collections from Firestore on demand...");
       
       const [pubSnap, subSnap, earnSnap, campSnap, bankSnap] = await Promise.all([
         getDocs(collection(firestore, "publishers")).catch(() => ({ size: 0, docs: [] } as any)),
@@ -182,8 +174,6 @@ async function startServer() {
         getDocs(collection(firestore, "bank_details")).catch(() => ({ size: 0, docs: [] } as any)),
       ]);
 
-      let changed = false;
-
       // 1. Publishers
       if (pubSnap.size > 0) {
         const pubMap = new Map<string, any>();
@@ -192,9 +182,7 @@ async function startServer() {
           const data = { id: d.id, ...d.data() };
           pubMap.set(d.id, { ...(pubMap.get(d.id) || {}), ...data });
         });
-        const mergedPubs = Array.from(pubMap.values());
-        if (mergedPubs.length !== store.publishers.length) changed = true;
-        store.publishers = mergedPubs;
+        store.publishers = Array.from(pubMap.values());
       }
 
       // 2. Submissions
@@ -205,9 +193,7 @@ async function startServer() {
           const data = { id: d.id, ...d.data() };
           subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data });
         });
-        const mergedSubs = Array.from(subMap.values());
-        if (mergedSubs.length !== store.submissions.length) changed = true;
-        store.submissions = mergedSubs;
+        store.submissions = Array.from(subMap.values());
       }
 
       // 3. Earnings
@@ -218,9 +204,7 @@ async function startServer() {
           const data = { id: d.id, ...d.data() };
           earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data });
         });
-        const mergedEarns = Array.from(earnMap.values());
-        if (mergedEarns.length !== store.earnings.length) changed = true;
-        store.earnings = mergedEarns;
+        store.earnings = Array.from(earnMap.values());
       }
 
       // 4. Campaigns
@@ -241,16 +225,131 @@ async function startServer() {
         });
       }
 
-      console.log(`[Server Firestore Sync] Synced ${store.publishers.length} publishers, ${store.submissions.length} submissions, ${store.earnings.length} earnings.`);
+      console.log(`[Server Firestore Sync (Manual)] Synced ${store.publishers.length} publishers, ${store.submissions.length} submissions, ${store.earnings.length} earnings.`);
       scheduleSaveStore();
-    } catch (err) {
+      return {
+        success: true,
+        publishersCount: store.publishers.length,
+        submissionsCount: store.submissions.length,
+        earningsCount: store.earnings.length,
+        campaignsCount: store.campaigns.length
+      };
+    } catch (err: any) {
       console.warn("[Server Firestore Sync] Sync notice:", err);
+      return { success: false, message: err?.message || String(err) };
     }
   }
 
-  // Trigger sync on boot and every 5 minutes in background
-  syncFromFirestore();
-  setInterval(syncFromFirestore, 5 * 60 * 1000);
+  // Push local server store data to Firestore on demand (when explicitly triggered by Admin)
+  async function pushToFirestore() {
+    try {
+      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+      if (!fs.existsSync(configPath)) return { success: false, message: "No Firebase config found" };
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
+
+      const firebaseApp = initializeApp(config, `server-push-${Date.now()}`);
+      const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
+
+      console.log("[Server Firestore Push (Manual)] Writing data to Firestore on demand...");
+      
+      // 1. Write metadata
+      await setDoc(doc(firestore, "system_metadata", "init_done"), { value: true, updatedAt: new Date().toISOString() }).catch(() => {});
+
+      // 2. Write Campaigns
+      for (const c of store.campaigns) {
+        if (c && c.id) {
+          await setDoc(doc(firestore, "campaigns", c.id), c).catch(() => {});
+        }
+      }
+
+      // 3. Write Publishers (only non-mock, fresh client registrations)
+      for (const p of store.publishers) {
+        if (p && p.id) {
+          await setDoc(doc(firestore, "publishers", p.id), p).catch(() => {});
+        }
+      }
+
+      // 4. Write Submissions
+      for (const s of store.submissions) {
+        if (s && s.id) {
+          await setDoc(doc(firestore, "submissions", s.id), s).catch(() => {});
+        }
+      }
+
+      // 5. Write Earnings
+      for (const e of store.earnings) {
+        if (e && e.id) {
+          await setDoc(doc(firestore, "earnings", e.id), e).catch(() => {});
+        }
+      }
+
+      // 6. Write Bank Details
+      for (const [pubId, b] of Object.entries(store.bankDetailsMap)) {
+        if (pubId && b) {
+          await setDoc(doc(firestore, "bank_details", pubId), b).catch(() => {});
+        }
+      }
+
+      console.log(`[Server Firestore Push (Manual)] Successfully pushed to Firestore: ${store.campaigns.length} campaigns, ${store.publishers.length} publishers.`);
+      return {
+        success: true,
+        message: "Data successfully pushed to Firebase on demand",
+        campaignsCount: store.campaigns.length,
+        publishersCount: store.publishers.length,
+        submissionsCount: store.submissions.length,
+        earningsCount: store.earnings.length
+      };
+    } catch (err: any) {
+      console.warn("[Server Firestore Push] Push notice:", err);
+      return { success: false, message: err?.message || String(err) };
+    }
+  }
+
+  // Purge old client collections from Firestore on demand
+  async function purgeOldClientDataFromFirestore() {
+    try {
+      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+      if (!fs.existsSync(configPath)) return { success: false, message: "No Firebase config found" };
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
+
+      const firebaseApp = initializeApp(config, `server-purge-${Date.now()}`);
+      const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
+
+      console.log("[Server Firestore Purge] Clearing old client collections in Firestore...");
+      const collectionsToPurge = ["publishers", "submissions", "earnings", "campaigns", "bank_details", "partners", "advertiserInquiries", "payment_emails"];
+
+      for (const colName of collectionsToPurge) {
+        try {
+          const snap = await getDocs(collection(firestore, colName));
+          for (const d of snap.docs) {
+            await deleteDoc(doc(firestore, colName, d.id)).catch(() => {});
+          }
+        } catch (e) {
+          console.warn(`Purge collection ${colName} notice:`, e);
+        }
+      }
+
+      await setDoc(doc(firestore, "system_metadata", "init_done"), { value: true, purgedAt: new Date().toISOString() }).catch(() => {});
+
+      // Clear local server store memory
+      store.publishers = [];
+      store.submissions = [];
+      store.earnings = [];
+      store.campaigns = [];
+      store.bankDetailsMap = {};
+      store.employees = [];
+      store.advertiserInquiries = [];
+      store.partners = [];
+      scheduleSaveStore();
+
+      return { success: true, message: "All old client records, leads, and active campaigns purged from Firebase and Server Store. Ready for fresh setup!" };
+    } catch (err: any) {
+      console.warn("[Server Firestore Purge] Purge notice:", err);
+      return { success: false, message: err?.message || String(err) };
+    }
+  }
 
   // Active Server-Sent Events (SSE) connections for cross-device real-time sync
   const sseClients: { id: string; res: express.Response }[] = [];
@@ -392,14 +491,25 @@ async function startServer() {
 
   // Dedicated manual trigger to force pull latest records from Firestore
   app.post("/api/admin/resync-firestore", async (req, res) => {
-    await syncFromFirestore();
-    res.json({
-      success: true,
-      publishersCount: store.publishers.length,
-      submissionsCount: store.submissions.length,
-      earningsCount: store.earnings.length,
-      campaignsCount: store.campaigns.length
-    });
+    const result = await syncFromFirestore();
+    res.json(result);
+  });
+
+  // Dedicated manual trigger to push local server store data to Firestore
+  app.post("/api/admin/push-firestore", async (req, res) => {
+    const result = await pushToFirestore();
+    res.json(result);
+  });
+
+  // Dedicated manual trigger to purge all old client records
+  app.post("/api/admin/purge-old-data", async (req, res) => {
+    const result = await purgeOldClientDataFromFirestore();
+    broadcastRealtime({ type: "SYNC_PUBLISHERS", payload: [] });
+    broadcastRealtime({ type: "SYNC_SUBMISSIONS", payload: [] });
+    broadcastRealtime({ type: "SYNC_EARNINGS", payload: [] });
+    broadcastRealtime({ type: "SYNC_CAMPAIGNS", payload: [] });
+    broadcastRealtime({ type: "SYNC_BANK_DETAILS", payload: {} });
+    res.json(result);
   });
 
   // 2. Fetch server state (Instantly loads latest data without burning Firestore read quota)
@@ -655,6 +765,18 @@ async function startServer() {
     }
   });
 
+  // Dedicated GET Bank Details endpoint
+  app.get("/api/bank/:publisherId", (req, res) => {
+    const pubId = req.params.publisherId;
+    if (!pubId) return res.status(400).json({ error: "Missing publisherId" });
+    const target = (pubId || '').trim().toLowerCase();
+    const foundEntry = Object.entries(store.bankDetailsMap || {}).find(([k]) => k.trim().toLowerCase() === target);
+    if (foundEntry) {
+      return res.json({ success: true, bankDetails: foundEntry[1] });
+    }
+    return res.status(404).json({ success: false, message: "Bank details not found" });
+  });
+
   // Dedicated Partner Apply endpoint (Zero Firestore quota dependency)
   app.post("/api/partner/apply", (req, res) => {
     try {
@@ -675,6 +797,145 @@ async function startServer() {
         payload: store.partners
       });
       res.json({ success: true, partner });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Settings Update endpoint (Zero Firestore quota)
+  app.post("/api/settings/update", (req, res) => {
+    try {
+      const { settings } = req.body || {};
+      if (settings && typeof settings === 'object') {
+        store.settings = { ...(store.settings || {}), ...settings };
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_SETTINGS",
+          payload: store.settings
+        });
+      }
+      res.json({ success: true, settings: store.settings });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Testimonials Update endpoint (Zero Firestore quota)
+  app.post("/api/testimonials/update", (req, res) => {
+    try {
+      const { testimonials } = req.body || {};
+      if (Array.isArray(testimonials)) {
+        store.testimonials = testimonials;
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_TESTIMONIALS",
+          payload: store.testimonials
+        });
+      }
+      res.json({ success: true, testimonials: store.testimonials });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Submission Delete endpoint (Zero Firestore quota)
+  app.post("/api/submission/delete", (req, res) => {
+    try {
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: "Missing submission ID" });
+      const idx = store.submissions.findIndex(s => s.id === id);
+      if (idx !== -1) {
+        store.submissions.splice(idx, 1);
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_SUBMISSIONS",
+          payload: store.submissions
+        });
+      }
+      res.json({ success: true, count: store.submissions.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Publisher Delete endpoint (Zero Firestore quota)
+  app.post("/api/publisher/delete", (req, res) => {
+    try {
+      const { publisherId } = req.body || {};
+      if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
+      const idx = store.publishers.findIndex(p => p.id === publisherId);
+      if (idx !== -1) {
+        store.publishers.splice(idx, 1);
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_PUBLISHERS",
+          payload: store.publishers
+        });
+      }
+      res.json({ success: true, count: store.publishers.length });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Publisher Block/Unblock endpoint (Zero Firestore quota)
+  app.post("/api/publisher/toggle-block", (req, res) => {
+    try {
+      const { publisherId, blocked } = req.body || {};
+      if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
+      const pub = store.publishers.find(p => p.id === publisherId);
+      if (pub) {
+        pub.blocked = blocked !== undefined ? blocked : !pub.blocked;
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_PUBLISHERS",
+          payload: store.publishers
+        });
+      }
+      res.json({ success: true, publisher: pub });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Employee CRUD endpoints (Zero Firestore quota)
+  app.post("/api/employee/update", (req, res) => {
+    try {
+      const { employee } = req.body || {};
+      if (!employee || !employee.id) return res.status(400).json({ error: "Missing employee data" });
+      if (!Array.isArray(store.employees)) store.employees = [];
+      const idx = store.employees.findIndex(e => e.id === employee.id);
+      if (idx !== -1) {
+        store.employees[idx] = { ...store.employees[idx], ...employee };
+      } else {
+        store.employees.unshift(employee);
+      }
+      scheduleSaveStore();
+      broadcastRealtime({
+        type: "SYNC_EMPLOYEES",
+        payload: store.employees
+      });
+      res.json({ success: true, employees: store.employees });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/employee/delete", (req, res) => {
+    try {
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: "Missing employee ID" });
+      if (!Array.isArray(store.employees)) store.employees = [];
+      const idx = store.employees.findIndex(e => e.id === id);
+      if (idx !== -1) {
+        store.employees.splice(idx, 1);
+        scheduleSaveStore();
+        broadcastRealtime({
+          type: "SYNC_EMPLOYEES",
+          payload: store.employees
+        });
+      }
+      res.json({ success: true, count: store.employees.length });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1225,9 +1486,6 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
-
-  // Start periodic sync
-  setInterval(syncFromFirestore, 600000); // 10 minutes
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);

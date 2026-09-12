@@ -1,51 +1,37 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
 import { 
-  initializeFirestore, 
-  persistentLocalCache, 
-  persistentMultipleTabManager,
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  updateDoc,
-  deleteDoc,
-  onSnapshot,
-  query,
-  where,
-  limit,
-  orderBy
-} from 'firebase/firestore';
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDKyVNBYKUItn3IcQEM3xyS4f5H1pFJEyI",
-  authDomain: "corded-cedar-lwh20.firebaseapp.com",
-  projectId: "corded-cedar-lwh20",
-  storageBucket: "corded-cedar-lwh20.firebasestorage.app",
-  messagingSenderId: "381615250882",
-  appId: "1:381615250882:web:f50478ab3866f8ba638a5b"
-};
-
-const app = initializeApp(firebaseConfig);
-
-const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-}, "ai-studio-1d3c5653-93f4-411f-bd71-32fe9be35e38");
-
-export { 
-  db, 
+  getFirestore, 
   collection, 
   doc, 
   setDoc, 
-  getDoc, 
-  getDocs, 
   updateDoc, 
   deleteDoc, 
+  getDocs, 
+  getDoc, 
   onSnapshot, 
   query, 
   where, 
   limit, 
   orderBy 
+} from 'firebase/firestore';
+import firebaseConfig from '../../firebase-applet-config.json';
+
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+export const auth = getAuth(app);
+
+export {
+  collection,
+  doc,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  getDocs,
+  getDoc,
+  onSnapshot,
+  query,
+  where,
+  limit,
+  orderBy
 };

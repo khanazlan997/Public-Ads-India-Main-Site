@@ -777,6 +777,16 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       <div id="publisher-auth-wrapper" className="min-h-[85vh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-[#0d1628] rounded-3xl overflow-hidden border border-slate-200/85 dark:border-slate-800/80 p-6 sm:p-10 shadow-2xl relative">
           
+          {/* Professional System Reset Notice */}
+          <div className="mb-6 p-4 bg-blue-50/90 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-2xl text-xs text-blue-900 dark:text-blue-200 space-y-1.5 shadow-sm">
+            <div className="font-extrabold flex items-center gap-1.5 uppercase tracking-wider text-[11px]">
+              <span>✨ Welcome to the Upgraded Portal</span>
+            </div>
+            <p className="leading-relaxed text-[11px] opacity-90">
+              We have upgraded our platform to bring you faster performance and a smoother experience! Please click on <strong>Register Account</strong> below to quickly create your new publisher ID and get started.
+            </p>
+          </div>
+
           {/* Logo element */}
           <div className="text-center mb-6">
             <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-brand-primary dark:text-brand-accent mx-auto mb-3">
@@ -1221,7 +1231,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         profileAvatar && profileAvatar.length <= 2 ? (
                           <span className="text-4xl sm:text-5xl">{profileAvatar}</span>
                         ) : (
-                          <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgfkDqzbCnl6zEkhuBL08Yy5NOcQwG-QOw64NS6WYU2R_2wlUnmydO2xnOjMiY59D0cnlT0QTmiBZ_G_gi5_-W62TOcPdry0KaXmGeGoQAKYiLTfTlc6ko_IiX5FhUJbFuW7y4X2lrkT9F5bm3elnqaxTMOxhYqemHL0EFoozduJf77NEIaZDjuXO1FA2I/Gemini_Generated_Image_txixh7txixh7txix.png" alt="Default Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png" alt="Default Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                         )
                       )}
                     </div>

@@ -1589,7 +1589,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email,
         phone,
         password,
-        avatar: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgfkDqzbCnl6zEkhuBL08Yy5NOcQwG-QOw64NS6WYU2R_2wlUnmydO2xnOjMiY59D0cnlT0QTmiBZ_G_gi5_-W62TOcPdry0KaXmGeGoQAKYiLTfTlc6ko_IiX5FhUJbFuW7y4X2lrkT9F5bm3elnqaxTMOxhYqemHL0EFoozduJf77NEIaZDjuXO1FA2I/Gemini_Generated_Image_txixh7txixh7txix.png',
+        avatar: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png',
         blocked: false,
         joinedDate: new Date().toISOString().substring(0, 10),
         ...(formattedInviteCode ? { inviteCode: formattedInviteCode } : {})

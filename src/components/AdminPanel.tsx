@@ -1911,9 +1911,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                               <td colSpan={7} className="p-8 text-center">
                                 <div className="flex flex-col items-center justify-center text-slate-400 py-4">
                                   <Users className="w-10 h-10 text-slate-300 mb-2" />
-                                  <p className="font-bold text-sm text-slate-700">Koi Old Client Record Nahi Hai</p>
+                                  <p className="font-bold text-sm text-slate-700">No Historical Client Records Found</p>
                                   <p className="text-xs text-slate-500 mt-1 max-w-md">
-                                    Purane clients ka data saf kar diya gaya hai. Ab sabhi naye clients naye seere se account register karenge.
+                                    Historical client logs have been cleared. All new client registrations will appear here in real-time.
                                   </p>
                                 </div>
                               </td>
@@ -2179,7 +2179,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <div className="max-w-md mx-auto space-y-1">
                     <h4 className="text-base font-black text-slate-800">No Target Achievers Yet</h4>
                     <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      Abhi kisi bhi publisher ka <strong>20 AngelOne referral + First Earning</strong> target complete nahi hua hai. Jaise hi kisi publisher ke 20 completed referrals ho jayenge, unka data yahan automatically show hone lagega.
+                      No publisher has completed the <strong>20 AngelOne referrals + First Earning</strong> target yet. As soon as a publisher completes 20 verified referrals, their details will automatically appear here.
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-extrabold text-slate-600 shadow-xs">

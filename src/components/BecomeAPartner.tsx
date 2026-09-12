@@ -196,7 +196,7 @@ export default function BecomeAPartner({ onNavigate }: { onNavigate: (route: str
             <div>
               <h3 className="text-xl font-black text-emerald-950 dark:text-emerald-200">Application Dispatched to WhatsApp!</h3>
               <p className="text-xs sm:text-sm text-emerald-700 dark:text-emerald-300 max-w-md mx-auto mt-1">
-                Aapki partner application details seedha admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par forward kar di gayi hain.
+                Your partner application details have been forwarded directly to the official admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span>.
               </p>
               <div className="mt-2 inline-block text-[10px] font-extrabold px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded-full">
                 ✓ Direct WhatsApp Routing • Zero Firebase / Database Load

@@ -138,7 +138,7 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
                     <div>
                       <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white">Application Dispatched to WhatsApp!</h2>
                       <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 font-medium max-w-sm mx-auto leading-relaxed mt-1">
-                        Aapki application details seedha official admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par dispatch kar di gayi hain.
+                        Your application details have been dispatched directly to the official admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span>.
                       </p>
                       <div className="mt-2 inline-block text-[10px] font-extrabold px-3 py-1 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded-full">
                         ✓ Direct WhatsApp Routing • Zero Firebase / Database Load

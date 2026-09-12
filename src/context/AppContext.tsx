@@ -138,42 +138,42 @@ const defaultTestimonials: Testimonial[] = [
     name: "Rahul Sharma",
     profession: "Demat Publisher, Kanpur",
     image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=300",
-    message: "Maine zero investment se Demat account opening work start kiya tha. Daily UPI se payout exact time pe mil jata hai. Transparent tracking and 100% trusted network."
+    message: "I started Demat account opening work with zero investment. Daily payouts via UPI arrive right on time. Transparent tracking and 100% trusted network."
   },
   {
     id: "testi-2",
     name: "Pooja Verma",
     profession: "Telecalling & BPO Partner, Lucknow",
     image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=300",
-    message: "Work from home calling work ke liye sabse reliable platform hai. Lead verification bahut fast hota hai aur payment me kabhi delay nahi hua. 5-star support!"
+    message: "Most reliable platform for work-from-home calling projects. Lead verification is super fast and payments are never delayed. 5-star support!"
   },
   {
     id: "testi-3",
     name: "Amit Patel",
     profession: "Master Affiliate Partner, Gujarat",
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=300",
-    message: "Public Ads India ke fintech CPA campaigns ka conversion rate aur payout industry me sabse best hai. Inka MIS portal aur lead dashboard behad user-friendly hai."
+    message: "The conversion rates and payouts for Public Ads India's fintech CPA campaigns are the best in the industry. Their MIS portal and lead dashboard are extremely user-friendly."
   },
   {
     id: "testi-4",
     name: "Neha Singh",
     profession: "Student & Part-Time Publisher, Delhi",
     image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=300",
-    message: "Bina kisi investment ke daily 2-3 hours work karke achi income generate ho rahi hai. Customer support team hamesha guide karti hai. Truly India's trusted platform."
+    message: "Earning a great income by working just 2-3 hours daily with zero investment. The customer support team always guides us. Truly India's most trusted platform."
   },
   {
     id: "testi-5",
     name: "Vikas Yadav",
     profession: "Agency Owner (25+ Agents), Kanpur",
     image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=300",
-    message: "Hamari Puri calling team PAI ke banking aur Demat campaigns par kaam karti hai. Bulk payment processing aur live status tracking system unmatchable hai."
+    message: "Our entire calling team works on PAI's banking and Demat campaigns. Bulk payment processing and live status tracking systems are unmatchable."
   },
   {
     id: "testi-6",
     name: "Sunil Gupta",
     profession: "Digital Marketer & Publisher, Jaipur",
     image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=300",
-    message: "Fintech affiliate offers aur calling projects ke liye India ka #1 portal. Admin aur support team ka response instant rehta hai. Highly recommended!"
+    message: "India's #1 portal for fintech affiliate offers and calling projects. The admin and support team response is instant. Highly recommended!"
   }
 ];
 
@@ -1184,13 +1184,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const loginPublisher = async (phoneOrEmail: string, password: string) => {
     console.log(`[Client Auth] Attempting login for: ${phoneOrEmail}`);
     try {
-      const cleanTarget = phoneOrEmail.trim().toLowerCase();
+      const cleanTarget = (phoneOrEmail || '').trim().toLowerCase();
+      const cleanDigits = (phoneOrEmail || '').trim().replace(/[\s\-\(\)]/g, '');
+      
       // 1. Check local state (fast track)
       console.log(`[Client Auth] Local publishers count: ${publishers.length}`);
-      let pub = publishers.find(p => 
-        (p.email?.trim().toLowerCase() === cleanTarget || p.phone?.trim() === phoneOrEmail.trim()) && 
-        p.password === password
-      );
+      let pub = publishers.find(p => {
+        if (p.password !== password) return false;
+        const pId = (p.id || '').trim().toLowerCase();
+        const pEmail = (p.email || '').trim().toLowerCase();
+        const pPhone = (p.phone || '').trim().replace(/[\s\-\(\)]/g, '');
+        return (cleanTarget && (pId === cleanTarget || pEmail === cleanTarget)) || (cleanDigits && pPhone === cleanDigits);
+      });
       
       // 2. Check Backend Server Store (Zero Firestore Quota Cost, instant response across all devices)
       if (!pub) {
@@ -1215,7 +1220,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         } catch (err) {
           console.log(`[Client Auth] Backend request error:`, err);
-          // ignore server net err and fall through
         }
       } else {
         console.log(`[Client Auth] Found locally!`);
@@ -1226,18 +1230,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           const pubsRef = collection(db, 'publishers');
           
-          // Try by email (optimized with limit(1))
-          const qEmail = query(pubsRef, where('email', '==', phoneOrEmail.trim()), where('password', '==', password), limit(1));
-          const snapEmail = await getDocs(qEmail);
-          
-          if (!snapEmail.empty) {
-            pub = snapEmail.docs[0].data() as Publisher;
+          // Try by Publisher ID
+          const qId = query(pubsRef, where('id', '==', phoneOrEmail.trim().toUpperCase()), where('password', '==', password), limit(1));
+          const snapId = await getDocs(qId);
+          if (!snapId.empty) {
+            pub = snapId.docs[0].data() as Publisher;
           } else {
-            // Try by phone (optimized with limit(1))
-            const qPhone = query(pubsRef, where('phone', '==', phoneOrEmail.trim()), where('password', '==', password), limit(1));
-            const snapPhone = await getDocs(qPhone);
-            if (!snapPhone.empty) {
-              pub = snapPhone.docs[0].data() as Publisher;
+            // Try by email
+            const qEmail = query(pubsRef, where('email', '==', cleanTarget), where('password', '==', password), limit(1));
+            const snapEmail = await getDocs(qEmail);
+            
+            if (!snapEmail.empty) {
+              pub = snapEmail.docs[0].data() as Publisher;
+            } else {
+              // Try by phone
+              const qPhone = query(pubsRef, where('phone', '==', cleanDigits), where('password', '==', password), limit(1));
+              const snapPhone = await getDocs(qPhone);
+              if (!snapPhone.empty) {
+                pub = snapPhone.docs[0].data() as Publisher;
+              }
             }
           }
         } catch (err: any) {
@@ -1246,7 +1257,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (!pub) {
-        return { success: false, message: 'Invalid phone/email or password.' };
+        return { success: false, message: 'Invalid Publisher ID, Email/Phone, or password.' };
       }
       if (pub.blocked) {
         return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
@@ -1265,35 +1276,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const signupPublisher = async (name: string, email: string, phone: string, password: string, inviteCode?: string) => {
     try {
-      // 1. Check if email or phone is already registered in local state
-      let existing = publishers.find(p => p.email === email || p.phone === phone);
-      
-      // 2. Double check Firestore directly to prevent signup duplication across devices (optimized with limit(1))
-      if (!existing) {
-        const pubsRef = collection(db, 'publishers');
-        const qEmail = query(pubsRef, where('email', '==', email), limit(1));
-        const snapEmail = await getDocs(qEmail);
-        if (!snapEmail.empty) {
-          existing = snapEmail.docs[0].data() as Publisher;
-        } else {
-          const qPhone = query(pubsRef, where('phone', '==', phone), limit(1));
-          const snapPhone = await getDocs(qPhone);
-          if (!snapPhone.empty) {
-            existing = snapPhone.docs[0].data() as Publisher;
-          }
-        }
+      const cleanName = (name || '').trim();
+      const cleanEmail = (email || '').trim().toLowerCase();
+      const cleanPhone = (phone || '').trim().replace(/[\s\-\(\)]/g, '');
+
+      if (!cleanName || !cleanEmail || !cleanPhone || !password) {
+        return { success: false, message: 'All registration fields (Full Name, Email, Phone Number, Password) are required.' };
       }
 
-      if (existing) {
-        return { success: false, message: 'An account with this Email or Phone number already exists.' };
+      // Check local state only if exact match exists with same password
+      const exactLocalMatch = publishers.find(p => 
+        (p.email || '').trim().toLowerCase() === cleanEmail && 
+        p.password === password
+      );
+      if (exactLocalMatch) {
+        return { success: false, message: `An account already exists for ${cleanEmail}. Please log in using Publisher ID: ${exactLocalMatch.id}.` };
       }
 
-      // 3. Compute new ID: Random 4-digit number (1000-9999) prefixed with 'PUB' (non-sequential)
-      const existingIds = new Set(publishers.map(p => p.id));
+      // Compute new unique Publisher ID: Random 4-digit number (1000-9999) prefixed with 'PUB'
+      const existingIds = new Set(publishers.map(p => (p.id || '').trim().toUpperCase()));
       let candidateId = '';
       
       for (let attempt = 0; attempt < 500; attempt++) {
-        const random4Digit = Math.floor(1000 + Math.random() * 9000); // 4-digit number between 1000 and 9999
+        const random4Digit = Math.floor(1000 + Math.random() * 9000);
         const testId = `PUB${random4Digit}`;
         if (!existingIds.has(testId)) {
           candidateId = testId;
@@ -1302,29 +1307,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       if (!candidateId) {
-        let attempts = 0;
-        let foundId = '';
-        while (attempts < 50) {
-          const rand = Math.floor(1000 + Math.random() * 9000);
-          const testId = `PUB${rand}`;
-          if (!publishers.some(p => p.id.toLowerCase() === testId.toLowerCase())) {
-            foundId = testId;
-            break;
-          }
-          attempts++;
-        }
-        candidateId = foundId || `PUB${Date.now().toString().slice(-4)}`;
+        candidateId = `PUB${Math.floor(1000 + Math.random() * 9000)}`;
       }
 
       const newId = candidateId;
-
       const formattedInviteCode = inviteCode ? inviteCode.trim().toUpperCase() : undefined;
 
       const newPub: Publisher = {
         id: newId,
-        name,
-        email,
-        phone,
+        name: cleanName,
+        email: cleanEmail,
+        phone: cleanPhone,
         password,
         avatar: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png',
         blocked: false,
@@ -1334,16 +1327,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const emptyBank: BankDetails = {
         publisherId: newId,
-        holderName: name,
-        phone,
-        email,
+        holderName: cleanName,
+        phone: cleanPhone,
+        email: cleanEmail,
         accountNumber: '',
         ifsc: '',
         upi: '',
         qrCode: ''
       };
 
-      // 4. Optimistic state & cache
+      // 1. Update local state & storage cache instantly
       setPublishers(prev => {
         const next = [newPub, ...prev.filter(p => p.id !== newId)];
         try { localStorage.setItem('pai_cached_publishers', JSON.stringify(next)); } catch (e) {}
@@ -1355,7 +1348,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // 5. Server Persistence (Zero Firestore Quota Dependency)
+      // 2. Server & Firestore Persistence (Non-blocking async sync)
       fetch('/api/publisher/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1368,12 +1361,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         body: JSON.stringify({ publisherId: newId, details: emptyBank })
       }).catch(err => console.warn("Server bank init notice:", err));
 
-      const sess = { type: 'publisher' as const, id: newId, name, avatar: newPub.avatar };
+      try {
+        setDoc(doc(db, 'publishers', newId), newPub).catch(err => console.warn("Firestore pub save notice:", err));
+        setDoc(doc(db, 'bank_details', newId), emptyBank).catch(err => console.warn("Firestore bank save notice:", err));
+      } catch (e) {}
+
+      const sess = { type: 'publisher' as const, id: newId, name: cleanName, avatar: newPub.avatar };
       setCurrentUser(sess);
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
       
-      addLog(newId, name, 'SIGNUP', 'New publisher account created and verified');
-      return { success: true, message: 'Sign up successful!', publisher: newPub };
+      addLog(newId, cleanName, 'SIGNUP', `New publisher account created with Publisher ID ${newId}`);
+      return { success: true, message: `Account created successfully! Your Publisher ID is ${newId}`, publisher: newPub };
     } catch (error: any) {
       console.error("Signup Error:", error);
       return { success: false, message: 'Signup execution failed: ' + sanitizeError(error) };

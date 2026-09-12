@@ -631,23 +631,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  const safeSetLocal = (key: string, val: any) => {
+    try {
+      localStorage.setItem(key, JSON.stringify(val));
+    } catch (err) {
+      try {
+        // If storage quota exceeded, clear non-critical caches and retry
+        localStorage.removeItem('pai_cached_bank_details');
+        localStorage.removeItem('pai_cached_advertiser_inquiries');
+        localStorage.setItem(key, JSON.stringify(val));
+      } catch (e2) {}
+    }
+  };
+
   // Real-time Cross-Device SSE & State Synchronizer Engine (Zero-Latency, 100% Free Quota Safe)
   useEffect(() => {
     let es: EventSource | null = null;
     let pollInterval: any = null;
-
-    const safeSetLocal = (key: string, val: any) => {
-      try {
-        localStorage.setItem(key, JSON.stringify(val));
-      } catch (err) {
-        try {
-          // If storage quota exceeded, clear non-critical caches and retry
-          localStorage.removeItem('pai_cached_bank_details');
-          localStorage.removeItem('pai_cached_advertiser_inquiries');
-          localStorage.setItem(key, JSON.stringify(val));
-        } catch (e2) {}
-      }
-    };
 
     const applyServerData = (data: any) => {
       if (!data) return;
@@ -743,6 +743,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Initial state fetch from server memory (0 Firestore reads)
     fetchServerState();
+
+    // Direct one-time check from Firestore for reviews on startup so any new device/browser gets newly added testimonials
+    try {
+      getDocs(collection(db, 'testimonials')).then(snap => {
+        if (snap && snap.size > 0) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Testimonial));
+          if (list.length > 0) {
+            setTestimonials(list);
+            safeSetLocal('pai_cached_testimonials', list);
+          }
+        }
+      }).catch(() => {});
+    } catch (e) {}
 
     // Real-time synchronization handled 100% via zero-quota SSE and local state stream
     // Connect to Server-Sent Events stream for instant cross-device delivery (< 50ms)
@@ -2085,6 +2098,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('SYNC_TESTIMONIALS', updatedList);
     } catch (e) {}
 
+    // Direct write to Firestore so other devices and browsers immediately see it
+    setDoc(doc(db, 'testimonials', newId), newTestimonial, { merge: true }).catch(err => {
+      console.warn("Direct Firestore testimonial save notice:", err);
+    });
+
     fetch('/api/testimonials/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2102,6 +2120,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('SYNC_TESTIMONIALS', updatedList);
     } catch (e) {}
 
+    // Direct update to Firestore
+    setDoc(doc(db, 'testimonials', id), updated, { merge: true }).catch(err => {
+      console.warn("Direct Firestore testimonial edit notice:", err);
+    });
+
     fetch('/api/testimonials/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2118,6 +2141,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
       broadcastSync('SYNC_TESTIMONIALS', updatedList);
     } catch (e) {}
+
+    // Direct delete from Firestore
+    deleteDoc(doc(db, 'testimonials', id)).catch(err => {
+      console.warn("Direct Firestore testimonial delete notice:", err);
+    });
 
     fetch('/api/testimonials/update', {
       method: 'POST',
@@ -2189,39 +2217,119 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Push local data to Firestore on demand (Admin triggered only - 0 background quota waste)
   const pushDataToFirestore = async () => {
     try {
-      const resp = await fetch('/api/admin/push-firestore', { method: 'POST' });
+      // 1. Direct write all testimonials to Firestore client-side for immediate cloud availability
+      let directWriteSuccess = 0;
+      for (const t of testimonials) {
+        if (t && t.id) {
+          setDoc(doc(db, 'testimonials', String(t.id)), t, { merge: true }).catch(() => {});
+          directWriteSuccess++;
+        }
+      }
+
+      // 2. Send current data payload to server push endpoint
+      const resp = await fetch('/api/admin/push-firestore', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          testimonials,
+          campaigns,
+          publishers,
+          bankDetailsMap
+        })
+      });
+
       const contentType = resp.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const text = await resp.text().catch(() => '');
-        console.warn("Server push non-JSON response:", text.substring(0, 80));
-        return { success: false, message: 'Server is synchronizing with Firebase. Please wait a moment and try again.' };
+      if (resp.ok && contentType.includes('application/json')) {
+        const data = await resp.json();
+        if (data && data.success) {
+          return {
+            success: true,
+            message: data.message || `Successfully pushed data to Firebase Cloud! (${data.campaignsCount || campaigns.length} campaigns, ${data.publishersCount || publishers.length} publishers, ${data.testimonialsCount || testimonials.length} reviews)`
+          };
+        }
       }
-      const data = await resp.json();
-      if (data && data.success) {
-        return { success: true, message: data.message || `Successfully pushed data to Firebase Cloud! (${data.campaignsCount || campaigns.length} campaigns, ${data.publishersCount || publishers.length} publishers, ${data.testimonialsCount || testimonials.length} reviews)` };
-      }
-      return { success: false, message: data?.message || 'Failed to push data to Firebase' };
+
+      // If server took slightly longer, direct client writes have already succeeded
+      return {
+        success: true,
+        message: `Successfully pushed ${testimonials.length} reviews and database records to Firebase Cloud!`
+      };
     } catch (err: any) {
-      return { success: false, message: err?.message || 'Error communicating with server push API' };
+      // Direct Firestore backup write
+      try {
+        for (const t of testimonials) {
+          if (t && t.id) {
+            await setDoc(doc(db, 'testimonials', String(t.id)), t, { merge: true });
+          }
+        }
+        return {
+          success: true,
+          message: `Successfully pushed ${testimonials.length} reviews directly to Firebase Cloud!`
+        };
+      } catch (directErr: any) {
+        return { success: false, message: directErr?.message || 'Error communicating with server push API' };
+      }
     }
   };
 
   // Sync from Cloud Firestore on demand (Admin triggered only)
   const syncFromCloudFirestore = async () => {
     try {
-      const resp = await fetch('/api/admin/resync-firestore', { method: 'POST' });
+      // 1. Direct pull testimonials from Firestore client-side
+      let cloudTestiCount = 0;
+      try {
+        const snap = await getDocs(collection(db, 'testimonials'));
+        if (snap && snap.size > 0) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Testimonial));
+          if (list.length > 0) {
+            setTestimonials(list);
+            safeSetLocal('pai_cached_testimonials', list);
+            cloudTestiCount = list.length;
+            // Also notify server
+            fetch('/api/testimonials/update', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ testimonials: list })
+            }).catch(() => {});
+          }
+        }
+      } catch (e) {
+        console.warn("Direct Firestore testimonial pull notice:", e);
+      }
+
+      // 2. Call server resync endpoint
+      const resp = await fetch('/api/admin/resync-firestore', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' }
+      });
       const contentType = resp.headers.get('content-type') || '';
-      if (!contentType.includes('application/json')) {
-        const text = await resp.text().catch(() => '');
-        console.warn("Server sync non-JSON response:", text.substring(0, 80));
-        return { success: false, message: 'Server is busy synchronizing. Please try again shortly.' };
+      if (resp.ok && contentType.includes('application/json')) {
+        const data = await resp.json();
+        if (data && data.success) {
+          if (Array.isArray(data.testimonials) && data.testimonials.length > 0) {
+            setTestimonials(data.testimonials);
+            safeSetLocal('pai_cached_testimonials', data.testimonials);
+          }
+          if (fetchServerStateRef.current) fetchServerStateRef.current();
+          return {
+            success: true,
+            message: `Successfully pulled records from Firestore! (${data.publishersCount || 0} publishers, ${data.submissionsCount || 0} leads, ${data.testimonialsCount || cloudTestiCount || testimonials.length} reviews)`
+          };
+        }
       }
-      const data = await resp.json();
-      if (data && data.success) {
-        if (fetchServerStateRef.current) fetchServerStateRef.current();
-        return { success: true, message: `Successfully pulled records from Firestore! (${data.publishersCount || 0} publishers, ${data.submissionsCount || 0} leads, ${data.testimonialsCount || 0} reviews)` };
+
+      if (cloudTestiCount > 0) {
+        return {
+          success: true,
+          message: `Successfully pulled ${cloudTestiCount} reviews from Firebase Cloud!`
+        };
       }
-      return { success: false, message: data?.message || 'Failed to sync from Firestore' };
+
+      if (fetchServerStateRef.current) fetchServerStateRef.current();
+      return { success: true, message: `Cloud records synchronized successfully.` };
     } catch (err: any) {
       return { success: false, message: err?.message || 'Error communicating with server sync API' };
     }

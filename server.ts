@@ -2,7 +2,7 @@ import express from "express";
 import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
 
@@ -204,16 +204,30 @@ async function startServer() {
   }
 
   // Manual / Explicit Firestore Cloud Synchronization
+  // Cached single Firestore instance to prevent socket/connection leaks across repeated calls
+  let cachedServerFirestore: any = null;
+  function getServerFirestore() {
+    if (cachedServerFirestore) return cachedServerFirestore;
+    try {
+      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
+      if (!fs.existsSync(configPath)) return null;
+      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      if (!config.apiKey || !config.projectId) return null;
+      const existingApps = getApps();
+      const firebaseApp = existingApps.find(a => a.name === "server-app") || initializeApp(config, "server-app");
+      cachedServerFirestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
+      return cachedServerFirestore;
+    } catch (e) {
+      console.error("Error creating server Firestore instance:", e);
+      return null;
+    }
+  }
+
   // Only called when Admin explicitly triggers a Push or Pull, avoiding automatic background quota consumption
   async function syncFromFirestore() {
     try {
-      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      if (!fs.existsSync(configPath)) return { success: false, message: "No Firebase config found" };
-      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
-
-      const firebaseApp = initializeApp(config, `server-sync-${Date.now()}`);
-      const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
+      const firestore = getServerFirestore();
+      if (!firestore) return { success: false, message: "Firebase is not configured or reachable." };
 
       console.log("[Server Firestore Sync (Manual)] Fetching collections from Firestore on demand...");
       
@@ -290,13 +304,31 @@ async function startServer() {
 
       console.log(`[Server Firestore Sync (Manual)] Synced ${store.publishers.length} publishers, ${store.submissions.length} submissions, ${store.earnings.length} earnings, ${store.testimonials.length} reviews.`);
       scheduleSaveStore();
+
+      // Instant SSE broadcast to ALL connected devices
+      broadcastRealtime({
+        type: "SYNC_TESTIMONIALS",
+        payload: store.testimonials
+      });
+      broadcastRealtime({
+        type: "SYNC_CAMPAIGNS",
+        payload: store.campaigns
+      });
+      broadcastRealtime({
+        type: "SYNC_PUBLISHERS",
+        payload: store.publishers
+      });
+
       return {
         success: true,
         publishersCount: store.publishers.length,
         submissionsCount: store.submissions.length,
         earningsCount: store.earnings.length,
         campaignsCount: store.campaigns.length,
-        testimonialsCount: store.testimonials.length
+        testimonialsCount: store.testimonials.length,
+        testimonials: store.testimonials,
+        campaigns: store.campaigns,
+        publishers: store.publishers
       };
     } catch (err: any) {
       console.warn("[Server Firestore Sync] Sync notice:", err);
@@ -305,15 +337,27 @@ async function startServer() {
   }
 
   // Push local server store data to Firestore on demand (when explicitly triggered by Admin)
-  async function pushToFirestore() {
+  async function pushToFirestore(clientData?: any) {
     try {
-      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      if (!fs.existsSync(configPath)) return { success: false, message: "No Firebase config found" };
-      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
+      // Merge any client-supplied fresh state (reviews, campaigns, publishers) into store first
+      if (clientData && typeof clientData === "object") {
+        if (Array.isArray(clientData.testimonials) && clientData.testimonials.length > 0) {
+          store.testimonials = clientData.testimonials;
+        }
+        if (Array.isArray(clientData.campaigns) && clientData.campaigns.length > 0) {
+          store.campaigns = clientData.campaigns;
+        }
+        if (Array.isArray(clientData.publishers) && clientData.publishers.length > 0) {
+          store.publishers = clientData.publishers;
+        }
+        if (clientData.bankDetailsMap && typeof clientData.bankDetailsMap === "object") {
+          store.bankDetailsMap = { ...store.bankDetailsMap, ...clientData.bankDetailsMap };
+        }
+        scheduleSaveStore();
+      }
 
-      const firebaseApp = initializeApp(config, `server-push-${Date.now()}`);
-      const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
+      const firestore = getServerFirestore();
+      if (!firestore) return { success: false, message: "Firebase is not configured or reachable." };
 
       console.log("[Server Firestore Push (Manual)] Writing data to Firestore on demand using high-speed writeBatch...");
       
@@ -390,6 +434,21 @@ async function startServer() {
       }
 
       console.log(`[Server Firestore Push (Manual)] Successfully pushed ${committedCount} items in batch commits.`);
+
+      // Broadcast to all active clients
+      broadcastRealtime({
+        type: "SYNC_TESTIMONIALS",
+        payload: store.testimonials
+      });
+      broadcastRealtime({
+        type: "SYNC_CAMPAIGNS",
+        payload: store.campaigns
+      });
+      broadcastRealtime({
+        type: "SYNC_PUBLISHERS",
+        payload: store.publishers
+      });
+
       return {
         success: true,
         message: `Successfully pushed ${committedCount} records to Firebase Firestore!`,
@@ -397,7 +456,8 @@ async function startServer() {
         publishersCount: (store.publishers || []).length,
         submissionsCount: (store.submissions || []).length,
         earningsCount: (store.earnings || []).length,
-        testimonialsCount: (store.testimonials || []).length
+        testimonialsCount: (store.testimonials || []).length,
+        testimonials: store.testimonials
       };
     } catch (err: any) {
       console.warn("[Server Firestore Push] Push notice:", err);
@@ -604,7 +664,7 @@ async function startServer() {
   app.post("/api/admin/push-firestore", async (req, res) => {
     try {
       res.setHeader("Content-Type", "application/json");
-      const result = await pushToFirestore();
+      const result = await pushToFirestore(req.body);
       res.json(result);
     } catch (err: any) {
       console.error("Error in /api/admin/push-firestore:", err);

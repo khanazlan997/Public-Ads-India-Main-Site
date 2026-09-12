@@ -1359,9 +1359,6 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             {/* Col 1: Brand Info & ISO Badge */}
             <div className="col-span-2 md:col-span-1 space-y-4">
               <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs">
-                  PAI
-                </div>
                 <span className="font-black text-slate-900 dark:text-white tracking-tight text-base">Public Ads India</span>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium max-w-sm">
@@ -1430,9 +1427,12 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           </div>
 
           {/* Dedicated Public Ads India mark below footer */}
-          <div className="w-full text-center border-t border-slate-200/40 dark:border-slate-800/40 pt-4 pb-2">
+          <div className="w-full text-center border-t border-slate-200/40 dark:border-slate-800/40 pt-4 pb-2 space-y-1">
             <p className="text-sm sm:text-base font-extrabold tracking-wider text-slate-800 dark:text-slate-200 uppercase">
               Public Ads India
+            </p>
+            <p className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide flex items-center justify-center gap-1.5">
+              <span>भारत सरकार द्वारा प्रमाणित</span>
             </p>
           </div>
 

@@ -933,7 +933,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                         <div>
                           <h4 className="text-xs sm:text-sm font-bold text-emerald-900 dark:text-emerald-300">Inquiry Dispatched to WhatsApp (+91 8934932418)!</h4>
                           <p className="text-[11px] sm:text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
-                            Sara detail admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span> par bhej diya gaya hai.
+                            All inquiry details have been forwarded to the admin WhatsApp number <span className="font-extrabold text-slate-900 dark:text-white underline">+91 8934932418</span>.
                           </p>
                           <span className="inline-block mt-1 text-[9.5px] font-extrabold px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200 rounded-md">
                             ✓ Direct WhatsApp Routing • Zero Firebase / Database Load
@@ -1419,23 +1419,28 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           </div>
 
           {/* Bottom Row: Copyright and Agency Credits */}
-          <div className="w-full flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400 border-t border-slate-200/60 dark:border-slate-800/60 pt-6">
-            <div className="flex flex-col items-center sm:items-start gap-0.5 text-center sm:text-left">
-              <span>&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
-              <span className="text-[11px] text-slate-500 font-medium">Established in 2023 • Registered Enterprise</span>
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-400 border-t border-slate-200/60 dark:border-slate-800/60 pt-6 flex-wrap">
+            <div className="flex flex-col items-center md:items-start gap-1 text-center md:text-left shrink-0">
+              <span className="leading-snug">&copy; {new Date().getFullYear()} Public Ads India | Fintech Lead Acquirement</span>
+              <span className="text-[11px] text-slate-500 font-medium leading-snug">Established in 2023 • Registered Enterprise</span>
             </div>
-            <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold text-center">
-              Design by. BharatX Web Agency
-            </a>
+            <div className="flex items-center gap-3 shrink-0">
+              <a href="https://bharatx-website-agency.vercel.app/" target="_blank" rel="noopener noreferrer" className="hover:text-brand-accent transition-colors font-bold text-center leading-snug">
+                Design by. BharatX Web Agency
+              </a>
+            </div>
           </div>
 
           {/* Dedicated Public Ads India mark below footer */}
-          <div className="w-full text-center border-t border-slate-200/40 dark:border-slate-800/40 pt-4 pb-2 space-y-1">
+          <div className="w-full text-center border-t border-slate-200/40 dark:border-slate-800/40 pt-4 pb-2 space-y-1.5">
             <p className="text-sm sm:text-base font-extrabold tracking-wider text-slate-800 dark:text-slate-200 uppercase">
               Public Ads India
             </p>
             <p className="text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-400 tracking-wide flex items-center justify-center gap-1.5">
-              <span>भारत सरकार द्वारा प्रमाणित</span>
+              <span>Certified by the Government of India</span>
+            </p>
+            <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono tracking-widest pt-1">
+              (BHTX : V1.1.2)
             </p>
           </div>
 

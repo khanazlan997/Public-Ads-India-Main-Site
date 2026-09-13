@@ -136,7 +136,11 @@ async function startServer() {
       if (!Array.isArray(store.testimonials) || store.testimonials.length === 0) {
         store.testimonials = defaultTestimonials;
       }
-      console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.testimonials.length} reviews from server storage.`);
+      // Purge old legacy non-v2 publishers
+      if (Array.isArray(store.publishers)) {
+        store.publishers = store.publishers.filter((p: any) => p && p.systemVersion === 'v2');
+      }
+      console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.publishers.length} v2 publishers from server storage.`);
     }
   } catch (e) {
     console.warn("Could not read server_data/store.json, using initialized store:", e);
@@ -151,8 +155,8 @@ async function startServer() {
   }
 
   // Campaigns Initialization & Synchronization
-  if (!store.campaigns) {
-    store.campaigns = [];
+  if (!Array.isArray(store.campaigns) || store.campaigns.length === 0) {
+    store.campaigns = snapshotCampaigns;
   }
 
   // Auto-reconciliation: ensure every submission marked 'Payment Done' has a corresponding record in store.earnings
@@ -887,12 +891,13 @@ async function startServer() {
       const target = phoneOrEmail.trim().toLowerCase();
       console.log(`[Auth Attempt] Target: ${target}, Server publishers count: ${store.publishers.length}`);
       const pub = store.publishers.find(p => 
-        (p.email?.trim().toLowerCase() === target || p.phone?.trim() === phoneOrEmail.trim()) && 
+        p.systemVersion === 'v2' &&
+        (p.id?.trim().toLowerCase() === target || p.email?.trim().toLowerCase() === target || p.phone?.trim() === phoneOrEmail.trim()) && 
         p.password === password
       );
       if (!pub) {
-        console.log(`[Auth Failed] No match found for: ${target}`);
-        return res.status(401).json({ success: false, message: "Invalid phone/email or password." });
+        console.log(`[Auth Failed] No v2 match found for: ${target}`);
+        return res.status(401).json({ success: false, message: "Account not found or legacy account expired. Please register a new Publisher account." });
       }
       if (pub.blocked) {
         return res.status(403).json({ success: false, message: "Your publisher account has been blocked by Admin. Contact support." });
@@ -910,23 +915,24 @@ async function startServer() {
       if (!publisher || !publisher.id) {
         return res.status(400).json({ error: "Missing publisher data" });
       }
-      const idx = store.publishers.findIndex(p => p.id === publisher.id);
+      const v2Pub = { ...publisher, systemVersion: 'v2' };
+      const idx = store.publishers.findIndex(p => p.id === v2Pub.id);
       if (idx !== -1) {
         const existingAvatar = store.publishers[idx].avatar;
-        const newAvatar = publisher.avatar;
+        const newAvatar = v2Pub.avatar;
         const finalAvatar = (newAvatar && newAvatar.startsWith('/api/publisher/avatar/'))
           ? existingAvatar
           : (newAvatar !== undefined ? newAvatar : existingAvatar);
-        store.publishers[idx] = { ...store.publishers[idx], ...publisher, avatar: finalAvatar };
+        store.publishers[idx] = { ...store.publishers[idx], ...v2Pub, avatar: finalAvatar };
       } else {
-        store.publishers.unshift(publisher);
+        store.publishers.unshift(v2Pub);
       }
       scheduleSaveStore();
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers
       });
-      res.json({ success: true, publisher });
+      res.json({ success: true, publisher: v2Pub });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

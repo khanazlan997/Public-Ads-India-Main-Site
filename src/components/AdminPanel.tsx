@@ -188,7 +188,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   };
 
   const handleManualCloudPush = async () => {
-    if (!window.confirm("Manual Push: Kya aap local database ko Firebase Cloud me push karna chahte hain? Auto-sync band hai taaki Firestore quota safe rahe.")) return;
+    if (!window.confirm("Manual Push: Do you want to push the local database to Firebase Cloud? Auto-sync is paused to preserve Firestore quota.")) return;
     setIsPushingCloud(true);
     setCloudSyncMsg('Pushing local data to Firebase Firestore...');
     try {
@@ -927,7 +927,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <div className="flex-1">
                   <span className="font-extrabold text-sky-950 block mb-0.5">Fresh Account System & Quota Protection Active</span>
                   <p className="text-sky-800 leading-relaxed">
-                    Purane sabhi inactive/empty clients ka data clear kar diya gaya hai. Sabhi clients ab naye seere se account register karenge. Firestore quota bachane ke liye background auto-sync bilkul band hai — data sirf manual <strong>&quot;Push to Cloud&quot;</strong> dabane par hi sync hoga.
+                    All historical client records have been cleared. All clients will register fresh accounts. Background auto-sync is paused to protect Firestore quota — data will only sync when you manually click <strong>&quot;Push to Cloud&quot;</strong>.
                   </p>
                 </div>
               </div>
@@ -2160,7 +2160,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     <h3 className="text-xl font-black text-slate-800">Sponsorship Offer Achievers</h3>
                   </div>
                   <p className="text-xs text-slate-500 mt-1">
-                    Is section me sirf unhi publishers ka data show hoga jinhone <strong>20 AngelOne Referrals + First Earning</strong> ka target complete kar liya hai.
+                    This section only displays publishers who have completed the target of <strong>20 AngelOne Referrals + First Earning</strong>.
                   </p>
                 </div>
 

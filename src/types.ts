@@ -26,6 +26,7 @@ export interface Publisher {
   blocked: boolean;
   joinedDate: string;
   inviteCode?: string;
+  systemVersion?: string;
 }
 
 export interface EarningRecord {

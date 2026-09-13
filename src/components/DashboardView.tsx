@@ -1671,7 +1671,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <div>
                 <h4 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
                   <UploadCloud className="w-4 h-4 text-indigo-500" />
-                  <span>My Client Submissions (सबमिट किए गए लीड्स)</span>
+                  <span>My Client Submissions</span>
                 </h4>
                 <p className="text-[10px] text-slate-400 mt-0.5">Real-time status of your submitted client leads</p>
               </div>

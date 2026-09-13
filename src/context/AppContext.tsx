@@ -263,11 +263,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const stored = localStorage.getItem('pai_cached_publishers');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.filter((p: Publisher) => p && p.systemVersion === 'v2');
+        }
       }
-      return snapshotPublishers;
+      return snapshotPublishers.filter(p => p && p.systemVersion === 'v2');
     } catch {
-      return snapshotPublishers;
+      return snapshotPublishers.filter(p => p && p.systemVersion === 'v2');
     }
   });
 
@@ -396,9 +398,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (res.ok && contentType.includes('application/json')) {
           const json = await res.json();
           if (json.success && json.data) {
-            if (Array.isArray(json.data.publishers) && json.data.publishers.length > 0) {
-              setPublishers(json.data.publishers);
-              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(json.data.publishers)); } catch (e) {}
+            if (Array.isArray(json.data.publishers)) {
+              const v2Pubs = json.data.publishers.filter((p: any) => p && p.systemVersion === 'v2');
+              setPublishers(v2Pubs);
+              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(v2Pubs)); } catch (e) {}
             }
             if (Array.isArray(json.data.submissions) && json.data.submissions.length > 0) {
               setSubmissions(json.data.submissions);
@@ -462,8 +465,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const storedTheme = localStorage.getItem('pai_theme');
       if (storedTheme) setThemeState(storedTheme as 'light' | 'dark');
 
-      const storedUser = localStorage.getItem('pai_user_session');
-      if (storedUser) setCurrentUser(JSON.parse(storedUser));
+      // Purge old cached publishers & session if system reset flag is missing
+      const resetFlag = localStorage.getItem('pai_system_v2_reset');
+      if (!resetFlag) {
+        localStorage.removeItem('pai_user_session');
+        localStorage.removeItem('pai_cached_publishers');
+        localStorage.setItem('pai_system_v2_reset', 'true');
+        setCurrentUser(null);
+      } else {
+        const storedUser = localStorage.getItem('pai_user_session');
+        if (storedUser) {
+          const parsedUser = JSON.parse(storedUser);
+          // If publisher session, ensure publisher is v2
+          if (parsedUser && parsedUser.type === 'publisher') {
+            const isV2 = publishers.some(p => p.id === parsedUser.id && p.systemVersion === 'v2');
+            if (isV2) {
+              setCurrentUser(parsedUser);
+            } else {
+              // Legacy publisher session, clear it!
+              localStorage.removeItem('pai_user_session');
+              setCurrentUser(null);
+            }
+          } else {
+            setCurrentUser(parsedUser);
+          }
+        }
+      }
     } catch (e) {
       console.error('Error loading LocalStorage values', e);
     }
@@ -1256,8 +1283,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      if (!pub) {
-        return { success: false, message: 'Invalid Publisher ID, Email/Phone, or password.' };
+      if (!pub || pub.systemVersion !== 'v2') {
+        return { success: false, message: 'Account not found or legacy account expired. Please click "Register Account" to create your new Publisher account.' };
       }
       if (pub.blocked) {
         return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
@@ -1286,6 +1313,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Check local state only if exact match exists with same password
       const exactLocalMatch = publishers.find(p => 
+        p.systemVersion === 'v2' &&
         (p.email || '').trim().toLowerCase() === cleanEmail && 
         p.password === password
       );
@@ -1322,6 +1350,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         avatar: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png',
         blocked: false,
         joinedDate: new Date().toISOString().substring(0, 10),
+        systemVersion: 'v2',
         ...(formattedInviteCode ? { inviteCode: formattedInviteCode } : {})
       };
 
@@ -1460,12 +1489,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
-    // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
+    // Realtime Server & Firestore Persistence
     fetch('/api/campaign/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ campaign: newCamp })
     }).catch(err => console.warn("Server campaign add dispatch notice:", err));
+
+    try {
+      setDoc(doc(db, 'campaigns', newId), newCamp).catch(() => {});
+    } catch (e) {}
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_ADD', `Created campaign '${c.name}' with payout ₹${c.payout}`);
   };
@@ -1474,8 +1507,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const c = campaigns.find(item => item.id === id);
     if (c) {
       const newActive = !c.active;
+      const updated = { ...c, active: newActive };
       setCampaigns(prev => {
-        const next = prev.map(item => item.id === id ? { ...item, active: newActive } : item);
+        const next = prev.map(item => item.id === id ? updated : item);
         try {
           localStorage.setItem('pai_cached_campaigns', JSON.stringify(next));
           broadcastSync('SYNC_CAMPAIGNS', next);
@@ -1483,12 +1517,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
+      // Realtime Server & Firestore Persistence
       fetch('/api/campaign/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, active: newActive })
       }).catch(err => console.warn("Server campaign toggle dispatch notice:", err));
+
+      try {
+        setDoc(doc(db, 'campaigns', id), updated, { merge: true }).catch(() => {});
+      } catch (e) {}
 
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${newActive}`);
     }
@@ -1507,12 +1545,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
+      // Realtime Server & Firestore Persistence
       fetch('/api/campaign/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, campaign: merged })
       }).catch(err => console.warn("Server campaign edit dispatch notice:", err));
+
+      try {
+        setDoc(doc(db, 'campaigns', id), merged, { merge: true }).catch(() => {});
+      } catch (e) {}
 
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${c.name}' specs`);
     }
@@ -1530,12 +1572,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return next;
       });
 
-      // Realtime Server Persistence & Broadcast to ALL Connected Devices (Zero Firestore quota)
+      // Realtime Server & Firestore Persistence
       fetch('/api/campaign/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
       }).catch(err => console.warn("Server campaign delete dispatch notice:", err));
+
+      try {
+        deleteDoc(doc(db, 'campaigns', id)).catch(() => {});
+      } catch (e) {}
 
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_DELETE', `Deleted campaign '${target.name}' from active registry`);
     }

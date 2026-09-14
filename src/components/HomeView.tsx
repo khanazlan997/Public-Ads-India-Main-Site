@@ -1358,9 +1358,9 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           
           {/* Top Footer: Brand + Multi-column Links */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-left">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 text-left">
             {/* Col 1: Brand Info & ISO Badge */}
-            <div className="col-span-2 md:col-span-1 space-y-4">
+            <div className="col-span-1 sm:col-span-2 lg:col-span-2 space-y-4">
               <div className="flex items-center gap-2">
                 <span className="font-black text-slate-900 dark:text-white tracking-tight text-base">Public Ads India</span>
               </div>
@@ -1369,17 +1369,17 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
               </p>
               
               {/* ISO 9001:2015 Compact Badge */}
-              <div className="flex sm:inline-flex items-center gap-3 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-3 sm:px-3.5 sm:py-2.5 shadow-xs max-w-sm">
-                <div className="flex items-center gap-2.5 pr-3 border-r border-slate-200 dark:border-slate-800 shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+              <div className="w-full max-w-xs flex items-center gap-2.5 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 shadow-xs">
+                <div className="flex items-center gap-2 pr-2.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                   <div>
-                    <span className="text-[8px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block leading-none">CERTIFIED</span>
-                    <span className="text-xs sm:text-sm font-black text-slate-900 dark:text-white whitespace-nowrap mt-0.5 block">ISO 9001:2015</span>
+                    <span className="text-[7px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider block leading-none">CERTIFIED</span>
+                    <span className="text-xs font-black text-slate-900 dark:text-white whitespace-nowrap mt-0.5 block">ISO 9001:2015</span>
                   </div>
                 </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-300 block leading-tight truncate">Quality Management</span>
-                  <span className="text-[9px] sm:text-[10px] font-extrabold text-blue-600 dark:text-amber-400 block tracking-tight mt-0.5">Public Ads India</span>
+                <div className="min-w-0 flex-1 overflow-hidden">
+                  <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 block leading-tight truncate">Quality Management</span>
+                  <span className="text-[9px] font-extrabold text-blue-600 dark:text-amber-400 block tracking-tight truncate mt-0.5">Public Ads India</span>
                 </div>
               </div>
             </div>
@@ -1407,7 +1407,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
             </div>
 
             {/* Col 4: Portals & Workspaces */}
-            <div className="col-span-2 sm:col-span-1 space-y-3">
+            <div className="col-span-1 space-y-3">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">Access Desks</h4>
               <ul className="space-y-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
                 <li><button onClick={() => onNavigate('/Dashboard')} className="py-1 text-left w-full hover:text-brand-primary dark:hover:text-amber-400 transition-colors">Publisher Portal</button></li>

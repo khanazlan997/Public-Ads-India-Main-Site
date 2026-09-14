@@ -140,6 +140,14 @@ async function startServer() {
       if (Array.isArray(store.publishers)) {
         store.publishers = store.publishers.filter((p: any) => p && p.systemVersion === 'v2');
       }
+      // Purge old submissions and earnings that do not belong to current v2 publishers
+      const v2PubIdSet = new Set((store.publishers || []).map((p: any) => p.id));
+      if (Array.isArray(store.submissions)) {
+        store.submissions = store.submissions.filter((s: any) => v2PubIdSet.has(s.publisherId));
+      }
+      if (Array.isArray(store.earnings)) {
+        store.earnings = store.earnings.filter((e: any) => v2PubIdSet.has(e.publisherId));
+      }
       console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.publishers.length} v2 publishers from server storage.`);
     }
   } catch (e) {
@@ -244,37 +252,55 @@ async function startServer() {
         getDocs(collection(firestore, "testimonials")).catch(() => ({ size: 0, docs: [] } as any)),
       ]);
 
-      // 1. Publishers
+      // 1. Publishers (strictly v2 accounts from new database)
       if (pubSnap.size > 0) {
         const pubMap = new Map<string, any>();
-        store.publishers.forEach(p => pubMap.set(p.id, p));
+        store.publishers.forEach(p => {
+          if (p && p.systemVersion === 'v2') pubMap.set(p.id, p);
+        });
         pubSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          pubMap.set(d.id, { ...(pubMap.get(d.id) || {}), ...data });
+          if (data.systemVersion === 'v2') {
+            pubMap.set(d.id, { ...(pubMap.get(d.id) || {}), ...data });
+          }
         });
         store.publishers = Array.from(pubMap.values());
       }
 
-      // 2. Submissions
+      const validPubIds = new Set((store.publishers || []).map(p => p.id));
+
+      // 2. Submissions (disconnect old database data; keep only current v2 publisher submissions)
       if (subSnap.size > 0) {
         const subMap = new Map<string, any>();
-        store.submissions.forEach(s => subMap.set(s.id, s));
+        store.submissions.forEach(s => {
+          if (validPubIds.has(s.publisherId)) subMap.set(s.id, s);
+        });
         subSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data });
+          if (validPubIds.has(data.publisherId)) {
+            subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data });
+          }
         });
         store.submissions = Array.from(subMap.values());
+      } else {
+        store.submissions = store.submissions.filter(s => validPubIds.has(s.publisherId));
       }
 
-      // 3. Earnings
+      // 3. Earnings (disconnect old database data; keep only current v2 publisher earnings)
       if (earnSnap.size > 0) {
         const earnMap = new Map<string, any>();
-        store.earnings.forEach(e => earnMap.set(e.id, e));
+        store.earnings.forEach(e => {
+          if (validPubIds.has(e.publisherId)) earnMap.set(e.id, e);
+        });
         earnSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data });
+          if (validPubIds.has(data.publisherId)) {
+            earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data });
+          }
         });
         store.earnings = Array.from(earnMap.values());
+      } else {
+        store.earnings = store.earnings.filter(e => validPubIds.has(e.publisherId));
       }
 
       // 4. Campaigns
@@ -286,6 +312,13 @@ async function startServer() {
           campMap.set(d.id, { ...(campMap.get(d.id) || {}), ...data });
         });
         store.campaigns = Array.from(campMap.values());
+      } else if (!store.campaigns || store.campaigns.length === 0) {
+        store.campaigns = snapshotCampaigns;
+        if (firestore) {
+          for (const c of store.campaigns) {
+            setDoc(doc(firestore, "campaigns", c.id), c, { merge: true }).catch(() => {});
+          }
+        }
       }
 
       // 5. Bank Details
@@ -822,33 +855,80 @@ async function startServer() {
     });
   });
 
+  // Helper to ensure objects written to Firestore never contain undefined values
+  function sanitizeFirestoreData(obj: any): any {
+    if (!obj || typeof obj !== "object") return obj;
+    const clean: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v !== undefined) {
+        clean[k] = (typeof v === "object" && v !== null && !Array.isArray(v))
+          ? sanitizeFirestoreData(v)
+          : v;
+      }
+    }
+    return clean;
+  }
+
   // Dedicated Campaign Management endpoints (Guaranteed cross-device sync & persistence)
-  app.post("/api/campaign/update", (req, res) => {
+  app.post("/api/campaign/update", async (req, res) => {
     try {
       const { id, active, campaign, allCampaigns } = req.body || {};
+      const firestore = getServerFirestore();
       
       if (Array.isArray(allCampaigns) && allCampaigns.length > 0) {
         store.campaigns = allCampaigns;
+        if (firestore) {
+          for (const c of allCampaigns) {
+            if (c && c.id) {
+              setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true }).catch((err) => {
+                console.error("Firestore batch campaign save notice:", err);
+              });
+            }
+          }
+        }
       } else if (id && active !== undefined) {
-        const camp = store.campaigns.find(c => c.id === id);
+        let camp = store.campaigns.find(c => c.id === id);
         if (camp) {
           camp.active = Boolean(active);
+        } else {
+          const snap = snapshotCampaigns.find(c => c.id === id);
+          if (snap) {
+            camp = { ...snap, active: Boolean(active) };
+            store.campaigns.push(camp);
+          }
+        }
+        if (camp && firestore) {
+          setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true }).catch((err) => {
+            console.error("Firestore toggle campaign save notice:", err);
+          });
         }
       } else if (campaign && campaign.id) {
         const idx = store.campaigns.findIndex(c => c.id === campaign.id);
+        const campaignWithActive = {
+          ...campaign,
+          active: campaign.active !== undefined ? Boolean(campaign.active) : true
+        };
         if (idx !== -1) {
           const existingImage = store.campaigns[idx].image;
-          const newImage = campaign.image;
+          const newImage = campaignWithActive.image;
           const finalImage = (newImage && typeof newImage === 'string' && newImage.trim().length > 0 && !newImage.startsWith('/api/campaign/image/'))
             ? newImage
             : existingImage;
           store.campaigns[idx] = { 
             ...store.campaigns[idx], 
-            ...campaign, 
+            ...campaignWithActive, 
             image: finalImage 
           };
         } else {
-          store.campaigns.unshift(campaign);
+          store.campaigns.unshift(campaignWithActive);
+        }
+        if (firestore) {
+          const targetCamp = store.campaigns.find(c => c.id === campaign.id);
+          if (targetCamp) {
+            setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true }).catch((err) => {
+              console.error("Firestore save campaign error:", err);
+            });
+          }
         }
       }
 
@@ -870,6 +950,10 @@ async function startServer() {
       if (id) {
         store.campaigns = store.campaigns.filter(c => c.id !== id);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "campaigns", id)).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_CAMPAIGNS",
           payload: store.campaigns
@@ -881,8 +965,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Login endpoint (Zero Firestore quota dependency)
-  app.post("/api/auth/publisher-login", (req, res) => {
+  // Dedicated Publisher Login endpoint (Strictly v2 new database accounts only)
+  app.post("/api/auth/publisher-login", async (req, res) => {
     try {
       const { phoneOrEmail, password } = req.body || {};
       if (!phoneOrEmail || !password) {
@@ -890,11 +974,39 @@ async function startServer() {
       }
       const target = phoneOrEmail.trim().toLowerCase();
       console.log(`[Auth Attempt] Target: ${target}, Server publishers count: ${store.publishers.length}`);
-      const pub = store.publishers.find(p => 
+      
+      let pub = store.publishers.find(p => 
         p.systemVersion === 'v2' &&
         (p.id?.trim().toLowerCase() === target || p.email?.trim().toLowerCase() === target || p.phone?.trim() === phoneOrEmail.trim()) && 
         p.password === password
       );
+
+      // Check Firestore directly if not yet loaded in server memory
+      if (!pub) {
+        const firestore = getServerFirestore();
+        if (firestore) {
+          try {
+            const pubSnap = await getDocs(collection(firestore, "publishers"));
+            pubSnap.forEach((d: any) => {
+              const data = { id: d.id, ...d.data() };
+              if (
+                data.systemVersion === 'v2' &&
+                (data.id?.trim().toLowerCase() === target || data.email?.trim().toLowerCase() === target || data.phone?.trim() === phoneOrEmail.trim()) &&
+                data.password === password
+              ) {
+                pub = data;
+                if (!store.publishers.some(p => p.id === data.id)) {
+                  store.publishers.unshift(data);
+                  scheduleSaveStore();
+                }
+              }
+            });
+          } catch (fireErr) {
+            console.warn("Firestore fallback check in login:", fireErr);
+          }
+        }
+      }
+
       if (!pub) {
         console.log(`[Auth Failed] No v2 match found for: ${target}`);
         return res.status(401).json({ success: false, message: "Account not found or legacy account expired. Please register a new Publisher account." });
@@ -908,7 +1020,7 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Register endpoint (Zero Firestore quota dependency)
+  // Dedicated Publisher Register endpoint (Zero Firestore quota dependency, synced to cloud)
   app.post("/api/publisher/register", (req, res) => {
     try {
       const { publisher } = req.body || {};
@@ -928,6 +1040,12 @@ async function startServer() {
         store.publishers.unshift(v2Pub);
       }
       scheduleSaveStore();
+      
+      const firestore = getServerFirestore();
+      if (firestore) {
+        setDoc(doc(firestore, "publishers", v2Pub.id), v2Pub, { merge: true }).catch(() => {});
+      }
+
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers
@@ -1700,6 +1818,17 @@ async function startServer() {
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    // Auto-sync clean data from Firestore on boot
+    syncFromFirestore().then((res: any) => {
+      console.log(`[Server Init] Initial Firestore sync complete. Publishers: ${res?.publishersCount || 0}, Campaigns: ${store.campaigns.length}`);
+    }).catch(e => {
+      console.warn("[Server Init] Firestore initial sync skipped/failed:", e.message);
+    });
+
+    // Periodic sync every 25 seconds to catch cross-device publisher registrations & updates
+    setInterval(() => {
+      syncFromFirestore().catch(() => {});
+    }, 25000);
   });
 }
 

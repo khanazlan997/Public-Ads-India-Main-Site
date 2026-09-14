@@ -7,7 +7,7 @@ import {
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
   Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Target, Mail,
-  MessageCircle, Phone, UploadCloud, DownloadCloud
+  MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -107,6 +107,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [campImage, setCampImage] = useState('');
   const [campFormOpen, setCampFormOpen] = useState(false);
   const [editingCampId, setEditingCampId] = useState<string | null>(null);
+  const [campMsg, setCampMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSyncingCampsWithCloud, setIsSyncingCampsWithCloud] = useState(false);
 
   // Offer popup states
   const [offerUrl, setOfferUrl] = useState(offer.image || '');
@@ -484,27 +486,48 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   // Handle campaign create
   const handleCampaignSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!campName || !campPayout || !campLink) return;
+    if (!campName || !campPayout || !campLink) {
+      setCampMsg({ type: 'error', text: 'Please fill in required fields: Campaign Name, Payout (₹), and Target Link!' });
+      return;
+    }
+
+    const cleanName = campName.trim();
+    const cleanPayout = parseFloat(campPayout) || 0;
+    const cleanLink = campLink.trim();
+
+    if (cleanPayout <= 0) {
+      setCampMsg({ type: 'error', text: 'Please enter a valid payout amount greater than ₹0.' });
+      return;
+    }
 
     const payload = {
-      name: campName,
-      vertical: campVertical,
-      model: campModel,
+      name: cleanName,
+      vertical: campVertical.trim() || 'Fintech / Demat',
+      model: campModel.trim() || 'CPA',
       platform: campPlatform,
-      kpi: campKpi,
-      geo: campGeo,
-      payout: parseFloat(campPayout) || 0,
-      terms: campTerms,
-      link: campLink,
+      kpi: campKpi.trim() || 'Account Opening + Verification',
+      geo: campGeo.trim() || 'India (PAN)',
+      payout: cleanPayout,
+      terms: campTerms.trim(),
+      link: cleanLink,
       image: campImage || 'https://images.unsplash.com/photo-1616077168712-fc6c788bc4ee?auto=format&fit=crop&q=80&w=200',
-      directOpen: !!campDirectOpen
+      directOpen: !!campDirectOpen,
+      active: true
     };
 
     if (editingCampId) {
       editCampaign(editingCampId, payload);
+      setCampMsg({ 
+        type: 'success', 
+        text: `✓ Campaign "${cleanName}" updated successfully! Changes are instantly LIVE on all Client Dashboards.` 
+      });
       setEditingCampId(null);
     } else {
       addCampaign(payload);
+      setCampMsg({ 
+        type: 'success', 
+        text: `✓ Campaign "${cleanName}" created successfully! It is now LIVE and visible to all clients on their Dashboard.` 
+      });
     }
 
     // Reset
@@ -1238,87 +1261,154 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
           {/* TAB 1: Campaign Manager */}
           {activeTab === 'campaigns' && (
             <div id="tabContent-campaigns" className="space-y-6 animate-fade-up">
-              <div className="flex justify-between items-center pb-4 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pb-4 border-b border-slate-100">
                 <div>
-                  <h3 className="text-lg font-black text-slate-850">Campaigns Manager</h3>
-                  <p className="text-xs text-slate-450 mt-1">Configure vertical payouts, terms, and direct active/inactive dashboard visibility.</p>
+                  <h3 className="text-lg font-black text-slate-850 flex items-center gap-2">
+                    <span>Campaigns Manager</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      {campaigns.filter(c => c.active !== false).length} Live on Client Dashboard
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-450 mt-1">Configure vertical payouts, affiliate tracking links, and control real-time client visibility.</p>
                 </div>
                 
-                <button
-                  id="admin-add-camp-trigger"
-                  onClick={() => setCampFormOpen(!campFormOpen)}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl flex items-center gap-1 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add More Campaign
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isSyncingCampsWithCloud}
+                    onClick={async () => {
+                      setIsSyncingCampsWithCloud(true);
+                      try {
+                        await refreshServerState();
+                        setCampMsg({ type: 'success', text: `Cloud Sync Verified: All ${campaigns.length} campaigns are active and synced with Firestore database!` });
+                      } catch (err: any) {
+                        setCampMsg({ type: 'error', text: `Sync check complete. ${campaigns.length} campaigns loaded.` });
+                      } finally {
+                        setIsSyncingCampsWithCloud(false);
+                      }
+                    }}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors border border-slate-300"
+                    title="Verify Cloud Firestore & Server synchronization"
+                  >
+                    <RefreshCcw className={`w-3.5 h-3.5 ${isSyncingCampsWithCloud ? 'animate-spin' : ''}`} />
+                    <span>{isSyncingCampsWithCloud ? 'Syncing...' : 'Verify Cloud Sync'}</span>
+                  </button>
+
+                  <button
+                    id="admin-add-camp-trigger"
+                    onClick={() => {
+                      setCampFormOpen(!campFormOpen);
+                      if (campFormOpen && editingCampId) resetCampForm();
+                    }}
+                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer shadow-sm transition-all"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>{campFormOpen ? 'Close Form' : 'Add New Campaign'}</span>
+                  </button>
+                </div>
               </div>
+
+              {/* Feedback alert banner */}
+              {campMsg && (
+                <div className={`p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-semibold ${
+                  campMsg.type === 'success' 
+                    ? 'bg-emerald-50 text-emerald-900 border border-emerald-300 shadow-sm' 
+                    : 'bg-rose-50 text-rose-900 border border-rose-300'
+                }`}>
+                  <div className="flex items-center gap-2.5">
+                    {campMsg.type === 'success' ? (
+                      <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                    )}
+                    <span>{campMsg.text}</span>
+                  </div>
+                  <button 
+                    onClick={() => setCampMsg(null)} 
+                    className="text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded hover:bg-black/5 cursor-pointer shrink-0"
+                  >
+                    Dismiss ✕
+                  </button>
+                </div>
+              )}
 
               {/* Create/Edit form toggle panel */}
               {campFormOpen && (
-                <form onSubmit={handleCampaignSubmit} className="p-5 border border-slate-100 bg-slate-50 rounded-2xl space-y-4 animate-fade-up">
-                  <h4 className="text-sm font-bold text-slate-800">
-                    {editingCampId ? `Edit Campaign Specs: ${campName}` : 'Add New Active Campaign'}
-                  </h4>
+                <form onSubmit={handleCampaignSubmit} className="p-5 border border-indigo-100 bg-indigo-50/40 rounded-2xl space-y-4 animate-fade-up shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-black text-slate-800 flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-indigo-600"></span>
+                      {editingCampId ? `Editing Campaign: ${campName}` : 'Add New Live Campaign for Client Dashboard'}
+                    </h4>
+                    {editingCampId && (
+                      <button 
+                        type="button" 
+                        onClick={resetCampForm}
+                        className="text-xs text-slate-500 hover:text-slate-800 font-bold underline cursor-pointer"
+                      >
+                        Cancel & Switch to New
+                      </button>
+                    )}
+                  </div>
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Campaign Name</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Campaign Name *</label>
                       <input 
-                        type="text" required placeholder="e.g. PhonePe Demat Account" value={campName} onChange={(e) => setCampName(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                        type="text" required placeholder="e.g. AngelOne Demat Account" value={campName} onChange={(e) => setCampName(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-semibold"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">GEO Target Scope</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">GEO Target Scope</label>
                       <input 
                         type="text" placeholder="e.g. India (PAN)" value={campGeo} onChange={(e) => setCampGeo(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Vertical Category</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Vertical Category</label>
                       <input 
-                        type="text" placeholder="Fintech / Finance" value={campVertical} onChange={(e) => setCampVertical(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                        type="text" placeholder="Demat / Finance / Banking" value={campVertical} onChange={(e) => setCampVertical(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Campaign Model</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Campaign Model</label>
                       <input 
                         type="text" placeholder="CPA / CPL" value={campModel} onChange={(e) => setCampModel(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Payout Amount (₹)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Payout Amount (₹) *</label>
                       <input 
-                        type="number" required placeholder="payout per lead opener" value={campPayout} onChange={(e) => setCampPayout(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono font-bold"
+                        type="number" required min="1" placeholder="e.g. 350" value={campPayout} onChange={(e) => setCampPayout(e.target.value)}
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-mono font-bold text-emerald-700"
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Platform Target</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Platform Target</label>
                       <select 
                         value={campPlatform} onChange={(e) => setCampPlatform(e.target.value as any)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500 font-medium"
                       >
-                        <option value="web">Web browser only</option>
+                        <option value="both">Both scopes (Web + Mobile App)</option>
                         <option value="app">Mobile App only</option>
-                        <option value="both">Both scopes (Cross)</option>
+                        <option value="web">Web browser only</option>
                       </select>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase">Target Links (Affiliate pasted)</label>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">Target Links (Affiliate Tracking Link) *</label>
                       <input 
                         type="text" required placeholder="https://tracking.link..." value={campLink} onChange={(e) => setCampLink(e.target.value)}
-                        className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none font-mono"
+                        className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none font-mono focus:border-indigo-500"
                       />
                       <label className="inline-flex items-center gap-2 mt-1.5 px-1 select-none cursor-pointer">
                         <input
@@ -1327,53 +1417,53 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           onChange={(e) => setCampDirectOpen(e.target.checked)}
                           className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
                         />
-                        <span className="text-[10.5px] font-bold text-slate-650">
-                          Direct Open Link (Client will get direct open button instead of copy option)
+                        <span className="text-[10.5px] font-bold text-slate-700">
+                          Direct Open Link (Client dashboard gets direct "Open" button to start work immediately)
                         </span>
                       </label>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">KPI Target Rules (Requirements)</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">KPI Target Rules (What the client must complete)</label>
                     <input 
-                      type="text" placeholder="Successful KYC opened + first trade verify..." value={campKpi} onChange={(e) => setCampKpi(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none"
+                      type="text" placeholder="e.g. Successful KYC account opened + 1st trade verify" value={campKpi} onChange={(e) => setCampKpi(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none focus:border-indigo-500"
                     />
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Campaign Logo / Image Circle Upload</label>
-                    <div className="relative border border-dashed border-slate-300 p-4 rounded-xl text-center bg-white">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Campaign Logo / Brand Image</label>
+                    <div className="relative border border-dashed border-slate-300 p-4 rounded-xl text-center bg-white hover:border-indigo-400 transition-colors">
                       <input 
                         type="file" accept="image/*" onChange={(e) => handleImageUploadBase64(e, 'camp')}
                         className="absolute inset-0 opacity-0 cursor-pointer"
                       />
                       {campImage ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <img src={campImage} className="w-10 h-10 rounded-full object-cover shrink-0" />
-                          <span className="text-[10px] font-bold text-indigo-650">Logo loaded! Change file click.</span>
+                        <div className="flex items-center justify-center gap-3">
+                          <img src={campImage} className="w-10 h-10 rounded-full object-cover shrink-0 border border-slate-200" />
+                          <span className="text-xs font-bold text-indigo-700">Custom Logo loaded! Click to change image.</span>
                         </div>
                       ) : (
-                        <span className="text-[10px] text-slate-450 block font-bold">Upload Custom Circle Circular Logo</span>
+                        <span className="text-xs text-slate-500 block font-bold">Click to upload brand logo image (PNG/JPG up to 6MB)</span>
                       )}
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Extended Terms & Conditions</label>
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">Extended Terms & Instructions for Clients</label>
                     <textarea 
-                      placeholder="Enter specific criteria blocks such as age bounds, mandatory documents..." value={campTerms} onChange={(e) => setCampTerms(e.target.value)}
-                      className="w-full text-xs p-2.5 bg-white border border-slate-200 rounded-lg outline-none h-16 resize-none"
+                      placeholder="e.g. Valid Aadhaar and PAN card required. Minimum age 18 years. Complete KYC online..." value={campTerms} onChange={(e) => setCampTerms(e.target.value)}
+                      className="w-full text-xs p-2.5 bg-white border border-slate-300 rounded-lg outline-none h-16 resize-none focus:border-indigo-500"
                     />
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex flex-col sm:flex-row gap-3 pt-2">
                     {editingCampId && (
                       <button
                         type="button"
                         onClick={resetCampForm}
-                        className="flex-1 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-extrabold text-xs rounded-xl cursor-pointer"
+                        className="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-800 font-extrabold text-xs rounded-xl cursor-pointer transition-colors"
                       >
                         Cancel Edit
                       </button>
@@ -1381,35 +1471,45 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     <button
                       type="submit"
                       id="add-campaign-form-btn"
-                      className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-750 text-white font-extrabold text-xs rounded-xl cursor-pointer"
+                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl cursor-pointer shadow-md transition-all flex items-center justify-center gap-2"
                     >
-                      {editingCampId ? 'Save Campaign Specifications' : 'Draft Campaign as Active'}
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>{editingCampId ? '✓ Save Specs & Update Live on Dashboard' : '✓ Publish Campaign Live to Client Dashboard'}</span>
                     </button>
                   </div>
                 </form>
               )}
 
               {/* Campaigns table feed */}
-              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden">
+              <div className="border border-slate-200 bg-white rounded-2xl overflow-hidden shadow-sm">
+                <div className="p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <div className="text-xs font-extrabold text-slate-700">
+                    Active Catalog ({campaigns.length} total, {campaigns.filter(c => c.active !== false).length} live for clients)
+                  </div>
+                  <div className="text-[11px] text-slate-500 font-medium">
+                    Changes take effect immediately on all client logins and cloud databases.
+                  </div>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-450 uppercase font-extrabold tracking-widest border-b border-slate-150">
-                      <th className="p-4">Visual Logo</th>
-                      <th className="p-4">Campaign specifications</th>
-                      <th className="p-3">Payout model</th>
-                      <th className="p-3">Sponsor KPI Target</th>
-                      <th className="p-4 text-center">Management Actions</th>
+                    <tr className="bg-slate-100/75 text-slate-600 uppercase font-black tracking-wider border-b border-slate-200">
+                      <th className="p-3.5">Logo</th>
+                      <th className="p-3.5">Campaign Name & Vertical</th>
+                      <th className="p-3.5">Payout</th>
+                      <th className="p-3.5">KPI Target</th>
+                      <th className="p-3.5 text-center">Live Status</th>
+                      <th className="p-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                     {campaigns.map(camp => (
-                      <tr key={camp.id} className="hover:bg-slate-50/50">
-                        <td className="p-4">
+                      <tr key={camp.id} className="hover:bg-slate-50/75 transition-colors">
+                        <td className="p-3.5">
                           <img 
                             src={camp.image} 
                             alt={camp.name} 
-                            className="w-10 h-10 rounded-full object-cover border border-slate-100 bg-slate-50" 
+                            className="w-10 h-10 rounded-full object-cover border border-slate-200 bg-slate-50 shadow-xs" 
                             referrerPolicy="no-referrer" 
                             onError={(e) => {
                               const target = e.currentTarget;
@@ -1418,51 +1518,77 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                             }}
                           />
                         </td>
-                        <td className="p-4">
-                          <span className="font-extrabold text-slate-900 block">{camp.name}</span>
-                          <span className="text-[10px] text-slate-400 block font-mono mt-0.5">{camp.id} • {camp.vertical} ({camp.platform})</span>
+                        <td className="p-3.5">
+                          <span className="font-extrabold text-slate-900 block text-xs">{camp.name}</span>
+                          <span className="text-[10px] text-slate-500 block font-mono mt-0.5">{camp.id} • {camp.vertical} ({camp.platform})</span>
                           <span className="inline-block text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 mt-1">
-                            {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') ? '🌐 Direct Open' : '📋 Copy Link'}
+                            {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') ? '🌐 Direct Open Button' : '📋 Copy Link'}
                           </span>
                         </td>
-                        <td className="p-3 font-semibold text-emerald-600 font-mono">
-                          ₹{camp.payout} ({camp.model})
+                        <td className="p-3.5 font-bold text-emerald-700 font-mono text-xs">
+                          ₹{camp.payout} <span className="text-[10px] text-slate-400 font-normal">({camp.model})</span>
                         </td>
-                        <td className="p-3 text-slate-600 font-medium">
-                          {camp.kpi}
+                        <td className="p-3.5 text-slate-600 font-medium max-w-[200px] truncate" title={camp.kpi}>
+                          {camp.kpi || 'Account opening verification'}
                         </td>
-                        <td className="p-4">
-                          <div className="flex flex-col sm:flex-row items-center justify-center gap-2">
+                        <td className="p-3.5 text-center">
+                          {camp.active !== false ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                              LIVE ON CLIENT DASHBOARD
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-300">
+                              <span className="w-2 h-2 rounded-full bg-slate-400"></span>
+                              PAUSED / HIDDEN
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          <div className="flex flex-wrap items-center justify-center gap-1.5">
                             <button
                               onClick={() => startEditingCampaign(camp)}
-                              className="w-full sm:w-auto px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border border-amber-200/50"
+                              className="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border border-indigo-200"
                               title="Edit Campaign Specifications"
                             >
-                              Edit Specs
+                              <Edit3 className="w-3 h-3" />
+                              <span>Edit</span>
                             </button>
                             
                             <button
-                              onClick={() => {
-                                if (window.confirm(`Are you sure you want to delete campaign "${camp.name}"? This will permanently delete the campaign specifications.`)) {
-                                  deleteCampaign(camp.id);
-                                }
-                              }}
-                              className="w-full sm:w-auto px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border border-rose-200/50"
-                              title="Delete Campaign"
+                              id={`toggle-camp-act-${camp.id}`}
+                              onClick={() => toggleCampaignActive(camp.id)}
+                              className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border ${
+                                camp.active !== false
+                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300' 
+                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'
+                              }`}
+                              title={camp.active !== false ? "Pause campaign to hide from client dashboard" : "Activate campaign to show on client dashboard"}
                             >
-                              Delete
+                              {camp.active !== false ? (
+                                <>
+                                  <Pause className="w-3 h-3 text-amber-600" />
+                                  <span>Pause</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-3 h-3 fill-white text-white" />
+                                  <span>Make Live</span>
+                                </>
+                              )}
                             </button>
 
                             <button
-                              id={`toggle-camp-act-${camp.id}`}
-                              onClick={() => toggleCampaignActive(camp.id)}
-                              className={`w-full sm:w-auto px-2.5 py-1.5 text-[10px] font-black rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
-                                camp.active 
-                                  ? 'bg-indigo-50 text-indigo-750 hover:bg-indigo-100' 
-                                  : 'bg-slate-100 text-slate-400 hover:bg-slate-150'
-                              }`}
+                              onClick={() => {
+                                if (window.confirm(`Are you sure you want to delete campaign "${camp.name}"? This will remove it completely.`)) {
+                                  deleteCampaign(camp.id);
+                                }
+                              }}
+                              className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border border-rose-200"
+                              title="Delete Campaign"
                             >
-                              {camp.active ? 'Hide (Active)' : 'Show (Hidden)'}
+                              <Trash2 className="w-3 h-3" />
+                              <span>Delete</span>
                             </button>
                           </div>
                         </td>

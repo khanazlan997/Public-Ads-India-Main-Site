@@ -771,6 +771,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Initial state fetch from server memory (0 Firestore reads)
     fetchServerState();
 
+    // Direct real-time live sync for publishers (new v2 database accounts)
+    let unsubPubs: (() => void) | null = null;
+    try {
+      unsubPubs = onSnapshot(collection(db, 'publishers'), (snap) => {
+        if (snap && !snap.empty) {
+          const v2Pubs = snap.docs
+            .map(d => ({ id: d.id, ...d.data() } as Publisher))
+            .filter(p => p && p.systemVersion === 'v2');
+          if (v2Pubs.length > 0) {
+            setPublishers(v2Pubs);
+            safeSetLocal('pai_cached_publishers', v2Pubs);
+          }
+        }
+      }, (err) => {
+        console.warn("Firestore publishers listener warning:", err);
+      });
+    } catch (e) {}
+
+    // Direct real-time live sync for campaigns (ensures newly live campaigns appear immediately)
+    let unsubCamps: (() => void) | null = null;
+    try {
+      unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
+        if (snap && !snap.empty) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
+          if (list.length > 0) {
+            setCampaigns(list);
+            safeSetLocal('pai_cached_campaigns', list);
+          }
+        }
+      }, (err) => {
+        console.warn("Firestore campaigns listener warning:", err);
+      });
+    } catch (e) {}
+
+    // Direct one-time check from Firestore for campaigns on startup so client devices immediately receive latest campaigns
+    try {
+      getDocs(collection(db, 'campaigns')).then(snap => {
+        if (snap && snap.size > 0) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
+          if (list.length > 0) {
+            setCampaigns(list);
+            safeSetLocal('pai_cached_campaigns', list);
+          }
+        }
+      }).catch((err) => {
+        console.warn("Direct Firestore campaigns initial fetch notice:", err);
+      });
+    } catch (e) {}
+
     // Direct one-time check from Firestore for reviews on startup so any new device/browser gets newly added testimonials
     try {
       getDocs(collection(db, 'testimonials')).then(snap => {
@@ -988,6 +1037,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => {
       if (es) es.close();
       if (pollInterval) clearInterval(pollInterval);
+      if (unsubPubs) unsubPubs();
+      if (unsubCamps) unsubCamps();
     };
   }, []);
 
@@ -1470,18 +1521,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: false, message: 'Matching details not found.' };
   };
 
+  // Helper to ensure data written to Firestore never contains undefined values
+  const sanitizeFirestoreRecord = (obj: any): any => {
+    if (!obj || typeof obj !== 'object') return obj;
+    const clean: any = {};
+    for (const [k, v] of Object.entries(obj)) {
+      if (v !== undefined) {
+        clean[k] = (typeof v === 'object' && v !== null && !Array.isArray(v)) ? sanitizeFirestoreRecord(v) : v;
+      }
+    }
+    return clean;
+  };
+
   // Admin / Employee operations
-  const addCampaign = (c: Omit<Campaign, 'id' | 'active'>) => {
+  const addCampaign = (c: Omit<Campaign, 'id' | 'active'> & { active?: boolean }) => {
     const newId = `camp-${Date.now()}`;
     const newCamp: Campaign = {
       ...c,
       id: newId,
-      active: true
+      active: c.active !== undefined ? Boolean(c.active) : true
     };
     
     // Immediate optimistic update & cache
     setCampaigns(prev => {
-      const next = [newCamp, ...prev];
+      const next = [newCamp, ...prev.filter(x => x.id !== newId)];
       try {
         localStorage.setItem('pai_cached_campaigns', JSON.stringify(next));
         broadcastSync('SYNC_CAMPAIGNS', next);
@@ -1497,7 +1560,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.warn("Server campaign add dispatch notice:", err));
 
     try {
-      setDoc(doc(db, 'campaigns', newId), newCamp).catch(() => {});
+      setDoc(doc(db, 'campaigns', newId), sanitizeFirestoreRecord(newCamp), { merge: true }).catch((err) => {
+        console.warn("Direct Firestore campaign add notice:", err);
+      });
     } catch (e) {}
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_ADD', `Created campaign '${c.name}' with payout ₹${c.payout}`);
@@ -1506,8 +1571,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const toggleCampaignActive = (id: string) => {
     const c = campaigns.find(item => item.id === id);
     if (c) {
-      const newActive = !c.active;
-      const updated = { ...c, active: newActive };
+      const newActive = c.active === false ? true : false;
+      const updated: Campaign = { ...c, active: newActive };
       setCampaigns(prev => {
         const next = prev.map(item => item.id === id ? updated : item);
         try {
@@ -1525,17 +1590,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(err => console.warn("Server campaign toggle dispatch notice:", err));
 
       try {
-        setDoc(doc(db, 'campaigns', id), updated, { merge: true }).catch(() => {});
+        setDoc(doc(db, 'campaigns', id), sanitizeFirestoreRecord(updated), { merge: true }).catch((err) => {
+          console.warn("Direct Firestore campaign toggle notice:", err);
+        });
       } catch (e) {}
 
-      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled accessibility check of '${c.name}' to ${newActive}`);
+      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled live visibility of '${c.name}' to ${newActive ? 'LIVE' : 'PAUSED'}`);
     }
   };
 
   const editCampaign = (id: string, updatedCamp: Partial<Campaign>) => {
     const c = campaigns.find(item => item.id === id);
     if (c) {
-      const merged = { ...c, ...updatedCamp };
+      const merged: Campaign = { 
+        ...c, 
+        ...updatedCamp,
+        active: updatedCamp.active !== undefined ? Boolean(updatedCamp.active) : (c.active !== undefined ? Boolean(c.active) : true)
+      };
       setCampaigns(prev => {
         const next = prev.map(item => item.id === id ? merged : item);
         try {
@@ -1553,10 +1624,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(err => console.warn("Server campaign edit dispatch notice:", err));
 
       try {
-        setDoc(doc(db, 'campaigns', id), merged, { merge: true }).catch(() => {});
+        setDoc(doc(db, 'campaigns', id), sanitizeFirestoreRecord(merged), { merge: true }).catch((err) => {
+          console.warn("Direct Firestore campaign edit notice:", err);
+        });
       } catch (e) {}
 
-      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${c.name}' specs`);
+      addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${merged.name}' specs`);
     }
   };
 

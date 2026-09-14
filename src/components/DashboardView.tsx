@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { useAppState } from '../context/AppContext';
-import { compressImageBase64 } from '../lib/image';
+import { compressImageBase64, compressAndCropSquareImage } from '../lib/image';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
@@ -1299,7 +1299,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                               const base64String = reader.result as string;
                               let finalAvatar = base64String;
                               try {
-                                finalAvatar = await compressImageBase64(base64String, 200, 200, 0.8);
+                                finalAvatar = await compressAndCropSquareImage(base64String);
                               } catch (err) {
                                 finalAvatar = base64String;
                               }
@@ -1392,7 +1392,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                               const base64String = reader.result as string;
                               let finalAvatar = base64String;
                               try {
-                                finalAvatar = await compressImageBase64(base64String, 200, 200, 0.8);
+                                finalAvatar = await compressAndCropSquareImage(base64String);
                               } catch (err) {
                                 finalAvatar = base64String;
                               }

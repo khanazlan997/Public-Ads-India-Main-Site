@@ -878,13 +878,9 @@ async function startServer() {
       if (Array.isArray(allCampaigns) && allCampaigns.length > 0) {
         store.campaigns = allCampaigns;
         if (firestore) {
-          for (const c of allCampaigns) {
-            if (c && c.id) {
-              setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true }).catch((err) => {
-                console.error("Firestore batch campaign save notice:", err);
-              });
-            }
-          }
+          await Promise.all(allCampaigns.filter((c: any) => c && c.id).map((c: any) =>
+            setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
+          ));
         }
       } else if (id && active !== undefined) {
         let camp = store.campaigns.find(c => c.id === id);
@@ -898,9 +894,7 @@ async function startServer() {
           }
         }
         if (camp && firestore) {
-          setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true }).catch((err) => {
-            console.error("Firestore toggle campaign save notice:", err);
-          });
+          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
         }
       } else if (campaign && campaign.id) {
         const idx = store.campaigns.findIndex(c => c.id === campaign.id);
@@ -925,9 +919,7 @@ async function startServer() {
         if (firestore) {
           const targetCamp = store.campaigns.find(c => c.id === campaign.id);
           if (targetCamp) {
-            setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true }).catch((err) => {
-              console.error("Firestore save campaign error:", err);
-            });
+            await setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true });
           }
         }
       }
@@ -1124,13 +1116,33 @@ async function startServer() {
   });
 
   // Dedicated GET Bank Details endpoint
-  app.get("/api/bank/:publisherId", (req, res) => {
-    const pubId = req.params.publisherId;
+  app.get("/api/bank/:publisherId", async (req, res) => {
+    const pubId = String(req.params.publisherId || '').trim();
     if (!pubId) return res.status(400).json({ error: "Missing publisherId" });
-    const target = (pubId || '').trim().toLowerCase();
-    const foundEntry = Object.entries(store.bankDetailsMap || {}).find(([k]) => k.trim().toLowerCase() === target);
+    const target = pubId.toLowerCase();
+    const foundEntry = Object.entries(store.bankDetailsMap || {}).find(([key]) => key.trim().toLowerCase() === target);
     if (foundEntry) {
-      return res.json({ success: true, bankDetails: foundEntry[1] });
+      return res.json({ success: true, bankDetails: foundEntry[1], source: 'server-store' });
+    }
+
+    try {
+      const firestore = getServerFirestore();
+      if (firestore) {
+        const cloudSnap = await getDocs(collection(firestore, 'bank_details'));
+        const cloudEntry = cloudSnap.docs.find((bankDoc: any) => {
+          const data = bankDoc.data() || {};
+          return String(data.publisherId || bankDoc.id).trim().toLowerCase() === target;
+        });
+        if (cloudEntry) {
+          const bankDetails = { ...cloudEntry.data(), publisherId: pubId };
+          store.bankDetailsMap = { ...(store.bankDetailsMap || {}), [pubId]: bankDetails };
+          scheduleSaveStore();
+          console.log(`[Sync] Loaded bank details for ${pubId} from Firestore fallback.`);
+          return res.json({ success: true, bankDetails, source: 'firestore' });
+        }
+      }
+    } catch (err) {
+      console.warn(`[Sync] Firestore bank lookup failed for ${pubId}:`, err);
     }
     return res.status(404).json({ success: false, message: "Bank details not found" });
   });

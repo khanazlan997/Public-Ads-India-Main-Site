@@ -706,10 +706,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeSetLocal('pai_cached_earnings', eList);
       }
 
-      if (Array.isArray(cList)) {
-        setCampaigns(cList);
-        safeSetLocal('pai_cached_campaigns', cList);
-      }
+  if (Array.isArray(cList)) {
+  // The 4-second server heartbeat can briefly lag Firebase. Merge records so
+  // a campaign just published from Admin is not erased on client devices.
+  setCampaigns(prev => {
+    const merged = new Map<string, Campaign>();
+    prev.forEach(c => { if (c?.id) merged.set(c.id, c); });
+    cList.forEach((c: Campaign) => { if (c?.id) merged.set(c.id, c); });
+    const next = Array.from(merged.values());
+    safeSetLocal('pai_cached_campaigns', next);
+    return next;
+  });
+  }
 
       if (Array.isArray(pList)) {
         setPublishers(pList);
@@ -794,12 +802,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
         const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Campaign)) || [];
-        setCampaigns(list);
-        safeSetLocal('pai_cached_campaigns', list);
+        // An empty Firestore snapshot must not erase campaigns loaded from the shared server store.
+        if (list.length > 0) {
+          setCampaigns(list);
+          safeSetLocal('pai_cached_campaigns', list);
+        }
       }, (err) => {
         console.warn("Firestore campaigns listener warning:", err);
       });
     } catch (e) {}
+
+    // Keep bank details available on every admin and client device in real time.
+    let unsubBankDetails: (() => void) | null = null;
+    try {
+      unsubBankDetails = onSnapshot(collection(db, 'bank_details'), (snap) => {
+        const nextMap: Record<string, BankDetails> = {};
+        snap?.docs?.forEach((bankDoc) => {
+          const data = bankDoc.data() as BankDetails;
+          const publisherId = String(data.publisherId || bankDoc.id).trim();
+          if (publisherId) nextMap[publisherId] = { ...data, publisherId };
+        });
+        setBankDetailsMap(nextMap);
+        safeSetLocal('pai_cached_bank_details', nextMap);
+        console.log(`[Sync] Bank details listener loaded ${Object.keys(nextMap).length} records.`);
+      }, (err) => {
+        console.warn('[Sync] Firestore bank details listener warning:', err);
+      });
+    } catch (err) {
+      console.warn('[Sync] Could not attach bank details listener:', err);
+    }
 
     // Direct one-time check from Firestore for campaigns on startup so client devices immediately receive latest campaigns
     try {
@@ -1039,6 +1070,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (unsubPubs) unsubPubs();
       if (unsubCamps) unsubCamps();
       if (unsubTestimonials) unsubTestimonials();
+      if (unsubBankDetails) unsubBankDetails();
     };
   }, []);
 
@@ -1557,7 +1589,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ campaign: newCamp })
-    }).catch(err => console.warn("Server campaign add dispatch notice:", err));
+    }).then(async (response) => {
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || 'Campaign publish failed');
+      if (Array.isArray(result.campaigns)) {
+        setCampaigns(result.campaigns);
+        safeSetLocal('pai_cached_campaigns', result.campaigns);
+      }
+    }).catch(err => console.error('[Sync] Campaign publish failed:', err));
 
     try {
       setDoc(doc(db, 'campaigns', newId), sanitizeFirestoreRecord(newCamp), { merge: true }).catch((err) => {
@@ -2457,7 +2496,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!currentUser || currentUser.type !== 'publisher') return { success: false, message: 'Authentication level required' };
     
     // Immediate optimistic update & cache
-    const updated = { ...details, publisherId: currentUser.id };
+    const publisherId = String(currentUser.id || '').trim();
+    if (!publisherId) return { success: false, message: 'Publisher account ID is missing' };
+    const updated = { ...details, publisherId };
     setBankDetailsMap(prev => {
       const next = { ...prev, [currentUser.id]: updated };
       try {
@@ -2467,15 +2508,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return next;
     });
 
-    // Server Persistence & Realtime Broadcast to All Connected Devices
-    fetch('/api/bank/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ publisherId: currentUser.id, details: updated })
-    }).catch(err => console.warn("Server bank update notice:", err));
-
-    addLog(currentUser.id, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
-    return { success: true, message: 'Bank ledger nodes updated and saved in system registry!' };
+    // Server persistence must complete before reporting success to the client.
+    try {
+      const response = await fetch('/api/bank/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId, details: updated })
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Bank details could not be saved');
+      }
+      addLog(publisherId, currentUser.name, 'BANK_UPDATE', 'Updated banking ledger details');
+      return { success: true, message: 'Bank details saved and synced across devices.' };
+    } catch (err: any) {
+      console.error('[Sync] Bank details save failed:', err);
+      return { success: false, message: err?.message || 'Bank details could not be saved' };
+    }
   };
 
   const submitLead = async (campaignId: string, clientName: string, clientPhone: string, clientCode: string, screenshot: string) => {

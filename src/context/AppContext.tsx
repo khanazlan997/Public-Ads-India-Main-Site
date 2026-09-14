@@ -1492,7 +1492,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updatePublisherProfile = async (name: string, avatar: string) => {
-    if (!currentUser || currentUser.type !== 'publisher') return;
+    if (!currentUser || currentUser.type !== 'publisher') return { success: false, message: 'Publisher session is missing.' };
     const pubId = currentUser.id;
     
     try {
@@ -1528,9 +1528,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
+      return { success: true, message: 'Profile updated successfully.' };
     } catch (err) {
       console.error('Failed to update profile:', err);
-      alert('Failed to save profile. Please try a smaller image.');
+      return { success: false, message: 'Failed to save profile. Please try a smaller image.' };
     }
   };
 

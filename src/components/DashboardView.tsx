@@ -456,26 +456,22 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     }
   };
 
-  const handleSavePhoto = (newAvatar?: string) => {
+  const handleSavePhoto = async (newAvatar?: string) => {
     const avatarToSave = newAvatar || profileAvatar;
     if (!avatarToSave) return;
-    
-    // Save to profile context
-    void updatePublisherProfile(profileName, avatarToSave);
-    if (newAvatar) setProfileAvatar(newAvatar);
-    
-    // Trigger Confetti Animation
-    confetti({
-      particleCount: 100,
-      spread: 70,
-      origin: { y: 0.6 }
-    });
 
-    // Automatically return to profile view so updated DP is immediately visible
+    const result = await updatePublisherProfile(profileName, avatarToSave);
+    if (!result?.success) {
+      alert(result?.message || 'Profile could not be saved.');
+      return;
+    }
+    if (newAvatar) setProfileAvatar(newAvatar);
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    alert('Profile submitted successfully.');
     setIsEditingProfile(false);
   };
 
-  const handleProfileSave = (e: React.FormEvent) => {
+  const handleProfileSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const newNameFormatted = requestedNewName.trim() || profileName;
     
@@ -486,8 +482,14 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     const waUrl = `https://wa.me/918934932418?text=${encodeURIComponent(waMsg)}`;
     window.open(waUrl, '_blank');
 
-    // Save avatar locally if updated
-    updatePublisherProfile(profileName, profileAvatar);
+    // Save avatar only after the server confirms persistence.
+    const result = await updatePublisherProfile(profileName, profileAvatar);
+    if (!result?.success) {
+      alert(result?.message || 'Profile could not be saved.');
+      return;
+    }
+    confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+    alert('Profile submitted successfully.');
     setIsEditingProfile(false);
   };
 
@@ -2442,7 +2444,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                           }
                           return (
                             <span className="text-xl select-none w-8 h-8 flex items-center justify-center bg-slate-100 dark:bg-slate-800/50 rounded-full shrink-0">
-                              {leader.avatar || '😎'}
+                              {leader.avatar || '���'}
                             </span>
                           );
                         })()}

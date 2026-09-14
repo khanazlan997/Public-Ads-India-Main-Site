@@ -13,7 +13,8 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
     currentUser, 
     loginEmployee, 
     logout, 
-    submissions, 
+    submissions,
+    refreshServerState,
     updateSubmissionStatus,
     bankDetailsMap
   } = useAppState();
@@ -30,6 +31,13 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
 
   // Pagination state (50 items per page)
   const [empSubPage, setEmpSubPage] = useState(1);
+
+  useEffect(() => {
+    if (currentUser?.type !== 'employee') return;
+    void refreshServerState();
+    const interval = window.setInterval(() => void refreshServerState(), 3000);
+    return () => window.clearInterval(interval);
+  }, [currentUser?.type, refreshServerState]);
 
   useEffect(() => {
     setEmpSubPage(1);

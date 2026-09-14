@@ -579,12 +579,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
             setSubmissions(prev => {
               const map = new Map<string, DataSubmission>();
-              prev.forEach(s => map.set(s.id, s));
+              // The server snapshot is authoritative; deleted leads must disappear everywhere.
               payload.forEach(s => {
-                if (s && s.id) {
-                  const existing = map.get(s.id) || {};
-                  map.set(s.id, { ...existing, ...s });
-                }
+                if (s && s.id) map.set(s.id, s);
               });
               const next = Array.from(map.values()).sort((a, b) => {
                 const keyA = (a.submitDate || '') + '_' + (a.id || '');
@@ -689,26 +686,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (!data) return;
       const { submissions: sList, earnings: eList, campaigns: cList, publishers: pList, bankDetailsMap: bMap, employees: empList } = data;
       
-      if (Array.isArray(sList)) {
-        setSubmissions(prev => {
-          const map = new Map<string, DataSubmission>();
-          // Server submissions
-          sList.forEach(s => { if (s && s.id) map.set(s.id, s); });
-          // Preserve any optimistic local submissions
-          prev.forEach(s => {
-            if (s && s.id && !map.has(s.id)) {
-              map.set(s.id, s);
-            }
-          });
-          const merged = Array.from(map.values()).sort((a, b) => {
-            const keyA = (a.submitDate || '') + '_' + (a.id || '');
-            const keyB = (b.submitDate || '') + '_' + (b.id || '');
-            return keyB.localeCompare(keyA);
-          });
-          return merged;
-        });
-        safeSetLocal('pai_cached_submissions', sList);
-      }
+  if (Array.isArray(sList)) {
+  const canonicalSubmissions = sList.filter(s => s && s.id).sort((a, b) => {
+  const keyA = (a.submitDate || '') + '_' + (a.id || '');
+  const keyB = (b.submitDate || '') + '_' + (b.id || '');
+  return keyB.localeCompare(keyA);
+  });
+  setSubmissions(canonicalSubmissions);
+  safeSetLocal('pai_cached_submissions', canonicalSubmissions);
+  }
 
       if (Array.isArray(eList)) {
         setEarnings(eList);
@@ -996,12 +982,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else if (type === 'SYNC_SUBMISSIONS' && Array.isArray(payload)) {
             setSubmissions(prev => {
               const map = new Map<string, DataSubmission>();
-              prev.forEach(s => map.set(s.id, s));
+              // The server snapshot is authoritative; deleted leads must disappear everywhere.
               payload.forEach(s => {
-                if (s && s.id) {
-                  const existing = map.get(s.id) || {};
-                  map.set(s.id, { ...existing, ...s });
-                }
+                if (s && s.id) map.set(s.id, s);
               });
               const next = Array.from(map.values()).sort((a, b) => {
                 const keyA = (a.submitDate || '') + '_' + (a.id || '');

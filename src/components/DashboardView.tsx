@@ -352,8 +352,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       const p = publishers.find(pub => pub.id === currentUser.id);
       if (p) {
         setProfileName(p.name);
-        // Prioritize currentUser.avatar if available, otherwise fallback to publisher object avatar
-        setProfileAvatar(currentUser.avatar || p.avatar || '😎');
+  // Replace the legacy default avatar for existing accounts while preserving custom uploads.
+  const savedAvatar = currentUser.avatar || p.avatar;
+  const isLegacyDefault = savedAvatar?.includes('Gemini_Generated_Image_txixh7txixh7txix');
+  setProfileAvatar(isLegacyDefault || !savedAvatar ? 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjYTtYC0gJn4gMEYyYylS71fiNiWngHOMAgY5rmphLDDAP01Nc9ASJCMRJWI5EF9O58QgyRE_T5S5rq7-p8iprJkH0e1muO48LKEV4xuTDlsn5ZkVLrnvXFDN2QM_ekhndsmNA1skwIP2VWNo0zGhENbd8XsuRtv9_PDC5L4rjyLRkEYtWn4VcKTnnoFn7c/s736/1000227902.jpg' : savedAvatar);
 
         // Load Bank Details too if present
         const bank = bankDetailsMap[p.id];

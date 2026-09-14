@@ -1050,7 +1050,7 @@ async function startServer() {
   });
 
   // Dedicated Publisher Profile Update endpoint
-  app.post("/api/publisher/update", (req, res) => {
+  app.post("/api/publisher/update", async (req, res) => {
     try {
       const { publisherId, name, avatar } = req.body || {};
       if (!publisherId) {
@@ -1071,11 +1071,21 @@ async function startServer() {
         store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });
       }
       scheduleSaveStore();
+      const savedPublisher = store.publishers.find(p => p.id === publisherId);
+      const firestore = getServerFirestore();
+      if (firestore && savedPublisher) {
+        await setDoc(
+          doc(firestore, "publishers", String(publisherId)),
+          sanitizeFirestoreData(savedPublisher),
+          { merge: true }
+        );
+      }
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers
       });
-      res.json({ success: true, publisher: store.publishers.find(p => p.id === publisherId) });
+      console.log(`[Sync] Profile saved for ${publisherId}; broadcasted to ${sseClients.length} clients.`);
+      res.json({ success: true, publisher: savedPublisher });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -1428,11 +1438,16 @@ async function startServer() {
 
   const firestore = getServerFirestore();
   if (firestore) {
-    await setDoc(
-      doc(firestore, "submissions", String(submission.id)),
-      sanitizeFirestoreData(submission),
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(firestore, "submissions", String(submission.id)),
+        sanitizeFirestoreData(submission),
+        { merge: true }
+      );
+    } catch (firestoreError) {
+      // The server store and SSE are the canonical fallback when Firestore is unavailable.
+      console.warn('[Sync] Firestore lead write skipped; server lead remains saved:', firestoreError);
+    }
   }
 
   broadcastRealtime({

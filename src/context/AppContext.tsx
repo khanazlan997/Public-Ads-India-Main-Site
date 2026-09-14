@@ -405,14 +405,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setPublishers(v2Pubs);
               try { localStorage.setItem('pai_cached_publishers', JSON.stringify(v2Pubs)); } catch (e) {}
             }
-            if (Array.isArray(json.data.submissions) && json.data.submissions.length > 0) {
-              setSubmissions(json.data.submissions);
-              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(json.data.submissions)); } catch (e) {}
-            }
-            if (Array.isArray(json.data.earnings) && json.data.earnings.length > 0) {
-              setEarnings(json.data.earnings);
-              try { localStorage.setItem('pai_cached_earnings', JSON.stringify(json.data.earnings)); } catch (e) {}
-            }
+  if (Array.isArray(json.data.submissions)) {
+  setSubmissions(json.data.submissions);
+  try { localStorage.setItem('pai_cached_submissions', JSON.stringify(json.data.submissions)); } catch (e) {}
+  }
+  if (Array.isArray(json.data.earnings)) {
+  setEarnings(json.data.earnings);
+  try { localStorage.setItem('pai_cached_earnings', JSON.stringify(json.data.earnings)); } catch (e) {}
+  }
           }
         }
       } catch (e) {}
@@ -1522,11 +1522,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       broadcastSync('SYNC_PUBLISHERS', updatedPublishers);
 
-      await fetch('/api/publisher/update', {
+      const response = await fetch('/api/publisher/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publisherId: pubId, name, avatar })
-      }).catch(err => console.warn("Publisher update api notice:", err));
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Profile update failed');
+      }
+      const savedPublisher = result.publisher;
+      if (savedPublisher) {
+        const savedSession = { ...currentUser, ...savedPublisher };
+        setCurrentUser(savedSession);
+        safeSetLocal('pai_user_session', savedSession);
+        setPublishers(prev => prev.map(p => p.id === pubId ? { ...p, ...savedPublisher } : p));
+      }
 
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
     } catch (err) {
@@ -2607,7 +2618,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       const response = await serverFetchPromise;
-      if (!response.ok) throw new Error('Backend submission failed');
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || 'Backend submission failed');
+      // Use the server-confirmed record so the next Admin refresh sees the exact same lead.
+      if (result.submission) {
+        setSubmissions(prev => [result.submission, ...prev.filter(s => s.id !== result.submission.id)]);
+      }
 
       addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
       return { success: true, message: 'Lead submitted successfully! Admin will verify soon.' };

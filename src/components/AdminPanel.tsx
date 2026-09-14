@@ -146,6 +146,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   // MIS DB status state
   const [misFilter, setMisFilter] = useState('');
+  const recentLeads = submissions.filter((submission) => {
+    const timestamp = new Date(submission.submitDate || '').getTime();
+    return Number.isFinite(timestamp) && Date.now() - timestamp <= 48 * 60 * 60 * 1000;
+  });
 
   // Payment search states
   const [paymentUid, setPaymentUid] = useState('');
@@ -1056,7 +1060,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       <h4 className="text-sm font-black text-slate-800">Recent Lead Actions Feed</h4>
                     </div>
                     <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest font-mono">
-                      Recent {Math.min(submissions.length, 5)}
+                      Last 48 hrs: {recentLeads.length}
                     </span>
                   </div>
 
@@ -1070,8 +1074,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         No lead submissions received yet.
                       </div>
                     ) : (
-                      [...submissions]
-                        .sort((a,b) => b.id.localeCompare(a.id))
+                      [...recentLeads]
+                        .sort((a,b) => new Date(b.submitDate || 0).getTime() - new Date(a.submitDate || 0).getTime())
                         .slice(0, 10)
                         .map(sub => (
                           <div key={sub.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-orange-50/40 border border-slate-100 transition-colors">
@@ -1561,6 +1565,13 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               </div>
 
               {/* Data Table */}
+              <div className="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
+                <div>
+                  <p className="text-xs font-black text-indigo-900">Client submissions in last 48 hours</p>
+                  <p className="text-[10px] text-indigo-700">Showing {recentLeads.length} recent lead{recentLeads.length === 1 ? '' : 's'} from the canonical server data.</p>
+                </div>
+                <span className="rounded-lg bg-white px-3 py-1 text-sm font-black text-indigo-700 shadow-sm">{recentLeads.length}</span>
+              </div>
               {submissions.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs font-semibold">
                   No publisher data submissions located in core databases yet.
@@ -1582,7 +1593,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {(() => {
-                          const filtered = submissions
+                          const filtered = recentLeads
                             .filter(sub => {
                               const f = misFilter.toLowerCase();
                               return (

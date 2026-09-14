@@ -105,7 +105,7 @@ interface AppContextType {
   deleteEarningRecord: (earningId: string) => void;
   toggleBlockPublisher: (pubId: string) => void;
   deletePublisher: (pubId: string) => void;
-  addEmployee: (name: string, u: string, p: string, role: 'Payment' | 'MIS') => { success: boolean; message: string };
+  addEmployee: (name: string, u: string, p: string, role: 'Payment' | 'MIS') => Promise<{ success: boolean; message: string }>;
   deleteEmployee: (id: string) => void;
   triggerBackup: () => void;
   backupLogs: Array<{ id: string; time: string; scope: string; size: string; status: string }>;
@@ -2200,7 +2200,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addEmployee = (name: string, u: string, p: string, role: 'Payment' | 'MIS') => {
+  const addEmployee = async (name: string, u: string, p: string, role: 'Payment' | 'MIS') => {
     const existing = employees.find(e => e.username === u);
     if (existing) {
       return { success: false, message: 'Username is already taken by another staff member.' };
@@ -2221,13 +2221,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('SYNC_EMPLOYEES', next);
     } catch (err) {}
 
-  void fetch('/api/employee/update', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ employee: newEmp })
-  }).then(async response => {
-    if (!response.ok) console.warn('[v0] Employee account was not persisted by server:', await response.text());
-  }).catch(error => console.warn('[v0] Employee account save failed:', error));
+  try {
+    const response = await fetch('/api/employee/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ employee: newEmp })
+    });
+    if (!response.ok) {
+      const detail = await response.text().catch(() => '');
+      setEmployees(employees);
+      return { success: false, message: detail || 'Employee account could not be saved on the server.' };
+    }
+  } catch (error) {
+    setEmployees(employees);
+    return { success: false, message: 'Employee account could not reach the server.' };
+  }
 
     addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${name} (Role: ${role})`);
     return { success: true, message: 'Staff Employee account generated successfully!' };

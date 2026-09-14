@@ -849,6 +849,17 @@ async function startServer() {
       }
     }
 
+    if (firestore) {
+      try {
+        const employeeSnapshot = await getDocs(collection(firestore, 'employees'));
+        if (employeeSnapshot.size > 0) {
+          store.employees = employeeSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
+        }
+      } catch (error) {
+        console.warn('[Sync] Could not hydrate employees from Firestore:', error);
+      }
+    }
+
     // Build lightweight payload (< 150KB vs 9.5MB) to guarantee lightning speed and prevent localStorage QuotaExceeded errors
     const lightweightSubmissions = store.submissions.map(sub => ({
       ...sub,
@@ -1314,7 +1325,7 @@ async function startServer() {
   });
 
   // Dedicated Employee CRUD endpoints (Zero Firestore quota)
-  app.post("/api/employee/update", (req, res) => {
+  app.post("/api/employee/update", async (req, res) => {
     try {
       const { employee } = req.body || {};
       if (!employee || !employee.id) return res.status(400).json({ error: "Missing employee data" });
@@ -1326,6 +1337,10 @@ async function startServer() {
         store.employees.unshift(employee);
       }
       scheduleSaveStore();
+      const firestore = getServerFirestore();
+      if (firestore) {
+        await setDoc(doc(firestore, "employees", String(employee.id)), sanitizeFirestoreData(employee), { merge: true });
+      }
       broadcastRealtime({
         type: "SYNC_EMPLOYEES",
         payload: store.employees

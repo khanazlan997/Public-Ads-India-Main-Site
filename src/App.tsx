@@ -24,7 +24,7 @@ import { motion, AnimatePresence } from 'motion/react';
 function normalizeRoute(rawPath: string): string {
   const lower = rawPath.toLowerCase().trim();
   if (lower === '/home' || lower === '/' || lower === '') return '/Home';
-  if (lower === '/dashboard') return '/Dashboard';
+  if (lower === '/dashboard' || lower.startsWith('/dashboard/') || lower.startsWith('/dashboard?')) return '/Dashboard';
   if (lower === '/admin') return '/Admin';
   if (lower === '/partner') return '/Partner';
   if (lower === '/employee') return '/Employee';
@@ -69,8 +69,8 @@ function AppContent() {
       let path = '/Home';
 
       if (hash && hash !== '#') {
-        const cleanHash = hash.replace(/^#\/?/, '/');
-        path = normalizeRoute(cleanHash);
+        const cleanHash = `/${hash.slice(1).replace(/^\/+/, '')}`;
+        path = hash.toLowerCase().includes('dashboard') ? '/Dashboard' : normalizeRoute(cleanHash);
       } else {
         const pathname = window.location.pathname;
         if (pathname && pathname !== '/') {

@@ -2624,10 +2624,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       addLog(currentUser.id, currentUser.name, 'LEAD_SUBMISSION', `Submitted new action lead for client [${clientName}] under campaign [${camp.name}]`);
       return { success: true, message: 'Lead submitted successfully! Admin will verify soon.' };
-    } catch (fetchErr) {
-      console.error("Submission create error:", fetchErr);
-      return { success: true, message: 'Lead saved locally and queued for sync.' };
-    }
+  } catch (fetchErr) {
+  console.error("Submission create error:", fetchErr);
+  return { success: false, message: 'Lead could not be synced. Please check your connection and try again.' };
+  }
   };
 
   const applyForPartner = async (

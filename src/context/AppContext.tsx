@@ -793,13 +793,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubCamps: (() => void) | null = null;
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
-        if (snap && !snap.empty) {
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-          if (list.length > 0) {
-            setCampaigns(list);
-            safeSetLocal('pai_cached_campaigns', list);
-          }
-        }
+        const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Campaign)) || [];
+        setCampaigns(list);
+        safeSetLocal('pai_cached_campaigns', list);
       }, (err) => {
         console.warn("Firestore campaigns listener warning:", err);
       });
@@ -820,18 +816,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     } catch (e) {}
 
-    // Direct one-time check from Firestore for reviews on startup so any new device/browser gets newly added testimonials
+    // Keep reviews live across admin and client dashboards.
+    let unsubTestimonials: (() => void) | null = null;
     try {
-      getDocs(collection(db, 'testimonials')).then(snap => {
-        if (snap && snap.size > 0) {
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Testimonial));
-          if (list.length > 0) {
-            setTestimonials(list);
-            safeSetLocal('pai_cached_testimonials', list);
-          }
+      unsubTestimonials = onSnapshot(collection(db, 'testimonials'), (snap) => {
+        const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Testimonial)) || [];
+        if (list.length > 0) {
+          setTestimonials(list);
+          safeSetLocal('pai_cached_testimonials', list);
         }
-      }).catch(() => {});
-    } catch (e) {}
+      }, (err) => {
+        console.warn("Firestore testimonials listener warning:", err);
+      });
+    } catch (e) {
+      console.warn("Could not attach testimonials listener:", e);
+    }
 
     // Real-time synchronization handled 100% via zero-quota SSE and local state stream
     // Connect to Server-Sent Events stream for instant cross-device delivery (< 50ms)
@@ -1039,6 +1038,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (pollInterval) clearInterval(pollInterval);
       if (unsubPubs) unsubPubs();
       if (unsubCamps) unsubCamps();
+      if (unsubTestimonials) unsubTestimonials();
     };
   }, []);
 

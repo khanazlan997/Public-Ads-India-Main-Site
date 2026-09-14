@@ -706,10 +706,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeSetLocal('pai_cached_earnings', eList);
       }
 
-      if (Array.isArray(cList)) {
-        setCampaigns(cList);
-        safeSetLocal('pai_cached_campaigns', cList);
-      }
+  if (Array.isArray(cList)) {
+  // The 4-second server heartbeat can briefly lag Firebase. Merge records so
+  // a campaign just published from Admin is not erased on client devices.
+  setCampaigns(prev => {
+    const merged = new Map<string, Campaign>();
+    prev.forEach(c => { if (c?.id) merged.set(c.id, c); });
+    cList.forEach((c: Campaign) => { if (c?.id) merged.set(c.id, c); });
+    const next = Array.from(merged.values());
+    safeSetLocal('pai_cached_campaigns', next);
+    return next;
+  });
+  }
 
       if (Array.isArray(pList)) {
         setPublishers(pList);
@@ -1581,7 +1589,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ campaign: newCamp })
-    }).catch(err => console.warn("Server campaign add dispatch notice:", err));
+    }).then(async (response) => {
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || 'Campaign publish failed');
+      if (Array.isArray(result.campaigns)) {
+        setCampaigns(result.campaigns);
+        safeSetLocal('pai_cached_campaigns', result.campaigns);
+      }
+    }).catch(err => console.error('[Sync] Campaign publish failed:', err));
 
     try {
       setDoc(doc(db, 'campaigns', newId), sanitizeFirestoreRecord(newCamp), { merge: true }).catch((err) => {

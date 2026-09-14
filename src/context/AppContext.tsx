@@ -126,7 +126,7 @@ interface AppContextType {
   submitPartnerApplication: (params: { name: string; phone: string; email?: string; city: string; age?: number; qualification?: string; partnerType?: string; monthlyLeads?: string }) => Promise<{ success: boolean; message: string; whatsappUrl?: string }>;
   
   // Employee Login
-  loginEmployee: (username: string, pass: string) => { success: boolean; message: string; employee?: Employee };
+  loginEmployee: (username: string, pass: string) => Promise<{ success: boolean; message: string; employee?: Employee }>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -2704,8 +2704,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Staff Portal Login
-  const loginEmployee = (username: string, pass: string) => {
-    const emp = employees.find(e => e.username === username && e.password === pass);
+  const loginEmployee = async (username: string, pass: string) => {
+    await refreshServerState();
+    const normalizedUsername = username.trim().toLowerCase();
+    const emp = employees.find(e => e.username?.trim().toLowerCase() === normalizedUsername && e.password === pass);
     if (!emp) {
       return { success: false, message: 'Invalid Employee login credentials.' };
     }

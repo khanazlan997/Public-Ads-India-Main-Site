@@ -35,7 +35,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
     setEmpSubPage(1);
   }, [filterQuery]);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -44,7 +44,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
       return;
     }
 
-    const res = loginEmployee(username, password);
+    const res = await loginEmployee(username, password);
     if (!res.success) {
       setLoginError(res.message);
     }

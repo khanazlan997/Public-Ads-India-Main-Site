@@ -964,12 +964,13 @@ async function startServer() {
       if (!phoneOrEmail || !password) {
         return res.status(400).json({ success: false, message: "Missing credentials" });
       }
-      const target = phoneOrEmail.trim().toLowerCase();
-      console.log(`[Auth Attempt] Target: ${target}, Server publishers count: ${store.publishers.length}`);
+  const target = phoneOrEmail.trim().toLowerCase();
+  const targetDigits = phoneOrEmail.trim().replace(/[\s\-\(\)]/g, '');
+  console.log(`[Auth Attempt] Target: ${target}, Server publishers count: ${store.publishers.length}`);
       
       let pub = store.publishers.find(p => 
         p.systemVersion === 'v2' &&
-        (p.id?.trim().toLowerCase() === target || p.email?.trim().toLowerCase() === target || p.phone?.trim() === phoneOrEmail.trim()) && 
+        (p.id?.trim().toLowerCase() === target || p.email?.trim().toLowerCase() === target || p.phone?.trim().replace(/[\s\-\(\)]/g, '') === targetDigits) &&
         p.password === password
       );
 
@@ -983,7 +984,7 @@ async function startServer() {
               const data = { id: d.id, ...d.data() };
               if (
                 data.systemVersion === 'v2' &&
-                (data.id?.trim().toLowerCase() === target || data.email?.trim().toLowerCase() === target || data.phone?.trim() === phoneOrEmail.trim()) &&
+                (data.id?.trim().toLowerCase() === target || data.email?.trim().toLowerCase() === target || data.phone?.trim().replace(/[\s\-\(\)]/g, '') === targetDigits) &&
                 data.password === password
               ) {
                 pub = data;

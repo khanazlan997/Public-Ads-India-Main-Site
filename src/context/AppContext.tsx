@@ -1522,11 +1522,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       broadcastSync('SYNC_PUBLISHERS', updatedPublishers);
 
-      await fetch('/api/publisher/update', {
+      const response = await fetch('/api/publisher/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ publisherId: pubId, name, avatar })
-      }).catch(err => console.warn("Publisher update api notice:", err));
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.error || 'Profile update failed');
+      }
+      const savedPublisher = result.publisher;
+      if (savedPublisher) {
+        const savedSession = { ...currentUser, ...savedPublisher };
+        setCurrentUser(savedSession);
+        safeSetLocal('pai_user_session', savedSession);
+        setPublishers(prev => prev.map(p => p.id === pubId ? { ...p, ...savedPublisher } : p));
+      }
 
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
     } catch (err) {

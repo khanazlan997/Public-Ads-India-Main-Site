@@ -1226,20 +1226,26 @@ async function startServer() {
     try {
       const { id } = req.body || {};
       if (!id) return res.status(400).json({ error: "Missing submission ID" });
-      const idx = store.submissions.findIndex(s => s.id === id);
+      const normalizedId = String(id).trim();
+      const idx = store.submissions.findIndex(s => String(s.id || '').trim() === normalizedId);
+      let deleted = false;
       if (idx !== -1) {
         store.submissions.splice(idx, 1);
+        deleted = true;
         scheduleSaveStore();
         const firestore = getServerFirestore();
         if (firestore) {
-          deleteDoc(doc(firestore, "submissions", String(id))).catch(() => {});
+          await deleteDoc(doc(firestore, "submissions", normalizedId)).catch(error => {
+            console.warn('[Sync] Firestore lead deletion failed:', error);
+          });
         }
-        broadcastRealtime({
-          type: "SYNC_SUBMISSIONS",
-          payload: store.submissions
-        });
       }
-      res.json({ success: true, count: store.submissions.length });
+      // Always broadcast the canonical snapshot, including when the list becomes empty.
+      broadcastRealtime({
+        type: "SYNC_SUBMISSIONS",
+        payload: store.submissions
+      });
+      res.json({ success: true, deleted, count: store.submissions.length, submissions: store.submissions });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

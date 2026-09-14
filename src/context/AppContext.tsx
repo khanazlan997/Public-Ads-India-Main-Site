@@ -42,6 +42,8 @@ import {
   snapshotPartners
 } from '../data/databaseSnapshot';
 
+const DEFAULT_PUBLISHER_AVATAR = 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjYTtYC0gJn4gMEYyYylS71fiNiWngHOMAgY5rmphLDDAP01Nc9ASJCMRJWI5EF9O58QgyRE_T5S5rq7-p8iprJkH0e1muO48LKEV4xuTDlsn5ZkVLrnvXFDN2QM_ekhndsmNA1skwIP2VWNo0zGhENbd8XsuRtv9_PDC5L4rjyLRkEYtWn4VcKTnnoFn7c/s736/1000227902.jpg';
+
 interface AppContextType {
   theme: 'light' | 'dark';
   setTheme: (t: 'light' | 'dark') => void;
@@ -1430,7 +1432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         email: cleanEmail,
         phone: cleanPhone,
         password,
-        avatar: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEi7sa2JYSrSfdqquW-8HZa7VeRXZWm01vdBGsVG-m85ilMv6789q9qcUz-iSLN2YUiDq3stBXueElaMPuCg-M6JNFrHdNLK8UnfT3NDgYyCmniwdlagcYXeb7IQ29jSK5PGRS2gm7mx3uUaEFkjQpGVRv6gF0b43SFyf6NFHpPVOo2RuYJY8M2njpv5hXs/s2048/Gemini_Generated_Image_txixh7txixh7txix.png',
+        avatar: DEFAULT_PUBLISHER_AVATAR,
         blocked: false,
         joinedDate: new Date().toISOString().substring(0, 10),
         systemVersion: 'v2',

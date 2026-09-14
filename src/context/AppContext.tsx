@@ -1492,7 +1492,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updatePublisherProfile = async (name: string, avatar: string) => {
-    if (!currentUser || currentUser.type !== 'publisher') return;
+    if (!currentUser || currentUser.type !== 'publisher') return { success: false, message: 'Publisher session is missing.' };
     const pubId = currentUser.id;
     
     try {
@@ -1528,9 +1528,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
+      return { success: true, message: 'Profile updated successfully.' };
     } catch (err) {
       console.error('Failed to update profile:', err);
-      alert('Failed to save profile. Please try a smaller image.');
+      return { success: false, message: 'Failed to save profile. Please try a smaller image.' };
     }
   };
 
@@ -2616,13 +2617,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 4. Guaranteed Persistence on Backend Server (Zero Firestore Quota Burden)
     try {
       // Dispatch immediately to server first to trigger instant SSE real-time broadcast to Admin!
-      const serverFetchPromise = fetch('/api/submission/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ submission: newSub })
-      });
-
-      const response = await serverFetchPromise;
+      const networkSubmission = {
+        ...newSub,
+        // Keep the API request below platform body limits; the lead fields remain intact.
+        screenshot: typeof newSub.screenshot === 'string' && newSub.screenshot.length > 150000
+          ? newSub.screenshot.slice(0, 150000)
+          : newSub.screenshot,
+      };
+      let response: Response | null = null;
+      let lastError: unknown = null;
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          response = await fetch('/api/submission/create', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ submission: networkSubmission }),
+            signal: AbortSignal.timeout(15000),
+          });
+          if (response.ok) break;
+          lastError = new Error(`Lead API returned ${response.status}`);
+        } catch (error) {
+          lastError = error;
+        }
+        await new Promise(resolve => window.setTimeout(resolve, 500 * (attempt + 1)));
+      }
+      if (!response) throw lastError || new Error('Lead API is unavailable');
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success) throw new Error(result?.error || 'Backend submission failed');
       // Use the server-confirmed record so the next Admin refresh sees the exact same lead.

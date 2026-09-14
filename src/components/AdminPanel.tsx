@@ -435,14 +435,23 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   // Check manual session on mount to allow smooth iframe transitions
   React.useEffect(() => {
-    const activeSess = localStorage.getItem('pai_user_session');
-    if (activeSess) {
-      const parsed = JSON.parse(activeSess);
-      if (parsed.type === 'admin') {
-        setIsAdminLoggedIn(true);
-      }
-    }
+  const activeSess = localStorage.getItem('pai_user_session');
+  if (activeSess) {
+  const parsed = JSON.parse(activeSess);
+  if (parsed.type === 'admin') {
+  setIsAdminLoggedIn(true);
+  }
+  }
   }, []);
+
+  // Always pull the canonical server list when Admin opens, then keep it fresh
+  // for leads submitted from another browser or deployment instance.
+  React.useEffect(() => {
+  if (!isAdminLoggedIn) return;
+  void refreshServerState();
+  const interval = window.setInterval(() => void refreshServerState(), 5000);
+  return () => window.clearInterval(interval);
+  }, [isAdminLoggedIn, refreshServerState]);
 
   // Reset campaign form fields
   const resetCampForm = () => {

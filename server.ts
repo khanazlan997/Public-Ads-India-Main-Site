@@ -1779,7 +1779,11 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in development mode...");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      // Express owns the HTTP listener below, so Vite cannot receive the
+      // WebSocket upgrade required by its default HMR client in middleware mode.
+      // Disable HMR here to prevent the client from retrying a socket that can
+      // never be upgraded; the preview server still reloads on restart.
+      server: { middlewareMode: true, hmr: false },
       appType: "spa",
     });
     

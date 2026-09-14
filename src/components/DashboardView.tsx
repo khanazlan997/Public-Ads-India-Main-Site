@@ -141,7 +141,7 @@ function PremiumFinanceGeometricCanvas() {
         ctx.stroke();
       } else if (item.type === 'rupee') {
         ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
-        ctx.fillText('₹', -item.size / 2, item.size / 3);
+        ctx.fillText('��', -item.size / 2, item.size / 3);
       } else if (item.type === 'dollar') {
         ctx.font = `900 ${Math.round(item.size)}px sans-serif`;
         ctx.fillText('$', -item.size / 2, item.size / 3);
@@ -293,6 +293,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const [authPassword, setAuthPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [hasVerifiedDashboardSession, setHasVerifiedDashboardSession] = useState(false);
 
   // Password recovery flow
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
@@ -421,6 +422,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       const res = await signupPublisher(authName, authEmail, authPhone, authPassword, authInviteCode);
       if (!res.success) {
         setAuthError(res.message);
+      } else {
+        setHasVerifiedDashboardSession(true);
+        if (res.publisher?.id) window.history.replaceState(null, '', `/#/dashboard/${encodeURIComponent(res.publisher.id)}`);
       }
     } else {
       if (!authEmail || !authPassword) {
@@ -430,6 +434,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       const res = await loginPublisher(authEmail, authPassword);
       if (!res.success) {
         setAuthError(res.message);
+      } else {
+        setHasVerifiedDashboardSession(true);
+        if (res.publisher?.id) window.history.replaceState(null, '', `/#/dashboard/${encodeURIComponent(res.publisher.id)}`);
       }
     }
   };
@@ -778,7 +785,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   };
 
   // 1. If not authenticated, show stateful login box
-  if (!currentUser || currentUser.type !== 'publisher') {
+  if (!hasVerifiedDashboardSession || !currentUser || currentUser.type !== 'publisher') {
     return (
       <div id="publisher-auth-wrapper" className="min-h-[85vh] flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white dark:bg-[#0d1628] rounded-3xl overflow-hidden border border-slate-200/85 dark:border-slate-800/80 p-6 sm:p-10 shadow-2xl relative">

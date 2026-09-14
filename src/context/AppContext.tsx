@@ -1343,23 +1343,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const pubsRef = collection(db, 'publishers');
           
           // Try by Publisher ID
-          const qId = query(pubsRef, where('id', '==', phoneOrEmail.trim().toUpperCase()), where('password', '==', password), limit(1));
+          const qId = query(pubsRef, where('id', '==', phoneOrEmail.trim().toUpperCase()), limit(1));
           const snapId = await getDocs(qId);
           if (!snapId.empty) {
-            pub = snapId.docs[0].data() as Publisher;
+            pub = { id: snapId.docs[0].id, ...snapId.docs[0].data() } as Publisher;
           } else {
             // Try by email
-            const qEmail = query(pubsRef, where('email', '==', cleanTarget), where('password', '==', password), limit(1));
+            const qEmail = query(pubsRef, where('email', '==', cleanTarget), limit(1));
             const snapEmail = await getDocs(qEmail);
             
             if (!snapEmail.empty) {
-              pub = snapEmail.docs[0].data() as Publisher;
+              pub = { id: snapEmail.docs[0].id, ...snapEmail.docs[0].data() } as Publisher;
             } else {
               // Try by phone
-              const qPhone = query(pubsRef, where('phone', '==', cleanDigits), where('password', '==', password), limit(1));
+              const qPhone = query(pubsRef, where('phone', '==', cleanDigits), limit(1));
               const snapPhone = await getDocs(qPhone);
               if (!snapPhone.empty) {
-                pub = snapPhone.docs[0].data() as Publisher;
+                pub = { id: snapPhone.docs[0].id, ...snapPhone.docs[0].data() } as Publisher;
               }
             }
           }
@@ -1368,9 +1368,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      if (!pub || pub.systemVersion !== 'v2') {
-        return { success: false, message: 'Account not found or legacy account expired. Please click "Register Account" to create your new Publisher account.' };
-      }
+  if (!pub) {
+  return { success: false, message: 'Account not found. Please check your Publisher ID, phone/email, and password.' };
+  }
+  if (pub.password !== password) {
+  return { success: false, message: 'Incorrect password. Please try again.' };
+  }
       if (pub.blocked) {
         return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
       }

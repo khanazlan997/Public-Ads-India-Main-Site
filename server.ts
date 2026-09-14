@@ -798,7 +798,7 @@ async function startServer() {
   });
 
   // 2. Fetch server state (Instantly loads latest data without burning Firestore read quota)
-  app.get("/api/realtime/state", (req, res) => {
+  app.get("/api/realtime/state", async (req, res) => {
     res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
     res.setHeader("Pragma", "no-cache");
     res.setHeader("Expires", "0");
@@ -834,6 +834,19 @@ async function startServer() {
     });
     if (reconciled) {
       scheduleSaveStore();
+    }
+
+    // Hydrate from Firestore so every deployment instance and device sees the same leads.
+    const firestore = getServerFirestore();
+    if (firestore) {
+      try {
+        const submissionSnapshot = await getDocs(collection(firestore, 'submissions'));
+        if (submissionSnapshot.size > 0) {
+          store.submissions = submissionSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
+        }
+      } catch (error) {
+        console.warn('[Sync] Could not hydrate submissions from Firestore:', error);
+      }
     }
 
     // Build lightweight payload (< 150KB vs 9.5MB) to guarantee lightning speed and prevent localStorage QuotaExceeded errors

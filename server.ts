@@ -391,9 +391,9 @@ async function startServer() {
           store.bankDetailsMap = { ...store.bankDetailsMap, ...clientData.bankDetailsMap };
         }
         scheduleSaveStore();
-      }
+  }
 
-      const firestore = getServerFirestore();
+  const firestore = getServerFirestore();
       if (!firestore) return { success: false, message: "Firebase is not configured or reachable." };
 
       console.log("[Server Firestore Push (Manual)] Writing data to Firestore on demand using high-speed writeBatch...");
@@ -1089,23 +1089,36 @@ async function startServer() {
   });
 
   // Dedicated Bank Details endpoint (Zero Firestore quota dependency)
-  app.post("/api/bank/update", (req, res) => {
+  app.post("/api/bank/update", async (req, res) => {
     try {
       const { publisherId, details } = req.body || {};
       if (!publisherId || !details) {
         return res.status(400).json({ error: "Missing publisherId or details" });
       }
+      const bankDetails = { ...details, publisherId };
       store.bankDetailsMap = {
         ...(store.bankDetailsMap || {}),
-        [publisherId]: { ...details, publisherId }
+        [publisherId]: bankDetails
       };
       scheduleSaveStore();
+
+      const firestore = getServerFirestore();
+      if (firestore) {
+        await setDoc(
+          doc(firestore, "bank_details", String(publisherId)),
+          sanitizeFirestoreData(bankDetails),
+          { merge: true }
+        );
+      }
+
       broadcastRealtime({
         type: "SYNC_BANK_DETAILS",
         payload: store.bankDetailsMap
       });
-      res.json({ success: true, bankDetails: store.bankDetailsMap[publisherId] });
+      console.log(`[Sync] Bank details saved for publisher ${publisherId}; broadcasted to ${sseClients.length} clients.`);
+      res.json({ success: true, bankDetails });
     } catch (err: any) {
+      console.error("[Sync] Bank details update failed:", err);
       res.status(500).json({ error: err.message });
     }
   });
@@ -1385,30 +1398,41 @@ async function startServer() {
   });
 
   // Dedicated endpoint for newly submitted leads (Zero risk of overwriting other submissions)
-  app.post("/api/submission/create", (req, res) => {
-    try {
-      const { submission } = req.body || {};
-      if (!submission || !submission.id) {
-        return res.status(400).json({ error: "Missing submission data or ID" });
-      }
+  app.post("/api/submission/create", async (req, res) => {
+  try {
+  const { submission } = req.body || {};
+  if (!submission || !submission.id) {
+  return res.status(400).json({ error: "Missing submission data or ID" });
+  }
 
-      const idx = store.submissions.findIndex(s => s.id === submission.id);
-      if (idx >= 0) {
-        store.submissions[idx] = { ...store.submissions[idx], ...submission };
-      } else {
-        store.submissions.unshift(submission);
-      }
-      scheduleSaveStore();
+  const idx = store.submissions.findIndex(s => s.id === submission.id);
+  if (idx >= 0) {
+  store.submissions[idx] = { ...store.submissions[idx], ...submission };
+  } else {
+  store.submissions.unshift(submission);
+  }
+  scheduleSaveStore();
 
-      broadcastRealtime({
-        type: "NEW_SUBMISSION",
-        payload: submission
-      });
+  const firestore = getServerFirestore();
+  if (firestore) {
+    await setDoc(
+      doc(firestore, "submissions", String(submission.id)),
+      sanitizeFirestoreData(submission),
+      { merge: true }
+    );
+  }
 
-      res.json({ success: true, submission, connectedClients: sseClients.length });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
+  broadcastRealtime({
+  type: "NEW_SUBMISSION",
+  payload: submission
+  });
+  console.log(`[Sync] Submission ${submission.id} saved for publisher ${submission.publisherId}; broadcasted to ${sseClients.length} clients.`);
+
+  res.json({ success: true, submission, connectedClients: sseClients.length });
+  } catch (err: any) {
+  console.error("[Sync] Submission create failed:", err);
+  res.status(500).json({ error: err.message });
+  }
   });
 
   // 4. Dedicated Realtime "Payment Done" endpoint (retained for backward compatibility)
@@ -1779,7 +1803,11 @@ async function startServer() {
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in development mode...");
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      // Express owns the HTTP listener below, so Vite cannot receive the
+      // WebSocket upgrade required by its default HMR client in middleware mode.
+      // Disable HMR here to prevent the client from retrying a socket that can
+      // never be upgraded; the preview server still reloads on restart.
+      server: { middlewareMode: true, hmr: false },
       appType: "spa",
     });
     
@@ -1795,8 +1823,12 @@ async function startServer() {
           path.resolve(process.cwd(), "index.html"),
           "utf-8"
         );
-        // Apply Vite HTML transforms
+        // Apply Vite HTML transforms. HMR is disabled because this Express
+        // middleware does not own the WebSocket upgrade handler. Remove the
+        // injected client as a final safeguard so the browser never retries
+        // an unavailable HMR socket in the preview.
         template = await vite.transformIndexHtml(url, template);
+        template = template.replace(/<script[^>]+src=["']\/\@vite\/client["'][^>]*><\/script>/gi, "");
         // Send the transformed HTML back
         res.status(200).set({ "Content-Type": "text/html" }).end(template);
       } catch (e) {

@@ -2231,11 +2231,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('SYNC_EMPLOYEES', next);
     } catch (err) {}
 
-    fetch('/api/employee/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee: newEmp })
-    }).catch(() => {});
+  void fetch('/api/employee/update', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ employee: newEmp })
+  }).then(async response => {
+    if (!response.ok) console.warn('[v0] Employee account was not persisted by server:', await response.text());
+  }).catch(error => console.warn('[v0] Employee account save failed:', error));
 
     addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${name} (Role: ${role})`);
     return { success: true, message: 'Staff Employee account generated successfully!' };
@@ -2718,7 +2720,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     console.warn('[v0] Employee login server refresh failed; using cached records.', error);
   }
   const normalizedUsername = username.trim().toLowerCase();
-  const emp = latestEmployees.find(e => e.username?.trim().toLowerCase() === normalizedUsername && e.password === pass);
+  const normalizedPassword = pass.trim();
+  const emp = latestEmployees.find(e => {
+    const loginId = String(e.username || e.id || '').trim().toLowerCase();
+    const employeeId = String(e.id || '').trim().toLowerCase();
+    return (loginId === normalizedUsername || employeeId === normalizedUsername) && String(e.password ?? '').trim() === normalizedPassword;
+  });
     if (!emp) {
       return { success: false, message: 'Invalid Employee login credentials.' };
     }

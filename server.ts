@@ -1438,11 +1438,16 @@ async function startServer() {
 
   const firestore = getServerFirestore();
   if (firestore) {
-    await setDoc(
-      doc(firestore, "submissions", String(submission.id)),
-      sanitizeFirestoreData(submission),
-      { merge: true }
-    );
+    try {
+      await setDoc(
+        doc(firestore, "submissions", String(submission.id)),
+        sanitizeFirestoreData(submission),
+        { merge: true }
+      );
+    } catch (firestoreError) {
+      // The server store and SSE are the canonical fallback when Firestore is unavailable.
+      console.warn('[Sync] Firestore lead write skipped; server lead remains saved:', firestoreError);
+    }
   }
 
   broadcastRealtime({

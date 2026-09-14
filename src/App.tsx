@@ -70,7 +70,7 @@ function AppContent() {
 
       if (hash && hash !== '#') {
         const cleanHash = `/${hash.slice(1).replace(/^\/+/, '')}`;
-        path = cleanHash.toLowerCase().startsWith('/dashboard') ? '/Dashboard' : normalizeRoute(cleanHash);
+        path = hash.toLowerCase().includes('dashboard') ? '/Dashboard' : normalizeRoute(cleanHash);
       } else {
         const pathname = window.location.pathname;
         if (pathname && pathname !== '/') {

@@ -11,7 +11,7 @@ export function compressImageBase64(
   maxWidth = 450,
   maxHeight = 450,
   initialQuality = 0.35,
-  targetMaxBytes = 14 * 1024 // ~14KB base64 string = ~10KB raw image
+  targetMaxBytes = 20 * 1024 // Keep profile images near 20KB while preserving clarity
 ): Promise<string> {
   return new Promise((resolve) => {
     if (!base64Str || !base64Str.startsWith('data:image')) {

@@ -1114,14 +1114,6 @@ async function startServer() {
       }
       scheduleSaveStore();
       const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
-  const idx = store.submissions.findIndex(s => s.id === normSub.id);
-  if (idx >= 0) {
-  store.submissions[idx] = { ...store.submissions[idx], ...normSub };
-  } else {
-  store.submissions.unshift(normSub);
-  }
-  scheduleSaveStore();
-      }
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers

@@ -1939,7 +1939,7 @@ async function startServer() {
         // injected client as a final safeguard so the browser never retries
         // an unavailable HMR socket in the preview.
         template = await vite.transformIndexHtml(url, template);
-        template = template.replace(/<script[^>]+src=["']\/\@vite\/client["'][^>]*><\/script>/gi, "");
+        template = template.replace(/<script[^>]*[\s/]src=["']\/?@vite\/client["'][^>]*>\s*<\/script>/gi, "");
         // Send the transformed HTML back
         res.status(200).set({ "Content-Type": "text/html" }).end(template);
       } catch (e) {

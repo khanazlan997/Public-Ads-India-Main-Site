@@ -5,7 +5,16 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'remove-vite-client-in-preview',
+        transformIndexHtml(html) {
+          return html.replace(/<script[^>]*[\s/]src=["']\/?@vite\/client["'][^>]*>\s*<\/script>/gi, '');
+        },
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

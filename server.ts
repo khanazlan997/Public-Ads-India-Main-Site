@@ -878,13 +878,9 @@ async function startServer() {
       if (Array.isArray(allCampaigns) && allCampaigns.length > 0) {
         store.campaigns = allCampaigns;
         if (firestore) {
-          for (const c of allCampaigns) {
-            if (c && c.id) {
-              setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true }).catch((err) => {
-                console.error("Firestore batch campaign save notice:", err);
-              });
-            }
-          }
+          await Promise.all(allCampaigns.filter((c: any) => c && c.id).map((c: any) =>
+            setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
+          ));
         }
       } else if (id && active !== undefined) {
         let camp = store.campaigns.find(c => c.id === id);
@@ -898,9 +894,7 @@ async function startServer() {
           }
         }
         if (camp && firestore) {
-          setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true }).catch((err) => {
-            console.error("Firestore toggle campaign save notice:", err);
-          });
+          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
         }
       } else if (campaign && campaign.id) {
         const idx = store.campaigns.findIndex(c => c.id === campaign.id);
@@ -925,9 +919,7 @@ async function startServer() {
         if (firestore) {
           const targetCamp = store.campaigns.find(c => c.id === campaign.id);
           if (targetCamp) {
-            setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true }).catch((err) => {
-              console.error("Firestore save campaign error:", err);
-            });
+            await setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true });
           }
         }
       }

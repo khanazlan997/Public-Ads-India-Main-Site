@@ -792,11 +792,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Direct real-time live sync for campaigns (ensures newly live campaigns appear immediately)
     let unsubCamps: (() => void) | null = null;
     try {
-      unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
-        const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Campaign)) || [];
-        setCampaigns(list);
-        safeSetLocal('pai_cached_campaigns', list);
-      }, (err) => {
+  unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
+  const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Campaign)) || [];
+  // An empty Firestore snapshot must not erase campaigns loaded from the shared server store.
+  if (list.length > 0) {
+    setCampaigns(list);
+    safeSetLocal('pai_cached_campaigns', list);
+  }
+  }, (err) => {
         console.warn("Firestore campaigns listener warning:", err);
       });
     } catch (e) {}

@@ -1823,8 +1823,12 @@ async function startServer() {
           path.resolve(process.cwd(), "index.html"),
           "utf-8"
         );
-        // Apply Vite HTML transforms
+        // Apply Vite HTML transforms. HMR is disabled because this Express
+        // middleware does not own the WebSocket upgrade handler. Remove the
+        // injected client as a final safeguard so the browser never retries
+        // an unavailable HMR socket in the preview.
         template = await vite.transformIndexHtml(url, template);
+        template = template.replace(/<script[^>]+src=["']\/\@vite\/client["'][^>]*><\/script>/gi, "");
         // Send the transformed HTML back
         res.status(200).set({ "Content-Type": "text/html" }).end(template);
       } catch (e) {

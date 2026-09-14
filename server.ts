@@ -141,12 +141,12 @@ async function startServer() {
         store.publishers = store.publishers.filter((p: any) => p && p.systemVersion === 'v2');
       }
       // Purge old submissions and earnings that do not belong to current v2 publishers
-      const v2PubIdSet = new Set((store.publishers || []).map((p: any) => p.id));
+      const v2PubIdSet = new Set((store.publishers || []).map((p: any) => String(p?.id || '').trim().toUpperCase()));
       if (Array.isArray(store.submissions)) {
-        store.submissions = store.submissions.filter((s: any) => v2PubIdSet.has(s.publisherId));
+        store.submissions = store.submissions.filter((s: any) => s && (v2PubIdSet.size === 0 || v2PubIdSet.has(String(s.publisherId || '').trim().toUpperCase())));
       }
       if (Array.isArray(store.earnings)) {
-        store.earnings = store.earnings.filter((e: any) => v2PubIdSet.has(e.publisherId));
+        store.earnings = store.earnings.filter((e: any) => e && (v2PubIdSet.size === 0 || v2PubIdSet.has(String(e.publisherId || '').trim().toUpperCase())));
       }
       console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.publishers.length} v2 publishers from server storage.`);
     }
@@ -267,41 +267,39 @@ async function startServer() {
         store.publishers = Array.from(pubMap.values());
       }
 
-      const validPubIds = new Set((store.publishers || []).map(p => p.id));
+      const validPubIdsUpper = new Set((store.publishers || []).map(p => String(p.id || '').trim().toUpperCase()));
 
-      // 2. Submissions (disconnect old database data; keep only current v2 publisher submissions)
+      // 2. Submissions (preserve all current submissions; merge any from Firestore)
+      const subMap = new Map<string, any>();
+      (store.submissions || []).forEach(s => {
+        if (s && s.id) subMap.set(s.id, s);
+      });
       if (subSnap.size > 0) {
-        const subMap = new Map<string, any>();
-        store.submissions.forEach(s => {
-          if (validPubIds.has(s.publisherId)) subMap.set(s.id, s);
-        });
         subSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          if (validPubIds.has(data.publisherId)) {
-            subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data });
+          const normPubId = String(data.publisherId || '').trim().toUpperCase();
+          if (validPubIdsUpper.size === 0 || validPubIdsUpper.has(normPubId) || !data.publisherId) {
+            subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data, publisherId: normPubId || data.publisherId });
           }
         });
-        store.submissions = Array.from(subMap.values());
-      } else {
-        store.submissions = store.submissions.filter(s => validPubIds.has(s.publisherId));
       }
+      store.submissions = Array.from(subMap.values());
 
-      // 3. Earnings (disconnect old database data; keep only current v2 publisher earnings)
+      // 3. Earnings (preserve all current earnings; merge any from Firestore)
+      const earnMap = new Map<string, any>();
+      (store.earnings || []).forEach(e => {
+        if (e && e.id) earnMap.set(e.id, e);
+      });
       if (earnSnap.size > 0) {
-        const earnMap = new Map<string, any>();
-        store.earnings.forEach(e => {
-          if (validPubIds.has(e.publisherId)) earnMap.set(e.id, e);
-        });
         earnSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          if (validPubIds.has(data.publisherId)) {
-            earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data });
+          const normPubId = String(data.publisherId || '').trim().toUpperCase();
+          if (validPubIdsUpper.size === 0 || validPubIdsUpper.has(normPubId) || !data.publisherId) {
+            earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data, publisherId: normPubId || data.publisherId });
           }
         });
-        store.earnings = Array.from(earnMap.values());
-      } else {
-        store.earnings = store.earnings.filter(e => validPubIds.has(e.publisherId));
       }
+      store.earnings = Array.from(earnMap.values());
 
       // 4. Campaigns
       if (campSnap.size > 0) {
@@ -354,6 +352,14 @@ async function startServer() {
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers
+      });
+      broadcastRealtime({
+        type: "SYNC_SUBMISSIONS",
+        payload: store.submissions
+      });
+      broadcastRealtime({
+        type: "SYNC_EARNINGS",
+        payload: store.earnings
       });
 
       return {
@@ -710,7 +716,7 @@ async function startServer() {
   });
 
   // Dedicated Testimonials Management endpoints (Guaranteed cross-device sync & persistence)
-  app.post("/api/testimonials/update", (req, res) => {
+  app.post("/api/testimonials/update", async (req, res) => {
     try {
       res.setHeader("Content-Type", "application/json");
       const { testimonials, testimonial } = req.body || {};
@@ -727,12 +733,29 @@ async function startServer() {
       }
 
       scheduleSaveStore();
+      const firestore = getServerFirestore();
+      if (firestore) {
+        try {
+          if (Array.isArray(testimonials)) {
+            await Promise.all(
+              testimonials.filter(t => t && t.id).map(t =>
+                setDoc(doc(firestore, "testimonials", String(t.id)), sanitizeFirestoreData(t), { merge: true })
+              )
+            );
+          } else if (testimonial && testimonial.id) {
+            await setDoc(doc(firestore, "testimonials", String(testimonial.id)), sanitizeFirestoreData(testimonial), { merge: true });
+          }
+        } catch (fErr) {
+          console.warn("[Sync] Firestore testimonial update notice:", fErr);
+        }
+      }
+
       broadcastRealtime({
         type: "SYNC_TESTIMONIALS",
         payload: store.testimonials
       });
 
-      console.log(`[Testimonials Updated] Total: ${store.testimonials.length}. Broadcasted to ${sseClients.length} clients.`);
+      console.log(`[Testimonials Updated] Total: ${store.testimonials.length}. Synced to Firestore and broadcasted.`);
       res.json({ success: true, testimonials: store.testimonials, connectedClients: sseClients.length });
     } catch (err: any) {
       console.error("Error in /api/testimonials/update:", err);
@@ -740,7 +763,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/testimonials/delete", (req, res) => {
+  app.post("/api/testimonials/delete", async (req, res) => {
     try {
       res.setHeader("Content-Type", "application/json");
       const { id } = req.body || {};
@@ -748,6 +771,10 @@ async function startServer() {
         if (!Array.isArray(store.testimonials)) store.testimonials = [];
         store.testimonials = store.testimonials.filter(t => t.id !== id);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "testimonials", String(id))).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_TESTIMONIALS",
           payload: store.testimonials
@@ -882,24 +909,12 @@ async function startServer() {
             setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
           ));
         }
-      } else if (id && active !== undefined) {
-        let camp = store.campaigns.find(c => c.id === id);
-        if (camp) {
-          camp.active = Boolean(active);
-        } else {
-          const snap = snapshotCampaigns.find(c => c.id === id);
-          if (snap) {
-            camp = { ...snap, active: Boolean(active) };
-            store.campaigns.push(camp);
-          }
-        }
-        if (camp && firestore) {
-          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
-        }
-      } else if (campaign && campaign.id) {
-        const idx = store.campaigns.findIndex(c => c.id === campaign.id);
+      } else if (campaign && (campaign.id || id)) {
+        const campId = campaign.id || id;
+        const idx = store.campaigns.findIndex(c => c.id === campId);
         const campaignWithActive = {
           ...campaign,
+          id: campId,
           active: campaign.active !== undefined ? Boolean(campaign.active) : true
         };
         if (idx !== -1) {
@@ -917,10 +932,24 @@ async function startServer() {
           store.campaigns.unshift(campaignWithActive);
         }
         if (firestore) {
-          const targetCamp = store.campaigns.find(c => c.id === campaign.id);
+          const targetCamp = store.campaigns.find(c => c.id === campId);
           if (targetCamp) {
-            await setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true });
+            await setDoc(doc(firestore, "campaigns", campId), sanitizeFirestoreData(targetCamp), { merge: true });
           }
+        }
+      } else if (id && active !== undefined) {
+        let camp = store.campaigns.find(c => c.id === id);
+        if (camp) {
+          camp.active = Boolean(active);
+        } else {
+          const snap = snapshotCampaigns.find(c => c.id === id);
+          if (snap) {
+            camp = { ...snap, active: Boolean(active) };
+            store.campaigns.push(camp);
+          }
+        }
+        if (camp && firestore) {
+          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
         }
       }
 
@@ -930,13 +959,15 @@ async function startServer() {
         payload: store.campaigns
       });
 
+      console.log(`[Campaigns Updated] Total: ${store.campaigns.length}. Synced to Firestore and broadcasted.`);
       res.json({ success: true, campaigns: store.campaigns, connectedClients: sseClients.length });
     } catch (err: any) {
+      console.error("Error in /api/campaign/update:", err);
       res.status(500).json({ error: err.message });
     }
   });
 
-  app.post("/api/campaign/delete", (req, res) => {
+  app.post("/api/campaign/delete", async (req, res) => {
     try {
       const { id } = req.body || {};
       if (id) {
@@ -944,12 +975,15 @@ async function startServer() {
         scheduleSaveStore();
         const firestore = getServerFirestore();
         if (firestore) {
-          deleteDoc(doc(firestore, "campaigns", id)).catch(() => {});
+          await deleteDoc(doc(firestore, "campaigns", id)).catch((err) => {
+            console.warn("[Sync] Firestore campaign delete notice:", err);
+          });
         }
         broadcastRealtime({
           type: "SYNC_CAMPAIGNS",
           payload: store.campaigns
         });
+        console.log(`[Campaign Deleted] ID: ${id}. Removed from Firestore and broadcasted.`);
       }
       res.json({ success: true, campaigns: store.campaigns, connectedClients: sseClients.length });
     } catch (err: any) {
@@ -1060,26 +1094,33 @@ async function startServer() {
       const idx = store.publishers.findIndex(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       if (idx !== -1) {
         const existingAvatar = store.publishers[idx].avatar;
-        const finalAvatar = (avatar && avatar.startsWith('/api/publisher/avatar/'))
-          ? existingAvatar
-          : (avatar !== undefined ? avatar : existingAvatar);
+        const finalAvatar = (avatar && !avatar.startsWith('/api/publisher/avatar/'))
+          ? avatar
+          : (avatar !== undefined && !avatar.startsWith('/api/publisher/avatar/') ? avatar : existingAvatar);
         store.publishers[idx] = {
           ...store.publishers[idx],
+          id: normalizedPublisherId,
           ...(name ? { name } : {}),
-          avatar: finalAvatar
+          avatar: finalAvatar,
+          systemVersion: 'v2'
         };
       } else {
-        store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });
+        store.publishers.unshift({
+          id: normalizedPublisherId,
+          name: name || normalizedPublisherId,
+          avatar: avatar || '👤',
+          systemVersion: 'v2'
+        });
       }
       scheduleSaveStore();
       const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
-      const firestore = getServerFirestore();
-      if (firestore && savedPublisher) {
-        await setDoc(
-          doc(firestore, "publishers", String(publisherId)),
-          sanitizeFirestoreData(savedPublisher),
-          { merge: true }
-        );
+  const idx = store.submissions.findIndex(s => s.id === normSub.id);
+  if (idx >= 0) {
+  store.submissions[idx] = { ...store.submissions[idx], ...normSub };
+  } else {
+  store.submissions.unshift(normSub);
+  }
+  scheduleSaveStore();
       }
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
@@ -1188,26 +1229,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Testimonials Update endpoint (Zero Firestore quota)
-  app.post("/api/testimonials/update", (req, res) => {
-    try {
-      const { testimonials } = req.body || {};
-      if (Array.isArray(testimonials)) {
-        store.testimonials = testimonials;
-        scheduleSaveStore();
-        broadcastRealtime({
-          type: "SYNC_TESTIMONIALS",
-          payload: store.testimonials
-        });
-      }
-      res.json({ success: true, testimonials: store.testimonials });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Dedicated Submission Delete endpoint (Zero Firestore quota)
-  app.post("/api/submission/delete", (req, res) => {
+  // Dedicated Submission Delete endpoint (Synced to cloud & server store)
+  app.post("/api/submission/delete", async (req, res) => {
     try {
       const { id } = req.body || {};
       if (!id) return res.status(400).json({ error: "Missing submission ID" });
@@ -1215,6 +1238,10 @@ async function startServer() {
       if (idx !== -1) {
         store.submissions.splice(idx, 1);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "submissions", String(id))).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_SUBMISSIONS",
           payload: store.submissions
@@ -1226,8 +1253,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Delete endpoint (Zero Firestore quota)
-  app.post("/api/publisher/delete", (req, res) => {
+  // Dedicated Publisher Delete endpoint (Synced to cloud & server store)
+  app.post("/api/publisher/delete", async (req, res) => {
     try {
       const { publisherId } = req.body || {};
       if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
@@ -1235,6 +1262,11 @@ async function startServer() {
       if (idx !== -1) {
         store.publishers.splice(idx, 1);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "publishers", String(publisherId))).catch(() => {});
+          deleteDoc(doc(firestore, "bank_details", String(publisherId))).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_PUBLISHERS",
           payload: store.publishers
@@ -1246,8 +1278,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Block/Unblock endpoint (Zero Firestore quota)
-  app.post("/api/publisher/toggle-block", (req, res) => {
+  // Dedicated Publisher Block/Unblock endpoint (Synced to cloud & server store)
+  app.post("/api/publisher/toggle-block", async (req, res) => {
     try {
       const { publisherId, blocked } = req.body || {};
       if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
@@ -1255,6 +1287,10 @@ async function startServer() {
       if (pub) {
         pub.blocked = blocked !== undefined ? blocked : !pub.blocked;
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          setDoc(doc(firestore, "publishers", String(publisherId)), { blocked: Boolean(pub.blocked) }, { merge: true }).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_PUBLISHERS",
           payload: store.publishers
@@ -1310,7 +1346,7 @@ async function startServer() {
   });
 
   // 3. Universal Status Update endpoint - Handles ANY status change (Process, Reject, Ready To Trade, Active, Trade Done, Payment Done)
-  app.post("/api/submission/update-status", (req, res) => {
+  app.post("/api/submission/update-status", async (req, res) => {
     try {
       const { submissionId, status, submissionData, payout } = req.body || {};
       if (!submissionId || !status) {
@@ -1380,6 +1416,25 @@ async function startServer() {
 
       scheduleSaveStore();
 
+      const firestore = getServerFirestore();
+      if (firestore && sub) {
+        try {
+          const cleanSub = {
+            ...sub,
+            screenshot: sub.screenshot && sub.screenshot.length > 500 ? `/api/submission/screenshot/${sub.id}` : sub.screenshot
+          };
+          setDoc(doc(firestore, "submissions", String(submissionId)), sanitizeFirestoreData(cleanSub), { merge: true }).catch(() => {});
+          if (newEarning) {
+            setDoc(doc(firestore, "earnings", String(newEarning.id)), sanitizeFirestoreData(newEarning), { merge: true }).catch(() => {});
+          }
+          if (removedEarningId) {
+            deleteDoc(doc(firestore, "earnings", String(removedEarningId))).catch(() => {});
+          }
+        } catch (fErr) {
+          console.warn("[Sync] Firestore status update notice:", fErr);
+        }
+      }
+
       // Broadcast unified real-time event to ALL clients (Admin, Employee, Publisher)
       broadcastRealtime({
         type: "SUBMISSION_STATUS_UPDATED",
@@ -1429,35 +1484,44 @@ async function startServer() {
   return res.status(400).json({ error: "Missing submission data or ID" });
   }
 
-  const idx = store.submissions.findIndex(s => s.id === submission.id);
+    const normSub = {
+      ...submission,
+      publisherId: String(submission.publisherId || '').trim().toUpperCase()
+    };
+
+  const idx = store.submissions.findIndex(s => s.id === normSub.id);
   if (idx >= 0) {
-  store.submissions[idx] = { ...store.submissions[idx], ...submission };
+  store.submissions[idx] = { ...store.submissions[idx], ...normSub };
   } else {
-  store.submissions.unshift(submission);
+  store.submissions.unshift(normSub);
   }
   scheduleSaveStore();
 
   const firestore = getServerFirestore();
-  if (firestore) {
-    try {
-      await setDoc(
-        doc(firestore, "submissions", String(submission.id)),
-        sanitizeFirestoreData(submission),
-        { merge: true }
-      );
-    } catch (firestoreError) {
-      // The server store and SSE are the canonical fallback when Firestore is unavailable.
-      console.warn('[Sync] Firestore lead write skipped; server lead remains saved:', firestoreError);
+    if (firestore) {
+      try {
+        let firestorePayload = sanitizeFirestoreData(normSub);
+        if (firestorePayload.screenshot && typeof firestorePayload.screenshot === 'string' && firestorePayload.screenshot.length > 750000) {
+          firestorePayload = { ...firestorePayload, screenshot: firestorePayload.screenshot.substring(0, 50000) };
+        }
+        await setDoc(
+          doc(firestore, "submissions", String(normSub.id)),
+          firestorePayload,
+          { merge: true }
+        );
+      } catch (firestoreError) {
+        // The server store and SSE are the canonical fallback when Firestore is unavailable.
+        console.warn('[Sync] Firestore lead write skipped; server lead remains saved:', firestoreError);
+      }
     }
-  }
 
-  broadcastRealtime({
-  type: "NEW_SUBMISSION",
-  payload: submission
-  });
-  console.log(`[Sync] Submission ${submission.id} saved for publisher ${submission.publisherId}; broadcasted to ${sseClients.length} clients.`);
+    broadcastRealtime({
+      type: "NEW_SUBMISSION",
+      payload: normSub
+    });
+    console.log(`[Sync] Submission ${normSub.id} saved for publisher ${normSub.publisherId}; broadcasted to ${sseClients.length} clients.`);
 
-  res.json({ success: true, submission, connectedClients: sseClients.length });
+    res.json({ success: true, submission: normSub, connectedClients: sseClients.length });
   } catch (err: any) {
   console.error("[Sync] Submission create failed:", err);
   res.status(500).json({ error: err.message });

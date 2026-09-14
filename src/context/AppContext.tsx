@@ -390,6 +390,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const fetchServerStateRef = useRef<() => Promise<void>>();
 
+  useEffect(() => {
+    if (currentUser) safeSetLocal('pai_user_session', currentUser);
+  }, [currentUser]);
+
   const refreshServerState = async () => {
     if (fetchServerStateRef.current) {
       await fetchServerStateRef.current();
@@ -401,9 +405,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const json = await res.json();
           if (json.success && json.data) {
             if (Array.isArray(json.data.publishers)) {
-              const v2Pubs = json.data.publishers.filter((p: any) => p && p.systemVersion === 'v2');
-              setPublishers(v2Pubs);
-              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(v2Pubs)); } catch (e) {}
+              setPublishers(json.data.publishers);
+              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(json.data.publishers)); } catch (e) {}
             }
   if (Array.isArray(json.data.submissions)) {
   setSubmissions(json.data.submissions);
@@ -613,8 +616,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setCampaigns(payload);
           } else if (type === 'SYNC_PUBLISHERS' && Array.isArray(payload)) {
             setPublishers(payload);
-          } else if (type === 'SYNC_BANK_DETAILS' && payload) {
-            setBankDetailsMap(payload);
+            safeSetLocal('pai_cached_publishers', payload);
+            setCurrentUser(prev => {
+              if (!prev || prev.type !== 'publisher') return prev;
+              const latest = payload.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
+              return latest ? { ...prev, ...latest } : prev;
+            });
           } else if (type === 'EARNING_DELETED' && payload) {
             const { earningId, matchedSubmissionId } = payload;
             if (earningId) {
@@ -685,14 +692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(sList)) {
         setSubmissions(prev => {
           const map = new Map<string, DataSubmission>();
-          // Server submissions
           sList.forEach(s => { if (s && s.id) map.set(s.id, s); });
-          // Preserve any optimistic local submissions
-          prev.forEach(s => {
-            if (s && s.id && !map.has(s.id)) {
-              map.set(s.id, s);
-            }
-          });
           const merged = Array.from(map.values()).sort((a, b) => {
             const keyA = (a.submitDate || '') + '_' + (a.id || '');
             const keyB = (b.submitDate || '') + '_' + (b.id || '');
@@ -709,21 +709,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
   if (Array.isArray(cList)) {
-  // The 4-second server heartbeat can briefly lag Firebase. Merge records so
-  // a campaign just published from Admin is not erased on client devices.
-  setCampaigns(prev => {
-    const merged = new Map<string, Campaign>();
-    prev.forEach(c => { if (c?.id) merged.set(c.id, c); });
-    cList.forEach((c: Campaign) => { if (c?.id) merged.set(c.id, c); });
-    const next = Array.from(merged.values());
-    safeSetLocal('pai_cached_campaigns', next);
-    return next;
-  });
+  setCampaigns(cList);
+  safeSetLocal('pai_cached_campaigns', cList);
   }
 
       if (Array.isArray(pList)) {
         setPublishers(pList);
         safeSetLocal('pai_cached_publishers', pList);
+        setCurrentUser(prev => {
+          if (!prev || prev.type !== 'publisher') return prev;
+          const latest = pList.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
+          return latest ? { ...prev, ...latest } : prev;
+        });
       }
 
       if (bMap && typeof bMap === 'object') {
@@ -734,6 +731,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(empList)) {
         setEmployees(empList);
       }
+      if (Array.isArray(data.activityLogs)) setActivityLogs(data.activityLogs);
+      if (Array.isArray(data.paymentEmailRecords)) setPaymentEmailRecords(data.paymentEmailRecords);
+      if (Array.isArray(data.testimonials)) setTestimonials(data.testimonials);
 
       if (Array.isArray(data.advertiserInquiries)) {
         setAdvertiserInquiries(data.advertiserInquiries);
@@ -786,13 +786,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       unsubPubs = onSnapshot(collection(db, 'publishers'), (snap) => {
         if (snap && !snap.empty) {
-          const v2Pubs = snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as Publisher))
-            .filter(p => p && p.systemVersion === 'v2');
-          if (v2Pubs.length > 0) {
-            setPublishers(v2Pubs);
-            safeSetLocal('pai_cached_publishers', v2Pubs);
-          }
+          const livePubs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Publisher));
+          setPublishers(livePubs);
+          safeSetLocal('pai_cached_publishers', livePubs);
         }
       }, (err) => {
         console.warn("Firestore publishers listener warning:", err);
@@ -804,13 +800,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
         const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Campaign)) || [];
+        console.log(`[Firebase Listener] Realtime campaigns onSnapshot triggered: ${list.length} records in Firestore.`, {
+          hasPendingWrites: snap.metadata.hasPendingWrites,
+          fromCache: snap.metadata.fromCache
+        });
         // An empty Firestore snapshot must not erase campaigns loaded from the shared server store.
         if (list.length > 0) {
           setCampaigns(list);
           safeSetLocal('pai_cached_campaigns', list);
         }
       }, (err) => {
-        console.warn("Firestore campaigns listener warning:", err);
+        console.warn("[Firebase Listener] Firestore campaigns listener warning:", err);
       });
     } catch (e) {}
 
@@ -854,15 +854,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       unsubTestimonials = onSnapshot(collection(db, 'testimonials'), (snap) => {
         const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Testimonial)) || [];
+        console.log(`[Firebase Listener] Realtime testimonials onSnapshot triggered: ${list.length} records in Firestore.`, {
+          hasPendingWrites: snap.metadata.hasPendingWrites,
+          fromCache: snap.metadata.fromCache
+        });
         if (list.length > 0) {
           setTestimonials(list);
           safeSetLocal('pai_cached_testimonials', list);
         }
       }, (err) => {
-        console.warn("Firestore testimonials listener warning:", err);
+        console.warn("[Firebase Listener] Firestore testimonials listener warning:", err);
       });
     } catch (e) {
-      console.warn("Could not attach testimonials listener:", e);
+      console.warn("[Firebase Listener] Could not attach testimonials listener:", e);
     }
 
     // Real-time synchronization handled 100% via zero-quota SSE and local state stream
@@ -1063,10 +1067,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn("EventSource setup error:", err);
     }
 
-    // 4s backup heartbeat fetch (Zero Firestore reads, purely local Node.js Express memory)
+    // Fast backup heartbeat plus focus/visibility refresh keeps every device current.
     pollInterval = setInterval(fetchServerState, 4000);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') void fetchServerState(); };
+    const handleFocus = () => void fetchServerState();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
       if (es) es.close();
       if (pollInterval) clearInterval(pollInterval);
       if (unsubPubs) unsubPubs();
@@ -1590,6 +1600,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       active: c.active !== undefined ? Boolean(c.active) : true
     };
     
+    console.log('[AppContext Sync] addCampaign called:', { id: newId, name: newCamp.name, payout: newCamp.payout });
+
     // Immediate optimistic update & cache
     setCampaigns(prev => {
       const next = [newCamp, ...prev.filter(x => x.id !== newId)];
@@ -1608,6 +1620,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).then(async (response) => {
       const result = await response.json().catch(() => null);
       if (!response.ok || !result?.success) throw new Error(result?.error || 'Campaign publish failed');
+      console.log('[AppContext Sync] Campaign created on server and synced to Firestore successfully.');
       if (Array.isArray(result.campaigns)) {
         setCampaigns(result.campaigns);
         safeSetLocal('pai_cached_campaigns', result.campaigns);
@@ -1615,9 +1628,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }).catch(err => console.error('[Sync] Campaign publish failed:', err));
 
     try {
-      setDoc(doc(db, 'campaigns', newId), sanitizeFirestoreRecord(newCamp), { merge: true }).catch((err) => {
-        console.warn("Direct Firestore campaign add notice:", err);
-      });
+      setDoc(doc(db, 'campaigns', newId), sanitizeFirestoreRecord(newCamp), { merge: true })
+        .then(() => console.log('[AppContext Sync] Direct Firestore campaign write succeeded for:', newId))
+        .catch((err) => {
+          console.warn("Direct Firestore campaign add notice:", err);
+        });
     } catch (e) {}
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_ADD', `Created campaign '${c.name}' with payout ₹${c.payout}`);
@@ -1628,6 +1643,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (c) {
       const newActive = c.active === false ? true : false;
       const updated: Campaign = { ...c, active: newActive };
+      console.log('[AppContext Sync] toggleCampaignActive called:', { id, name: c.name, newActive });
+
       setCampaigns(prev => {
         const next = prev.map(item => item.id === id ? updated : item);
         try {
@@ -1642,12 +1659,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, active: newActive })
+      }).then(async (response) => {
+        const result = await response.json().catch(() => null);
+        if (result && Array.isArray(result.campaigns)) {
+          setCampaigns(result.campaigns);
+          safeSetLocal('pai_cached_campaigns', result.campaigns);
+        }
       }).catch(err => console.warn("Server campaign toggle dispatch notice:", err));
 
       try {
-        setDoc(doc(db, 'campaigns', id), sanitizeFirestoreRecord(updated), { merge: true }).catch((err) => {
-          console.warn("Direct Firestore campaign toggle notice:", err);
-        });
+        setDoc(doc(db, 'campaigns', id), sanitizeFirestoreRecord(updated), { merge: true })
+          .then(() => console.log('[AppContext Sync] Direct Firestore toggle write succeeded for:', id))
+          .catch((err) => {
+            console.warn("Direct Firestore campaign toggle notice:", err);
+          });
       } catch (e) {}
 
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_TOGGLE', `Toggled live visibility of '${c.name}' to ${newActive ? 'LIVE' : 'PAUSED'}`);
@@ -1660,8 +1685,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const merged: Campaign = { 
         ...c, 
         ...updatedCamp,
+        id,
         active: updatedCamp.active !== undefined ? Boolean(updatedCamp.active) : (c.active !== undefined ? Boolean(c.active) : true)
       };
+      console.log('[AppContext Sync] editCampaign called:', { id, name: merged.name, payout: merged.payout });
+
       setCampaigns(prev => {
         const next = prev.map(item => item.id === id ? merged : item);
         try {
@@ -1676,12 +1704,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, campaign: merged })
+      }).then(async (response) => {
+        const result = await response.json().catch(() => null);
+        if (result && Array.isArray(result.campaigns)) {
+          setCampaigns(result.campaigns);
+          safeSetLocal('pai_cached_campaigns', result.campaigns);
+        }
+        console.log('[AppContext Sync] Server campaign edit succeeded and synced to Firestore.');
       }).catch(err => console.warn("Server campaign edit dispatch notice:", err));
 
       try {
-        setDoc(doc(db, 'campaigns', id), sanitizeFirestoreRecord(merged), { merge: true }).catch((err) => {
-          console.warn("Direct Firestore campaign edit notice:", err);
-        });
+        setDoc(doc(db, 'campaigns', id), sanitizeFirestoreRecord(merged), { merge: true })
+          .then(() => console.log('[AppContext Sync] Direct Firestore campaign edit succeeded for:', id))
+          .catch((err) => {
+            console.warn("Direct Firestore campaign edit notice:", err);
+          });
       } catch (e) {}
 
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_EDIT', `Edited campaign '${merged.name}' specs`);
@@ -1691,6 +1728,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCampaign = (id: string) => {
     const target = campaigns.find(c => c.id === id);
     if (target) {
+      console.log('[AppContext Sync] deleteCampaign called:', { id, name: target.name });
+
       setCampaigns(prev => {
         const next = prev.filter(c => c.id !== id);
         try {
@@ -1705,10 +1744,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id })
+      }).then(async (res) => {
+        const result = await res.json().catch(() => null);
+        if (result && Array.isArray(result.campaigns)) {
+          setCampaigns(result.campaigns);
+          safeSetLocal('pai_cached_campaigns', result.campaigns);
+        }
       }).catch(err => console.warn("Server campaign delete dispatch notice:", err));
 
       try {
-        deleteDoc(doc(db, 'campaigns', id)).catch(() => {});
+        deleteDoc(doc(db, 'campaigns', id))
+          .then(() => console.log('[AppContext Sync] Direct Firestore campaign deletion succeeded for:', id))
+          .catch(() => {});
       } catch (e) {}
 
       addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'CAMPAIGN_DELETE', `Deleted campaign '${target.name}' from active registry`);
@@ -2263,6 +2310,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newId
     };
 
+    console.log('[AppContext Sync] addTestimonial called:', { id: newId, name: newTestimonial.name });
+
     const updatedList = [...testimonials, newTestimonial];
     setTestimonials(updatedList);
     try {
@@ -2270,15 +2319,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('SYNC_TESTIMONIALS', updatedList);
     } catch (e) {}
 
-    // Direct write to Firestore so other devices and browsers immediately see it
-    setDoc(doc(db, 'testimonials', newId), newTestimonial, { merge: true }).catch(err => {
-      console.warn("Direct Firestore testimonial save notice:", err);
-    });
+    // Direct write to Firestore with sanitization so undefined fields never reject
+    try {
+      setDoc(doc(db, 'testimonials', newId), sanitizeFirestoreRecord(newTestimonial), { merge: true })
+        .then(() => console.log('[AppContext Sync] Direct Firestore write succeeded for testimonial:', newId))
+        .catch(err => {
+          console.warn("Direct Firestore testimonial save notice:", err);
+        });
+    } catch (e) {}
 
     fetch('/api/testimonials/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ testimonials: updatedList })
+      body: JSON.stringify({ testimonials: updatedList, testimonial: newTestimonial })
     }).catch(() => {});
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_ADD', `Added testimonial/feedback from '${t.name}'`);
@@ -2286,27 +2339,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const editTestimonial = (id: string, updated: Partial<Testimonial>) => {
     const updatedList = testimonials.map(t => t.id === id ? { ...t, ...updated } : t);
+    const targetObj = updatedList.find(t => t.id === id) || { ...updated, id };
+    console.log('[AppContext Sync] editTestimonial called:', { id, name: targetObj.name });
+
     setTestimonials(updatedList);
     try {
       localStorage.setItem('pai_cached_testimonials', JSON.stringify(updatedList));
       broadcastSync('SYNC_TESTIMONIALS', updatedList);
     } catch (e) {}
 
-    // Direct update to Firestore
-    setDoc(doc(db, 'testimonials', id), updated, { merge: true }).catch(err => {
-      console.warn("Direct Firestore testimonial edit notice:", err);
-    });
+    // Direct update to Firestore with sanitization
+    try {
+      setDoc(doc(db, 'testimonials', id), sanitizeFirestoreRecord(targetObj), { merge: true })
+        .then(() => console.log('[AppContext Sync] Direct Firestore write succeeded for testimonial edit:', id))
+        .catch(err => {
+          console.warn("Direct Firestore testimonial edit notice:", err);
+        });
+    } catch (e) {}
 
     fetch('/api/testimonials/update', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ testimonials: updatedList })
+      body: JSON.stringify({ testimonials: updatedList, testimonial: targetObj })
     }).catch(() => {});
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'TESTIMONIAL_EDIT', `Modified testimonial/feedback from '${updated.name || id}'`);
   };
 
   const deleteTestimonial = (id: string) => {
+    console.log('[AppContext Sync] deleteTestimonial called:', { id });
     const updatedList = testimonials.filter(t => t.id !== id);
     setTestimonials(updatedList);
     try {
@@ -2315,9 +2376,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {}
 
     // Direct delete from Firestore
-    deleteDoc(doc(db, 'testimonials', id)).catch(err => {
-      console.warn("Direct Firestore testimonial delete notice:", err);
-    });
+    try {
+      deleteDoc(doc(db, 'testimonials', id))
+        .then(() => console.log('[AppContext Sync] Direct Firestore delete succeeded for testimonial:', id))
+        .catch(err => {
+          console.warn("Direct Firestore testimonial delete notice:", err);
+        });
+    } catch (e) {}
+
+    fetch('/api/testimonials/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id })
+    }).catch(() => {});
 
     fetch('/api/testimonials/update', {
       method: 'POST',

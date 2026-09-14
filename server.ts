@@ -710,7 +710,7 @@ async function startServer() {
   });
 
   // Dedicated Testimonials Management endpoints (Guaranteed cross-device sync & persistence)
-  app.post("/api/testimonials/update", (req, res) => {
+  app.post("/api/testimonials/update", async (req, res) => {
     try {
       res.setHeader("Content-Type", "application/json");
       const { testimonials, testimonial } = req.body || {};
@@ -727,12 +727,29 @@ async function startServer() {
       }
 
       scheduleSaveStore();
+      const firestore = getServerFirestore();
+      if (firestore) {
+        try {
+          if (Array.isArray(testimonials)) {
+            await Promise.all(
+              testimonials.filter(t => t && t.id).map(t =>
+                setDoc(doc(firestore, "testimonials", String(t.id)), sanitizeFirestoreData(t), { merge: true })
+              )
+            );
+          } else if (testimonial && testimonial.id) {
+            await setDoc(doc(firestore, "testimonials", String(testimonial.id)), sanitizeFirestoreData(testimonial), { merge: true });
+          }
+        } catch (fErr) {
+          console.warn("[Sync] Firestore testimonial update notice:", fErr);
+        }
+      }
+
       broadcastRealtime({
         type: "SYNC_TESTIMONIALS",
         payload: store.testimonials
       });
 
-      console.log(`[Testimonials Updated] Total: ${store.testimonials.length}. Broadcasted to ${sseClients.length} clients.`);
+      console.log(`[Testimonials Updated] Total: ${store.testimonials.length}. Synced to Firestore and broadcasted.`);
       res.json({ success: true, testimonials: store.testimonials, connectedClients: sseClients.length });
     } catch (err: any) {
       console.error("Error in /api/testimonials/update:", err);
@@ -740,7 +757,7 @@ async function startServer() {
     }
   });
 
-  app.post("/api/testimonials/delete", (req, res) => {
+  app.post("/api/testimonials/delete", async (req, res) => {
     try {
       res.setHeader("Content-Type", "application/json");
       const { id } = req.body || {};
@@ -748,6 +765,10 @@ async function startServer() {
         if (!Array.isArray(store.testimonials)) store.testimonials = [];
         store.testimonials = store.testimonials.filter(t => t.id !== id);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "testimonials", String(id))).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_TESTIMONIALS",
           payload: store.testimonials
@@ -882,24 +903,12 @@ async function startServer() {
             setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
           ));
         }
-      } else if (id && active !== undefined) {
-        let camp = store.campaigns.find(c => c.id === id);
-        if (camp) {
-          camp.active = Boolean(active);
-        } else {
-          const snap = snapshotCampaigns.find(c => c.id === id);
-          if (snap) {
-            camp = { ...snap, active: Boolean(active) };
-            store.campaigns.push(camp);
-          }
-        }
-        if (camp && firestore) {
-          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
-        }
-      } else if (campaign && campaign.id) {
-        const idx = store.campaigns.findIndex(c => c.id === campaign.id);
+      } else if (campaign && (campaign.id || id)) {
+        const campId = campaign.id || id;
+        const idx = store.campaigns.findIndex(c => c.id === campId);
         const campaignWithActive = {
           ...campaign,
+          id: campId,
           active: campaign.active !== undefined ? Boolean(campaign.active) : true
         };
         if (idx !== -1) {
@@ -917,10 +926,24 @@ async function startServer() {
           store.campaigns.unshift(campaignWithActive);
         }
         if (firestore) {
-          const targetCamp = store.campaigns.find(c => c.id === campaign.id);
+          const targetCamp = store.campaigns.find(c => c.id === campId);
           if (targetCamp) {
-            await setDoc(doc(firestore, "campaigns", campaign.id), sanitizeFirestoreData(targetCamp), { merge: true });
+            await setDoc(doc(firestore, "campaigns", campId), sanitizeFirestoreData(targetCamp), { merge: true });
           }
+        }
+      } else if (id && active !== undefined) {
+        let camp = store.campaigns.find(c => c.id === id);
+        if (camp) {
+          camp.active = Boolean(active);
+        } else {
+          const snap = snapshotCampaigns.find(c => c.id === id);
+          if (snap) {
+            camp = { ...snap, active: Boolean(active) };
+            store.campaigns.push(camp);
+          }
+        }
+        if (camp && firestore) {
+          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
         }
       }
 
@@ -930,13 +953,15 @@ async function startServer() {
         payload: store.campaigns
       });
 
+      console.log(`[Campaigns Updated] Total: ${store.campaigns.length}. Synced to Firestore and broadcasted.`);
       res.json({ success: true, campaigns: store.campaigns, connectedClients: sseClients.length });
     } catch (err: any) {
+      console.error("Error in /api/campaign/update:", err);
       res.status(500).json({ error: err.message });
     }
   });
 
-  app.post("/api/campaign/delete", (req, res) => {
+  app.post("/api/campaign/delete", async (req, res) => {
     try {
       const { id } = req.body || {};
       if (id) {
@@ -944,12 +969,15 @@ async function startServer() {
         scheduleSaveStore();
         const firestore = getServerFirestore();
         if (firestore) {
-          deleteDoc(doc(firestore, "campaigns", id)).catch(() => {});
+          await deleteDoc(doc(firestore, "campaigns", id)).catch((err) => {
+            console.warn("[Sync] Firestore campaign delete notice:", err);
+          });
         }
         broadcastRealtime({
           type: "SYNC_CAMPAIGNS",
           payload: store.campaigns
         });
+        console.log(`[Campaign Deleted] ID: ${id}. Removed from Firestore and broadcasted.`);
       }
       res.json({ success: true, campaigns: store.campaigns, connectedClients: sseClients.length });
     } catch (err: any) {
@@ -1056,7 +1084,8 @@ async function startServer() {
       if (!publisherId) {
         return res.status(400).json({ error: "Missing publisherId" });
       }
-      const idx = store.publishers.findIndex(p => p.id === publisherId);
+      const normalizedPublisherId = String(publisherId).trim().toUpperCase();
+      const idx = store.publishers.findIndex(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       if (idx !== -1) {
         const existingAvatar = store.publishers[idx].avatar;
         const finalAvatar = (avatar && avatar.startsWith('/api/publisher/avatar/'))
@@ -1071,7 +1100,7 @@ async function startServer() {
         store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });
       }
       scheduleSaveStore();
-      const savedPublisher = store.publishers.find(p => p.id === publisherId);
+      const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       const firestore = getServerFirestore();
       if (firestore && savedPublisher) {
         await setDoc(
@@ -1187,26 +1216,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Testimonials Update endpoint (Zero Firestore quota)
-  app.post("/api/testimonials/update", (req, res) => {
-    try {
-      const { testimonials } = req.body || {};
-      if (Array.isArray(testimonials)) {
-        store.testimonials = testimonials;
-        scheduleSaveStore();
-        broadcastRealtime({
-          type: "SYNC_TESTIMONIALS",
-          payload: store.testimonials
-        });
-      }
-      res.json({ success: true, testimonials: store.testimonials });
-    } catch (err: any) {
-      res.status(500).json({ error: err.message });
-    }
-  });
-
-  // Dedicated Submission Delete endpoint (Zero Firestore quota)
-  app.post("/api/submission/delete", (req, res) => {
+  // Dedicated Submission Delete endpoint (Synced to cloud & server store)
+  app.post("/api/submission/delete", async (req, res) => {
     try {
       const { id } = req.body || {};
       if (!id) return res.status(400).json({ error: "Missing submission ID" });
@@ -1214,6 +1225,10 @@ async function startServer() {
       if (idx !== -1) {
         store.submissions.splice(idx, 1);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "submissions", String(id))).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_SUBMISSIONS",
           payload: store.submissions
@@ -1225,8 +1240,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Delete endpoint (Zero Firestore quota)
-  app.post("/api/publisher/delete", (req, res) => {
+  // Dedicated Publisher Delete endpoint (Synced to cloud & server store)
+  app.post("/api/publisher/delete", async (req, res) => {
     try {
       const { publisherId } = req.body || {};
       if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
@@ -1234,6 +1249,11 @@ async function startServer() {
       if (idx !== -1) {
         store.publishers.splice(idx, 1);
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          deleteDoc(doc(firestore, "publishers", String(publisherId))).catch(() => {});
+          deleteDoc(doc(firestore, "bank_details", String(publisherId))).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_PUBLISHERS",
           payload: store.publishers
@@ -1245,8 +1265,8 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Block/Unblock endpoint (Zero Firestore quota)
-  app.post("/api/publisher/toggle-block", (req, res) => {
+  // Dedicated Publisher Block/Unblock endpoint (Synced to cloud & server store)
+  app.post("/api/publisher/toggle-block", async (req, res) => {
     try {
       const { publisherId, blocked } = req.body || {};
       if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
@@ -1254,6 +1274,10 @@ async function startServer() {
       if (pub) {
         pub.blocked = blocked !== undefined ? blocked : !pub.blocked;
         scheduleSaveStore();
+        const firestore = getServerFirestore();
+        if (firestore) {
+          setDoc(doc(firestore, "publishers", String(publisherId)), { blocked: Boolean(pub.blocked) }, { merge: true }).catch(() => {});
+        }
         broadcastRealtime({
           type: "SYNC_PUBLISHERS",
           payload: store.publishers
@@ -1309,7 +1333,7 @@ async function startServer() {
   });
 
   // 3. Universal Status Update endpoint - Handles ANY status change (Process, Reject, Ready To Trade, Active, Trade Done, Payment Done)
-  app.post("/api/submission/update-status", (req, res) => {
+  app.post("/api/submission/update-status", async (req, res) => {
     try {
       const { submissionId, status, submissionData, payout } = req.body || {};
       if (!submissionId || !status) {
@@ -1378,6 +1402,25 @@ async function startServer() {
       }
 
       scheduleSaveStore();
+
+      const firestore = getServerFirestore();
+      if (firestore && sub) {
+        try {
+          const cleanSub = {
+            ...sub,
+            screenshot: sub.screenshot && sub.screenshot.length > 500 ? `/api/submission/screenshot/${sub.id}` : sub.screenshot
+          };
+          setDoc(doc(firestore, "submissions", String(submissionId)), sanitizeFirestoreData(cleanSub), { merge: true }).catch(() => {});
+          if (newEarning) {
+            setDoc(doc(firestore, "earnings", String(newEarning.id)), sanitizeFirestoreData(newEarning), { merge: true }).catch(() => {});
+          }
+          if (removedEarningId) {
+            deleteDoc(doc(firestore, "earnings", String(removedEarningId))).catch(() => {});
+          }
+        } catch (fErr) {
+          console.warn("[Sync] Firestore status update notice:", fErr);
+        }
+      }
 
       // Broadcast unified real-time event to ALL clients (Admin, Employee, Publisher)
       broadcastRealtime({

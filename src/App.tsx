@@ -9,7 +9,6 @@ import PartnerPanel from './components/PartnerPanel';
 import EmployeePanel from './components/EmployeePanel';
 import AdminPanel from './components/AdminPanel';
 import AdsEarningView from './components/AdsEarningView';
-import SponsorshipOffer from './components/SponsorshipOffer';
 import NotFoundView from './components/NotFoundView';
 import BlogPage from './components/BlogPage';
 import AboutUs from './components/AboutUs';
@@ -20,7 +19,6 @@ import IndustrySolutions from './components/IndustrySolutions';
 import BecomeAPartner from './components/BecomeAPartner';
 import BusinessSitemap from './components/BusinessSitemap';
 import { motion, AnimatePresence } from 'motion/react';
-import { Gift, ChevronRight } from 'lucide-react';
 
 // Helper to normalize route paths
 function normalizeRoute(rawPath: string): string {
@@ -31,7 +29,6 @@ function normalizeRoute(rawPath: string): string {
   if (lower === '/partner') return '/Partner';
   if (lower === '/employee') return '/Employee';
   if (lower === '/ads-earning') return '/ads-earning';
-  if (lower === '/sponsorship-offer') return '/sponsorship-offer';
   if (lower === '/blogpage' || lower === '/blog') return '/blogpage';
   if (lower === '/aboutus' || lower === '/about') return '/aboutus';
   if (lower === '/overview') return '/overview';
@@ -222,7 +219,6 @@ function AppContent() {
             {route === '/Partner' && <PartnerPanel onNavigate={navigateTo} />}
             {route === '/Employee' && <EmployeePanel onNavigate={navigateTo} />}
             {route.toLowerCase() === '/ads-earning' && <AdsEarningView onNavigate={navigateTo} />}
-            {route.toLowerCase() === '/sponsorship-offer' && <SponsorshipOffer onNavigate={navigateTo} />}
             {route.toLowerCase() === '/blogpage' && <BlogPage onNavigate={navigateTo} />}
             {route.toLowerCase() === '/aboutus' && <AboutUs onNavigate={navigateTo} />}
             {route.toLowerCase() === '/overview' && <Overview onNavigate={navigateTo} />}
@@ -231,42 +227,12 @@ function AppContent() {
             {route.toLowerCase() === '/industry' && <IndustrySolutions onNavigate={navigateTo} />}
             {route.toLowerCase() === '/becomeapartner' && <BecomeAPartner onNavigate={navigateTo} />}
             {route.toLowerCase() === '/sitemap' && <BusinessSitemap onNavigate={navigateTo} />}
-            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/sponsorship-offer', '/blogpage', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap'].includes(route.toLowerCase()) && (
+            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/blogpage', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap'].includes(route.toLowerCase()) && (
               <NotFoundView onNavigate={navigateTo} />
             )}
           </motion.div>
         </AnimatePresence>
       </main>
-
-      {/* Floating Sponsor Offer Overlay Widget (Bottom Left - Fixed to Viewport) */}
-      {!isAdminActive && currentUser?.type === 'publisher' && route.toLowerCase() !== '/sponsorship-offer' && (
-        <div className="fixed bottom-3 left-3 sm:bottom-5 sm:left-5 z-50">
-          <button
-            id="sponsor-offer-floating-trigger"
-            onClick={() => navigateTo('/sponsorship-offer')}
-            className="group relative flex items-center gap-2 sm:gap-2.5 bg-white/95 dark:bg-[#0c162c]/95 backdrop-blur-md text-slate-900 dark:text-white p-1.5 px-3 sm:p-2.5 sm:px-4 rounded-full shadow-lg transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer border border-sky-500/80 dark:border-sky-400/80 hover:border-sky-500"
-            title="Open Sponsor Reward Offer"
-          >
-            {/* Clean Compact Icon Container with Gift Icon */}
-            <div className="relative w-6.5 h-6.5 sm:w-7.5 sm:h-7.5 rounded-full bg-brand-primary text-white flex items-center justify-center shrink-0 shadow-sm group-hover:scale-105 transition-transform">
-              <Gift className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-              {/* Active Badge Dot */}
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border border-white dark:border-[#0c162c]" />
-            </div>
-
-            {/* Clean Compact Text Labels */}
-            <div className="flex flex-col text-left">
-              <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-wider text-brand-primary dark:text-sky-400 leading-none">
-                Special Offer
-              </span>
-              <span className="text-[10px] sm:text-xs font-black tracking-tight text-slate-900 dark:text-white flex items-center gap-0.5 mt-0.5">
-                <span>Sponsor Reward</span>
-                <ChevronRight className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-400 group-hover:text-brand-primary group-hover:translate-x-0.5 transition-all" />
-              </span>
-            </div>
-          </button>
-        </div>
-      )}
 
       {/* Floating WhatsApp Widget */}
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-50 flex flex-col items-end gap-2">

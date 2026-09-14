@@ -6,7 +6,7 @@ import {
   KeyRound, Users, Flame, Plus, ShieldAlert, Check, ShieldAlert as BlockIcon, Trash2, 
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
-  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Gift, Trophy, Target, Mail,
+  Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Mail,
   MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
@@ -15,7 +15,7 @@ interface AdminPanelProps {
   onNavigate: (route: string) => void;
 }
 
-type AdminTab = 'overview' | 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs' | 'testimonials_edit';
+type AdminTab = 'overview' | 'campaigns' | 'mis_database' | 'payment_portal' | 'publishers' | 'offer_popup' | 'backups' | 'staff_gen' | 'activity_logs' | 'testimonials_edit';
 
 export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const { 
@@ -326,79 +326,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     setTimeout(() => setSheetMsg(''), 3000);
   };
 
-  // Calculate Sponsor Offer (AngelOne Target 20) qualified publishers
-  const getPublisherAngelOneReferrals = (pubId: string) => {
-    const sponsorId = pubId.trim().toUpperCase();
-    const referredClients = publishers.filter(
-      (p) => p.inviteCode && p.inviteCode.trim().toUpperCase() === sponsorId
-    );
-
-    const isAngelOneCampaign = (name: string) => (name || '').toLowerCase().includes('angel');
-    const approvedStatuses = ['approved', 'Approved', 'Payment Done', 'Trade Done', 'Active', 'Process'];
-
-    const qualifiedReferralClients: {
-      clientId: string;
-      clientName: string;
-      clientPhone: string;
-      clientEmail: string;
-      firstAngelOneDate: string;
-    }[] = [];
-
-    referredClients.forEach((client) => {
-      // Gather ALL earnings and approved submissions for this client across ALL campaigns
-      const clientEarnings = earnings.filter((e) => e.publisherId === client.id && e.campaignName);
-      const clientSubs = submissions.filter(
-        (s) => s.publisherId === client.id && s.campaignName && approvedStatuses.includes(s.status)
-      );
-
-      type ClientActivity = { dateStr: string; campaignName: string };
-      const activities: ClientActivity[] = [];
-
-      clientEarnings.forEach((e) => {
-        if (e.date) activities.push({ dateStr: e.date, campaignName: e.campaignName });
-      });
-      clientSubs.forEach((s) => {
-        if (s.submitDate) activities.push({ dateStr: s.submitDate, campaignName: s.campaignName });
-      });
-
-      if (activities.length > 0) {
-        // Sort activities ascending by date to find the client's EARLIEST (VERY FIRST) earning/submission
-        activities.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-        const firstActivity = activities[0];
-
-        // STRICT RULE: The client's VERY FIRST earning/lead MUST be on AngelOne
-        // If the client's first earning was on another campaign (e.g., ICICI, Axis), they do NOT qualify for the offer
-        if (isAngelOneCampaign(firstActivity.campaignName)) {
-          qualifiedReferralClients.push({
-            clientId: client.id,
-            clientName: client.name,
-            clientPhone: client.phone || 'N/A',
-            clientEmail: client.email || 'N/A',
-            firstAngelOneDate: firstActivity.dateStr.substring(0, 10),
-          });
-        }
-      }
-    });
-
-    return {
-      totalQualifiedCount: qualifiedReferralClients.length,
-      qualifiedReferralClients,
-    };
-  };
-
-  // Only include publishers who have completed 20 or more qualified AngelOne referrals
-  const offerAchievers = publishers
-    .map((pub) => {
-      const { totalQualifiedCount, qualifiedReferralClients } = getPublisherAngelOneReferrals(pub.id);
-      return {
-        publisher: pub,
-        totalQualifiedCount,
-        qualifiedReferralClients,
-        bankDetails: bankDetailsMap[pub.id] || null,
-      };
-    })
-    .filter((item) => item.totalQualifiedCount >= 20);
-
   // Handle Admin login verify
   const handleAdminAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -435,14 +362,23 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   // Check manual session on mount to allow smooth iframe transitions
   React.useEffect(() => {
-    const activeSess = localStorage.getItem('pai_user_session');
-    if (activeSess) {
-      const parsed = JSON.parse(activeSess);
-      if (parsed.type === 'admin') {
-        setIsAdminLoggedIn(true);
-      }
-    }
+  const activeSess = localStorage.getItem('pai_user_session');
+  if (activeSess) {
+  const parsed = JSON.parse(activeSess);
+  if (parsed.type === 'admin') {
+  setIsAdminLoggedIn(true);
+  }
+  }
   }, []);
+
+  // Always pull the canonical server list when Admin opens, then keep it fresh
+  // for leads submitted from another browser or deployment instance.
+  React.useEffect(() => {
+  if (!isAdminLoggedIn) return;
+  void refreshServerState();
+  const interval = window.setInterval(() => void refreshServerState(), 5000);
+  return () => window.clearInterval(interval);
+  }, [isAdminLoggedIn, refreshServerState]);
 
   // Reset campaign form fields
   const resetCampForm = () => {
@@ -516,6 +452,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     };
 
     if (editingCampId) {
+      console.log('[AdminPanel Debug] Updating campaign:', { id: editingCampId, payload });
       editCampaign(editingCampId, payload);
       setCampMsg({ 
         type: 'success', 
@@ -523,6 +460,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       });
       setEditingCampId(null);
     } else {
+      console.log('[AdminPanel Debug] Creating new campaign:', payload);
       addCampaign(payload);
       setCampMsg({ 
         type: 'success', 
@@ -802,7 +740,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
                     { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
-                    { tab: 'offer', label: 'Offer (Target 20 Achievers)', icon: <Gift className="w-4.5 h-4.5 text-amber-500" /> },
                     { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
                     { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
                     { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
@@ -835,7 +772,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
                     { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
                     { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
-                    { tab: 'offer', label: 'Offer (Target 20 Achievers)', icon: <Gift className="w-4.5 h-4.5 text-amber-500" /> },
                     { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
                     { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
                     { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
@@ -873,7 +809,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               { tab: 'mis_database', label: 'MIS Database Workspace', icon: <CheckSquare className="w-4.5 h-4.5 text-emerald-500" /> },
               { tab: 'payment_portal', label: 'UID Payment Portal', icon: <Landmark className="w-4.5 h-4.5 text-blue-500" /> },
               { tab: 'publishers', label: 'Publisher Registry', icon: <Users className="w-4.5 h-4.5 text-indigo-500" /> },
-              { tab: 'offer', label: 'Offer', icon: <Gift className="w-4.5 h-4.5 text-amber-500" /> },
               { tab: 'offer_popup', label: 'Promo Offer Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-violet-500" /> },
               { tab: 'testimonials_edit', label: 'Client Review Manager', icon: <MessageSquare className="w-4.5 h-4.5 text-rose-500" /> },
               { tab: 'staff_gen', label: 'Employee Staff Board', icon: <Users className="w-4.5 h-4.5 text-teal-500" /> },
@@ -956,7 +891,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               </div>
 
               {/* Statistics Bento Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Card 1: Total Registered Clients */}
                 <div onClick={() => setActiveTab('publishers')} className="p-4 bg-gradient-to-br from-indigo-50 to-indigo-100/50 border border-indigo-100 rounded-2xl shadow-sm hover:shadow transition-all duration-300 cursor-pointer group hover:-translate-y-0.5">
                   <div className="flex justify-between items-start">
@@ -1019,23 +954,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     <span className="text-[10px] font-black text-indigo-600">running</span>
                   </div>
                   <p className="text-[10px] text-emerald-700/80 font-bold mt-1.5">Manage tracking links →</p>
-                </div>
-
-                {/* Card 5: Sponsor Offer Achievers */}
-                <div onClick={() => setActiveTab('offer')} className="p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 border border-amber-200/80 rounded-2xl shadow-sm hover:shadow transition-all duration-300 cursor-pointer group hover:-translate-y-0.5">
-                  <div className="flex justify-between items-start">
-                    <span className="text-[10px] font-black text-amber-900 uppercase tracking-widest font-sans">
-                      Offer Target Achievers
-                    </span>
-                    <Gift className="w-5 h-5 text-amber-600 transition-transform group-hover:scale-110" />
-                  </div>
-                  <div className="mt-2.5 flex items-baseline gap-1.5">
-                    <span className="text-2xl font-black text-amber-900 font-mono">
-                      {offerAchievers.length}
-                    </span>
-                    <span className="text-[10px] bg-amber-100 text-amber-800 font-black px-1.5 py-0.5 rounded-md uppercase font-mono">20+ Refer</span>
-                  </div>
-                  <p className="text-[10px] text-amber-800/80 font-bold mt-1.5">View 20+ AngelOne achievers →</p>
                 </div>
               </div>
 
@@ -1557,7 +1475,10 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                             
                             <button
                               id={`toggle-camp-act-${camp.id}`}
-                              onClick={() => toggleCampaignActive(camp.id)}
+                              onClick={() => {
+                                console.log('[AdminPanel Debug] Toggling campaign active state:', camp.id, camp.name);
+                                toggleCampaignActive(camp.id);
+                              }}
                               className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors cursor-pointer flex items-center justify-center gap-1 border ${
                                 camp.active !== false
                                   ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300' 
@@ -1581,6 +1502,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                             <button
                               onClick={() => {
                                 if (window.confirm(`Are you sure you want to delete campaign "${camp.name}"? This will remove it completely.`)) {
+                                  console.log('[AdminPanel Debug] Deleting campaign:', camp.id, camp.name);
                                   deleteCampaign(camp.id);
                                 }
                               }}
@@ -2270,133 +2192,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 </form>
               </div>
 
-            </div>
-          )}
-
-          {/* TAB OFFER: Sponsor Offer Achievers Section (Target 20 AngelOne Referrals) */}
-          {activeTab === 'offer' && (
-            <div id="tabContent-offer" className="space-y-6 animate-fade-up">
-              {/* Header */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="p-2 bg-amber-100 text-amber-700 rounded-xl">
-                      <Gift className="w-5 h-5" />
-                    </span>
-                    <h3 className="text-xl font-black text-slate-800">Sponsorship Offer Achievers</h3>
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">
-                    This section only displays publishers who have completed the target of <strong>20 AngelOne Referrals + First Earning</strong>.
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-2 rounded-xl text-xs font-black shrink-0">
-                  <Trophy className="w-4 h-4 text-amber-600" />
-                  <span>Target: 20 AngelOne Referrals</span>
-                </div>
-              </div>
-
-              {/* Data Display */}
-              {offerAchievers.length === 0 ? (
-                <div className="p-10 bg-slate-50/80 border-2 border-dashed border-slate-200 rounded-3xl text-center space-y-4">
-                  <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner border border-amber-200">
-                    <Gift className="w-8 h-8" />
-                  </div>
-                  <div className="max-w-md mx-auto space-y-1">
-                    <h4 className="text-base font-black text-slate-800">No Target Achievers Yet</h4>
-                    <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                      No publisher has completed the <strong>20 AngelOne referrals + First Earning</strong> target yet. As soon as a publisher completes 20 verified referrals, their details will automatically appear here.
-                    </p>
-                  </div>
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white border border-slate-200 rounded-full text-[11px] font-extrabold text-slate-600 shadow-xs">
-                    <Target className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Rule: Target 20/20 Required to Display Data</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-600">
-                    <span>Qualified Target Achievers ({offerAchievers.length})</span>
-                  </div>
-
-                  {offerAchievers.map(({ publisher: pub, totalQualifiedCount, qualifiedReferralClients, bankDetails }) => (
-                    <div key={pub.id} className="bg-white border-2 border-amber-200/90 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all space-y-4">
-                      {/* Achiever Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 text-white flex items-center justify-center font-black text-sm shadow">
-                            {pub.name ? pub.name.charAt(0).toUpperCase() : 'P'}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-sm font-black text-slate-900">{pub.name}</h4>
-                              <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                Target Achieved
-                              </span>
-                            </div>
-                            <p className="text-xs text-slate-500 font-mono">
-                              ID: <strong className="text-indigo-600">{pub.id}</strong> | Phone: {pub.phone} | Email: {pub.email}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-2 bg-amber-50 border border-amber-300 px-3.5 py-2 rounded-xl shrink-0">
-                          <Trophy className="w-4 h-4 text-amber-600" />
-                          <span className="text-xs font-black text-amber-900 font-mono">
-                            {totalQualifiedCount} / 20 Completed
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Bank / Payment Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
-                        <div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">UPI ID / Payment Method</span>
-                          <span className="font-bold text-slate-800 font-mono block mt-0.5">
-                            {bankDetails?.upiId || pub.upiId || 'Not provided yet'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">Bank Account Details</span>
-                          <span className="font-bold text-slate-800 block mt-0.5">
-                            {bankDetails?.accountNo ? `${bankDetails.bankName || 'Bank'} - A/C: ${bankDetails.accountNo} (IFSC: ${bankDetails.ifscCode})` : 'Bank details not submitted'}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* List of 20+ Referred Clients */}
-                      <div className="space-y-2">
-                        <span className="text-xs font-black text-slate-700 block">
-                          Completed AngelOne Referrals Breakdown ({qualifiedReferralClients.length}):
-                        </span>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto p-1">
-                          {qualifiedReferralClients.map((client, idx) => (
-                            <div key={client.clientId} className="bg-white p-2.5 rounded-xl border border-slate-200 text-xs flex items-center justify-between">
-                              <div>
-                                <span className="font-bold text-slate-800 block truncate max-w-[140px]">
-                                  #{idx + 1} {client.clientName}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-mono block">
-                                  ID: {client.clientId}
-                                </span>
-                              </div>
-                              <div className="text-right">
-                                <span className="text-[9px] font-extrabold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded block">
-                                  First Earning Done
-                                </span>
-                                <span className="text-[9px] text-slate-400 block mt-0.5">
-                                  {client.firstAngelOneDate}
-                                </span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           )}
 
@@ -3344,9 +3139,11 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     };
 
                     if (editingTestiId) {
+                      console.log('[AdminPanel Debug] Updating testimonial:', editingTestiId, payload);
                       editTestimonial(editingTestiId, payload);
                       setTestiMsg(`Review from '${testiName}' updated successfully!`);
                     } else {
+                      console.log('[AdminPanel Debug] Creating testimonial:', payload);
                       addTestimonial(payload);
                       setTestiMsg(`Review from '${testiName}' added to home carousel!`);
                     }
@@ -3552,6 +3349,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 type="button"
                                 onClick={() => {
                                   if (confirm(`Are you absolutely sure you want to delete the testimonial of "${item.name}"?`)) {
+                                    console.log('[AdminPanel Debug] Deleting testimonial:', item.id, item.name);
                                     deleteTestimonial(item.id);
                                     setTestiMsg(`Review from '${item.name}' permanently deleted.`);
                                   }

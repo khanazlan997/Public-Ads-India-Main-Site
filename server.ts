@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
+import firebaseConfig from "./firebase-applet-config.json";
 
 const defaultTestimonials = [
   {
@@ -214,10 +215,8 @@ async function startServer() {
   function getServerFirestore() {
     if (cachedServerFirestore) return cachedServerFirestore;
     try {
-      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      if (!fs.existsSync(configPath)) return null;
-      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (!config.apiKey || !config.projectId) return null;
+  const config = firebaseConfig;
+  if (!config.apiKey || !config.projectId) return null;
       const existingApps = getApps();
       const firebaseApp = existingApps.find(a => a.name === "server-app") || initializeApp(config, "server-app");
       cachedServerFirestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
@@ -499,10 +498,8 @@ async function startServer() {
   // Purge old client collections from Firestore on demand
   async function purgeOldClientDataFromFirestore() {
     try {
-      const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
-      if (!fs.existsSync(configPath)) return { success: false, message: "No Firebase config found" };
-      const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
-      if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
+  const config = firebaseConfig;
+  if (!config.apiKey || !config.projectId) return { success: false, message: "Invalid Firebase config" };
 
       const firebaseApp = initializeApp(config, `server-purge-${Date.now()}`);
       const firestore = getFirestore(firebaseApp, config.firestoreDatabaseId);

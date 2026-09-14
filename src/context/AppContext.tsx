@@ -390,6 +390,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
   const fetchServerStateRef = useRef<() => Promise<void>>();
 
+  useEffect(() => {
+    if (currentUser) safeSetLocal('pai_user_session', currentUser);
+  }, [currentUser]);
+
   const refreshServerState = async () => {
     if (fetchServerStateRef.current) {
       await fetchServerStateRef.current();
@@ -613,8 +617,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setCampaigns(payload);
           } else if (type === 'SYNC_PUBLISHERS' && Array.isArray(payload)) {
             setPublishers(payload);
-          } else if (type === 'SYNC_BANK_DETAILS' && payload) {
-            setBankDetailsMap(payload);
+            safeSetLocal('pai_cached_publishers', payload);
+            setCurrentUser(prev => {
+              if (!prev || prev.type !== 'publisher') return prev;
+              const latest = payload.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
+              return latest ? { ...prev, ...latest } : prev;
+            });
           } else if (type === 'EARNING_DELETED' && payload) {
             const { earningId, matchedSubmissionId } = payload;
             if (earningId) {
@@ -724,6 +732,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(pList)) {
         setPublishers(pList);
         safeSetLocal('pai_cached_publishers', pList);
+        setCurrentUser(prev => {
+          if (!prev || prev.type !== 'publisher') return prev;
+          const latest = pList.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
+          return latest ? { ...prev, ...latest } : prev;
+        });
       }
 
       if (bMap && typeof bMap === 'object') {

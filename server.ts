@@ -1056,7 +1056,8 @@ async function startServer() {
       if (!publisherId) {
         return res.status(400).json({ error: "Missing publisherId" });
       }
-      const idx = store.publishers.findIndex(p => p.id === publisherId);
+      const normalizedPublisherId = String(publisherId).trim().toUpperCase();
+      const idx = store.publishers.findIndex(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       if (idx !== -1) {
         const existingAvatar = store.publishers[idx].avatar;
         const finalAvatar = (avatar && avatar.startsWith('/api/publisher/avatar/'))
@@ -1071,7 +1072,7 @@ async function startServer() {
         store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });
       }
       scheduleSaveStore();
-      const savedPublisher = store.publishers.find(p => p.id === publisherId);
+      const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       const firestore = getServerFirestore();
       if (firestore && savedPublisher) {
         await setDoc(

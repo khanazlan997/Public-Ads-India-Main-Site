@@ -136,18 +136,11 @@ async function startServer() {
       if (!Array.isArray(store.testimonials) || store.testimonials.length === 0) {
         store.testimonials = defaultTestimonials;
       }
-      // Purge old legacy non-v2 publishers
-      if (Array.isArray(store.publishers)) {
-        store.publishers = store.publishers.filter((p: any) => p && p.systemVersion === 'v2');
-      }
-      // Purge old submissions and earnings that do not belong to current v2 publishers
-      const v2PubIdSet = new Set((store.publishers || []).map((p: any) => String(p?.id || '').trim().toUpperCase()));
-      if (Array.isArray(store.submissions)) {
-        store.submissions = store.submissions.filter((s: any) => s && (v2PubIdSet.size === 0 || v2PubIdSet.has(String(s.publisherId || '').trim().toUpperCase())));
-      }
-      if (Array.isArray(store.earnings)) {
-        store.earnings = store.earnings.filter((e: any) => e && (v2PubIdSet.size === 0 || v2PubIdSet.has(String(e.publisherId || '').trim().toUpperCase())));
-      }
+  // Keep persisted client records. Older accounts and leads remain valid data;
+  // filtering them at server startup caused different devices to show different counts.
+  if (!Array.isArray(store.publishers)) store.publishers = [];
+  if (!Array.isArray(store.submissions)) store.submissions = [];
+  if (!Array.isArray(store.earnings)) store.earnings = [];
       console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.publishers.length} v2 publishers from server storage.`);
     }
   } catch (e) {
@@ -269,21 +262,15 @@ async function startServer() {
 
       const validPubIdsUpper = new Set((store.publishers || []).map(p => String(p.id || '').trim().toUpperCase()));
 
-      // 2. Submissions (preserve all current submissions; merge any from Firestore)
-      const subMap = new Map<string, any>();
-      (store.submissions || []).forEach(s => {
-        if (s && s.id) subMap.set(s.id, s);
-      });
+      // 2. Submissions: Firestore is canonical when available. Never retain
+      // device/server-only records after a successful Firestore read.
       if (subSnap.size > 0) {
-        subSnap.docs.forEach((d: any) => {
+        store.submissions = subSnap.docs.map((d: any) => {
           const data = { id: d.id, ...d.data() };
-          const normPubId = String(data.publisherId || '').trim().toUpperCase();
-          if (validPubIdsUpper.size === 0 || validPubIdsUpper.has(normPubId) || !data.publisherId) {
-            subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data, publisherId: normPubId || data.publisherId });
-          }
+          const publisherId = String(data.publisherId || '').trim().toUpperCase();
+          return { ...data, publisherId: publisherId || data.publisherId };
         });
       }
-      store.submissions = Array.from(subMap.values());
 
       // 3. Earnings (preserve all current earnings; merge any from Firestore)
       const earnMap = new Map<string, any>();
@@ -319,10 +306,11 @@ async function startServer() {
         }
       }
 
-      // 5. Bank Details
+      // 5. Bank Details: replace the in-memory map with the canonical snapshot.
       if (bankSnap.size > 0) {
+        store.bankDetailsMap = {};
         bankSnap.docs.forEach((d: any) => {
-          store.bankDetailsMap[d.id] = { ...(store.bankDetailsMap[d.id] || {}), ...d.data() };
+          store.bankDetailsMap[d.id] = { id: d.id, ...d.data() };
         });
       }
 
@@ -836,27 +824,31 @@ async function startServer() {
       scheduleSaveStore();
     }
 
-    // Hydrate from Firestore so every deployment instance and device sees the same leads.
+    // Hydrate every admin-facing collection from Firestore so all devices share
+    // one canonical snapshot instead of each device's local memory/cache.
     const firestore = getServerFirestore();
     if (firestore) {
       try {
-        const submissionSnapshot = await getDocs(collection(firestore, 'submissions'));
+        const [submissionSnapshot, employeeSnapshot, publisherSnapshot, bankSnapshot] = await Promise.all([
+          getDocs(collection(firestore, 'submissions')),
+          getDocs(collection(firestore, 'employees')),
+          getDocs(collection(firestore, 'publishers')),
+          getDocs(collection(firestore, 'bank_details')),
+        ]);
         if (submissionSnapshot.size > 0) {
           store.submissions = submissionSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
         }
-      } catch (error) {
-        console.warn('[Sync] Could not hydrate submissions from Firestore:', error);
-      }
-    }
-
-    if (firestore) {
-      try {
-        const employeeSnapshot = await getDocs(collection(firestore, 'employees'));
         if (employeeSnapshot.size > 0) {
           store.employees = employeeSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
         }
+        if (publisherSnapshot.size > 0) {
+          store.publishers = publisherSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
+        }
+        if (bankSnapshot.size > 0) {
+          store.bankDetailsMap = Object.fromEntries(bankSnapshot.docs.map((item: any) => [item.id, { id: item.id, ...item.data() }]));
+        }
       } catch (error) {
-        console.warn('[Sync] Could not hydrate employees from Firestore:', error);
+        console.warn('[Sync] Could not hydrate canonical admin data from Firestore:', error);
       }
     }
 

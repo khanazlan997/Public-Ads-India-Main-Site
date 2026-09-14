@@ -692,34 +692,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(sList)) {
         setSubmissions(prev => {
           const map = new Map<string, DataSubmission>();
-          sList.forEach(s => { if (s && s.id) map.set(s.id, s); });
+          prev.forEach(s => { if (s && s.id) map.set(s.id, s); });
+          sList.forEach(s => { if (s && s.id) map.set(s.id, { ...(map.get(s.id) || {}), ...s }); });
           const merged = Array.from(map.values()).sort((a, b) => {
             const keyA = (a.submitDate || '') + '_' + (a.id || '');
             const keyB = (b.submitDate || '') + '_' + (b.id || '');
             return keyB.localeCompare(keyA);
           });
+          if (merged.length > 0) {
+            safeSetLocal('pai_cached_submissions', merged.slice(0, 50));
+          }
           return merged;
         });
-        safeSetLocal('pai_cached_submissions', sList);
       }
 
       if (Array.isArray(eList)) {
-        setEarnings(eList);
-        safeSetLocal('pai_cached_earnings', eList);
+        setEarnings(prev => {
+          const map = new Map<string, EarningRecord>();
+          prev.forEach(e => { if (e && e.id) map.set(e.id, e); });
+          eList.forEach(e => { if (e && e.id) map.set(e.id, { ...(map.get(e.id) || {}), ...e }); });
+          const merged = Array.from(map.values());
+          if (merged.length > 0) {
+            safeSetLocal('pai_cached_earnings', merged);
+          }
+          return merged;
+        });
       }
 
-  if (Array.isArray(cList)) {
-  setCampaigns(cList);
-  safeSetLocal('pai_cached_campaigns', cList);
-  }
+      if (Array.isArray(cList) && cList.length > 0) {
+        setCampaigns(cList);
+        safeSetLocal('pai_cached_campaigns', cList);
+      }
 
-      if (Array.isArray(pList)) {
-        setPublishers(pList);
-        safeSetLocal('pai_cached_publishers', pList);
+      if (Array.isArray(pList) && pList.length > 0) {
+        setPublishers(prev => {
+          const map = new Map<string, Publisher>();
+          prev.forEach(p => { if (p && p.id) map.set(String(p.id).trim().toUpperCase(), p); });
+          pList.forEach(p => {
+            if (p && p.id) {
+              const upper = String(p.id).trim().toUpperCase();
+              map.set(upper, { ...(map.get(upper) || {}), ...p });
+            }
+          });
+          const merged = Array.from(map.values());
+          safeSetLocal('pai_cached_publishers', merged);
+          return merged;
+        });
         setCurrentUser(prev => {
           if (!prev || prev.type !== 'publisher') return prev;
           const latest = pList.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
-          return latest ? { ...prev, ...latest } : prev;
+          return latest ? { ...prev, name: latest.name, avatar: latest.avatar || prev.avatar } : prev;
         });
       }
 
@@ -868,6 +890,69 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) {
       console.warn("[Firebase Listener] Could not attach testimonials listener:", e);
     }
+
+    // Direct real-time live sync for submissions across all devices
+    let unsubSubs: (() => void) | null = null;
+    try {
+      unsubSubs = onSnapshot(collection(db, 'submissions'), (snap) => {
+        if (snap && !snap.empty) {
+          const liveSubs = snap.docs.map(d => ({ id: d.id, ...d.data() } as DataSubmission));
+          setSubmissions(prev => {
+            const map = new Map<string, DataSubmission>();
+            prev.forEach(s => { if (s && s.id) map.set(s.id, s); });
+            liveSubs.forEach(s => { if (s && s.id) map.set(s.id, { ...(map.get(s.id) || {}), ...s }); });
+            const next = Array.from(map.values()).sort((a, b) => {
+              const keyA = (a.submitDate || '') + '_' + (a.id || '');
+              const keyB = (b.submitDate || '') + '_' + (b.id || '');
+              return keyB.localeCompare(keyA);
+            });
+            if (next.length > 0) safeSetLocal('pai_cached_submissions', next.slice(0, 50));
+            return next;
+          });
+        }
+      }, (err) => {
+        console.warn("[Firebase Listener] Submissions listener warning:", err);
+      });
+    } catch (e) {}
+
+    // Direct real-time live sync for earnings across all devices
+    let unsubEarnings: (() => void) | null = null;
+    try {
+      unsubEarnings = onSnapshot(collection(db, 'earnings'), (snap) => {
+        if (snap && !snap.empty) {
+          const liveEarns = snap.docs.map(d => ({ id: d.id, ...d.data() } as EarningRecord));
+          setEarnings(prev => {
+            const map = new Map<string, EarningRecord>();
+            prev.forEach(e => { if (e && e.id) map.set(e.id, e); });
+            liveEarns.forEach(e => { if (e && e.id) map.set(e.id, { ...(map.get(e.id) || {}), ...e }); });
+            const next = Array.from(map.values());
+            if (next.length > 0) safeSetLocal('pai_cached_earnings', next);
+            return next;
+          });
+        }
+      }, (err) => {
+        console.warn("[Firebase Listener] Earnings listener warning:", err);
+      });
+    } catch (e) {}
+
+    // Auto-rescue any local cached submissions to cloud
+    try {
+      const localCachedRaw = localStorage.getItem('pai_cached_submissions');
+      if (localCachedRaw) {
+        const parsed = JSON.parse(localCachedRaw);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach(sub => {
+            if (sub && sub.id && sub.publisherId) {
+              fetch('/api/submission/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ submission: sub })
+              }).catch(() => {});
+            }
+          });
+        }
+      }
+    } catch (e) {}
 
     // Real-time synchronization handled 100% via zero-quota SSE and local state stream
     // Connect to Server-Sent Events stream for instant cross-device delivery (< 50ms)
@@ -1083,6 +1168,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (unsubCamps) unsubCamps();
       if (unsubTestimonials) unsubTestimonials();
       if (unsubBankDetails) unsubBankDetails();
+      if (unsubSubs) unsubSubs();
+      if (unsubEarnings) unsubEarnings();
     };
   }, []);
 
@@ -1388,11 +1475,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, message: 'Your publisher account has been blocked by Admin. Contact support.' };
       }
       
-      const sess = { type: 'publisher' as const, id: pub.id, name: pub.name, avatar: pub.avatar };
+      const normId = String(pub.id).trim().toUpperCase();
+      const cleanAvatar = pub.avatar || '';
+      const normalizedPub = { ...pub, id: normId, avatar: cleanAvatar };
+
+      // Ensure publisher with uppercase ID is in local state
+      setPublishers(prev => {
+        const next = prev.filter(p => String(p.id).trim().toUpperCase() !== normId);
+        next.unshift(normalizedPub);
+        safeSetLocal('pai_cached_publishers', next);
+        return next;
+      });
+
+      const sess = { type: 'publisher' as const, id: normId, name: pub.name, avatar: cleanAvatar };
       setCurrentUser(sess);
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
-      addLog(pub.id, pub.name, 'LOGIN', 'Publisher logged in successfully via credential verify');
-      return { success: true, message: 'Logged in successfully', publisher: pub };
+
+      // Trigger immediate server and firestore pull for this publisher's leads
+      try {
+        if (fetchServerStateRef.current) fetchServerStateRef.current();
+        const qSubs = query(collection(db, 'submissions'), where('publisherId', '==', normId));
+        getDocs(qSubs).then(snap => {
+          if (!snap.empty) {
+            const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as DataSubmission));
+            setSubmissions(prev => {
+              const map = new Map<string, DataSubmission>();
+              prev.forEach(s => map.set(s.id, s));
+              list.forEach(s => map.set(s.id, { ...(map.get(s.id) || {}), ...s }));
+              const sorted = Array.from(map.values()).sort((a, b) => ((b.submitDate || '') + '_' + (b.id || '')).localeCompare((a.submitDate || '') + '_' + (a.id || '')));
+              safeSetLocal('pai_cached_submissions', sorted.slice(0, 50));
+              return sorted;
+            });
+          }
+        }).catch(() => {});
+      } catch (e) {}
+
+      addLog(normId, pub.name, 'LOGIN', 'Publisher logged in successfully via credential verify');
+      return { success: true, message: 'Logged in successfully', publisher: normalizedPub };
     } catch (error: any) {
       console.error("Login Error:", error);
       return { success: false, message: 'Login execution failed: ' + sanitizeError(error) };
@@ -1515,22 +1634,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updatePublisherProfile = async (name: string, avatar: string) => {
     if (!currentUser || currentUser.type !== 'publisher') return;
-    const pubId = currentUser.id;
+    const pubId = String(currentUser.id).trim().toUpperCase();
     
     try {
-      const upSess = { ...currentUser, name, avatar };
+      const upSess = { ...currentUser, id: pubId, name, avatar };
       setCurrentUser(upSess);
-      try {
-        localStorage.setItem('pai_user_session', JSON.stringify(upSess));
-      } catch (e) {}
+      safeSetLocal('pai_user_session', upSess);
 
-      const updatedPublishers = publishers.map(p => p.id === pubId ? { ...p, name, avatar } : p);
+      const updatedPublishers = publishers.map(p => String(p.id).trim().toUpperCase() === pubId ? { ...p, id: pubId, name, avatar } : p);
       setPublishers(updatedPublishers);
-      try {
-        localStorage.setItem('pai_cached_publishers', JSON.stringify(updatedPublishers));
-      } catch (e) {}
+      safeSetLocal('pai_cached_publishers', updatedPublishers);
 
       broadcastSync('SYNC_PUBLISHERS', updatedPublishers);
+
+      // Direct write to Firestore for instant cross-device visibility
+      try {
+        await setDoc(doc(db, 'publishers', pubId), sanitizeFirestoreRecord({ id: pubId, name, avatar }), { merge: true });
+      } catch (fErr) {
+        console.warn("Direct Firestore profile update note:", fErr);
+      }
 
       const response = await fetch('/api/publisher/update', {
         method: 'POST',
@@ -1543,10 +1665,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       const savedPublisher = result.publisher;
       if (savedPublisher) {
-        const savedSession = { ...currentUser, ...savedPublisher };
+        const savedSession = { ...currentUser, ...savedPublisher, id: pubId };
         setCurrentUser(savedSession);
         safeSetLocal('pai_user_session', savedSession);
-        setPublishers(prev => prev.map(p => p.id === pubId ? { ...p, ...savedPublisher } : p));
+        setPublishers(prev => prev.map(p => String(p.id).trim().toUpperCase() === pubId ? { ...p, ...savedPublisher, id: pubId } : p));
       }
 
       addLog(pubId, name, 'PROFILE_UPDATE', `Publisher changed avatar/name`);
@@ -2632,10 +2754,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { success: false, message: 'This client phone number has already been submitted for this campaign!' };
     }
 
+    const pubId = String(currentUser.id).trim().toUpperCase();
     const subId = `sub-${Date.now()}`;
     const newSub: DataSubmission = {
       id: subId,
-      publisherId: currentUser.id,
+      publisherId: pubId,
       publisherName: currentUser.name,
       campaignId,
       campaignName: camp.name,
@@ -2679,7 +2802,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('NEW_SUBMISSION', newSub);
     } catch (e) {}
 
-    // 4. Guaranteed Persistence on Backend Server (Zero Firestore Quota Burden)
+    // 4. Direct Firestore write for immediate cross-device and admin visibility
+    try {
+      let firestoreSub = sanitizeFirestoreRecord(newSub);
+      if (firestoreSub.screenshot && typeof firestoreSub.screenshot === 'string' && firestoreSub.screenshot.length > 750000) {
+        firestoreSub = { ...firestoreSub, screenshot: firestoreSub.screenshot.substring(0, 50000) };
+      }
+      setDoc(doc(db, 'submissions', subId), firestoreSub, { merge: true }).catch(err => {
+        console.warn("Direct Firestore submission write notice:", err);
+      });
+    } catch (e) {}
+
+    // 5. Guaranteed Persistence on Backend Server & SSE Broadcast
     try {
       // Dispatch immediately to server first to trigger instant SSE real-time broadcast to Admin!
       const serverFetchPromise = fetch('/api/submission/create', {

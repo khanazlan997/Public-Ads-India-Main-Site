@@ -347,28 +347,33 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
   // Load user profile details on login state change
   useEffect(() => {
-    console.log('DashboardView useEffect triggering, currentUser:', currentUser, 'publishers found:', publishers.find(pub => pub.id === currentUser?.id)?.avatar);
     if (currentUser?.type === 'publisher') {
-      const p = publishers.find(pub => pub.id === currentUser.id);
-      if (p) {
-        setProfileName(p.name);
-  // Replace the legacy default avatar for existing accounts while preserving custom uploads.
-  const savedAvatar = currentUser.avatar || p.avatar;
-  const isLegacyDefault = savedAvatar?.includes('Gemini_Generated_Image_txixh7txixh7txix');
-  setProfileAvatar(isLegacyDefault || !savedAvatar ? 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjYTtYC0gJn4gMEYyYylS71fiNiWngHOMAgY5rmphLDDAP01Nc9ASJCMRJWI5EF9O58QgyRE_T5S5rq7-p8iprJkH0e1muO48LKEV4xuTDlsn5ZkVLrnvXFDN2QM_ekhndsmNA1skwIP2VWNo0zGhENbd8XsuRtv9_PDC5L4rjyLRkEYtWn4VcKTnnoFn7c/s736/1000227902.jpg' : savedAvatar);
+      const normCurId = String(currentUser.id || '').trim().toUpperCase();
+      const p = publishers.find(pub => String(pub.id || '').trim().toUpperCase() === normCurId);
+      
+      const bestName = p?.name || currentUser.name || normCurId;
+      setProfileName(bestName);
 
-        // Load Bank Details too if present
-        const bank = bankDetailsMap[p.id];
-        if (bank) {
-          setBankHolderName(bank.holderName || p.name);
-          setBankPhone(bank.phone || p.phone);
-          setBankEmail(bank.email || p.email);
-          setBankAccount(bank.accountNumber || '');
-          setBankIfsc(bank.ifsc || '');
-          setBankUpi(bank.upi || '');
-          setBankQrCode(bank.qrCode || '');
-        } else {
-          setBankHolderName(p.name);
+      const savedAvatar = p?.avatar || currentUser.avatar;
+      const isLegacyDefault = savedAvatar?.includes('Gemini_Generated_Image_txixh7txixh7txix');
+      const finalAvatar = isLegacyDefault || !savedAvatar 
+        ? 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEjYTtYC0gJn4gMEYyYylS71fiNiWngHOMAgY5rmphLDDAP01Nc9ASJCMRJWI5EF9O58QgyRE_T5S5rq7-p8iprJkH0e1muO48LKEV4xuTDlsn5ZkVLrnvXFDN2QM_ekhndsmNA1skwIP2VWNo0zGhENbd8XsuRtv9_PDC5L4rjyLRkEYtWn4VcKTnnoFn7c/s736/1000227902.jpg' 
+        : savedAvatar;
+      setProfileAvatar(finalAvatar);
+
+      // Load Bank Details too if present
+      const bank = bankDetailsMap[normCurId] || (p ? bankDetailsMap[p.id] : undefined);
+      if (bank) {
+        setBankHolderName(bank.holderName || bestName);
+        setBankPhone(bank.phone || p?.phone || '');
+        setBankEmail(bank.email || p?.email || '');
+        setBankAccount(bank.accountNumber || '');
+        setBankIfsc(bank.ifsc || '');
+        setBankUpi(bank.upi || '');
+        setBankQrCode(bank.qrCode || '');
+      } else {
+        setBankHolderName(bestName);
+        if (p) {
           setBankPhone(p.phone);
           setBankEmail(p.email);
         }
@@ -1029,20 +1034,32 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
   // Publisher Dashboard (after login)
   const normCurrentUserId = (currentUser?.id || '').trim().toLowerCase();
+  const currentPubEmail = (currentUser as any)?.email?.trim()?.toLowerCase() || '';
+  const currentPubPhone = (currentUser as any)?.phone?.trim()?.replace(/[\s\-\(\)]/g, '') || '';
+  const pubRecord = publishers.find(pub => {
+    const pId = (pub.id || '').trim().toLowerCase();
+    const pEmail = (pub.email || '').trim().toLowerCase();
+    const pPhone = (pub.phone || '').trim().replace(/[\s\-\(\)]/g, '');
+    return pId === normCurrentUserId || (currentPubEmail && pEmail === currentPubEmail) || (currentPubPhone && pPhone === currentPubPhone);
+  });
+  const validPubIds = new Set<string>();
+  if (normCurrentUserId) validPubIds.add(normCurrentUserId);
+  if (pubRecord?.id) validPubIds.add(pubRecord.id.trim().toLowerCase());
+
   const publisherEarningStats = getPublisherEarnings(currentUser.id);
-  const matchedEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normCurrentUserId).slice(0, 5);
+  const matchedEarnings = earnings.filter(e => validPubIds.has((e.publisherId || '').trim().toLowerCase())).slice(0, 5);
   const activeAndAdminCamps = campaigns.filter(c => {
     if (c.active === false || c.active === 0 || String(c.active).toLowerCase() === 'false') return false;
     return true;
   });
-  const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normCurrentUserId);
+  const pubSubmissions = submissions.filter(s => validPubIds.has((s.publisherId || '').trim().toLowerCase()));
 
   // User's successful UPI settlements / payouts (Last 5 only)
   const paidSubmissions = pubSubmissions.filter(s => {
     const st = (s.status || '').toLowerCase().trim();
     return st === 'payment done' || st === 'paymentdone' || st === 'paid';
   });
-  const userEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normCurrentUserId);
+  const userEarnings = earnings.filter(e => validPubIds.has((e.publisherId || '').trim().toLowerCase()));
 
   interface PayoutRecord {
     id: string;
@@ -1260,6 +1277,40 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         );
                       })()}
                     </div>
+                    {/* Quick Camera Upload Button */}
+                    <label 
+                      className="absolute bottom-0 right-0 w-8 h-8 sm:w-9 sm:h-9 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-full flex items-center justify-center cursor-pointer shadow-lg border-2 border-white dark:border-[#0d1628] transition-all z-20"
+                      title="Upload or Change Profile Photo"
+                    >
+                      <Camera className="w-4 h-4" />
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert("Photo too large! (Limit 5MB)");
+                              return;
+                            }
+                            const reader = new FileReader();
+                            reader.onloadend = async () => {
+                              const base64String = reader.result as string;
+                              let finalAvatar = base64String;
+                              try {
+                                finalAvatar = await compressImageBase64(base64String, 200, 200, 0.8);
+                              } catch (err) {
+                                finalAvatar = base64String;
+                              }
+                              setProfileAvatar(finalAvatar);
+                              handleSavePhoto(finalAvatar);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
 
                   {/* Profile Info Details */}
@@ -1707,67 +1758,109 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 </button>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">
-                      <th className="p-3 rounded-l-xl">Campaign Name</th>
-                      <th className="p-3">Client Name & Phone</th>
-                      <th className="p-3">Client Code</th>
-                      <th className="p-3">Payout</th>
-                      <th className="p-3">Date</th>
-                      <th className="p-3">Screenshot</th>
-                      <th className="p-3 rounded-r-xl text-right">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pubSubmissions.slice(0, 10).map((sub) => (
-                      <tr key={sub.id} className="border-b border-slate-50 dark:border-slate-850/20 hover:bg-slate-50/50 dark:hover:bg-slate-850/10 transition">
-                        <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
-                          {sub.campaignName}
-                        </td>
-                        <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
-                          <span className="block font-bold">{sub.clientName}</span>
-                          <span className="block text-[10px] text-slate-400 mt-0.5">{sub.clientPhone}</span>
-                        </td>
-                        <td className="p-3 font-mono text-slate-500">
-                          {sub.clientCode || 'None'}
-                        </td>
-                        <td className="p-3 font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                          ₹{sub.payout || 0}
-                        </td>
-                        <td className="p-3 text-slate-400 text-[11px]">
-                          {sub.submitDate}
-                        </td>
-                        <td className="p-3">
-                          {sub.screenshot ? (
-                            <button
-                              type="button"
-                              onClick={() => setPreviewImage(sub.screenshot)}
-                              className="text-brand-accent underline hover:text-blue-500 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
-                            >
-                              View ↗
-                            </button>
-                          ) : (
-                            <span className="text-slate-400 text-[10px]">No file</span>
-                          )}
-                        </td>
-                        <td className="p-3 text-right">
-                          <span className={`inline-flex px-2.5 py-1 font-bold text-[10px] rounded-full uppercase tracking-wider ${
-                            sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800' :
-                            sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-800' :
-                            sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 border border-amber-300 dark:border-amber-800 animate-pulse' :
-                            sub.status === 'Reject' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800' :
-                            'bg-blue-100 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350 border border-blue-300 dark:border-blue-800'
-                          }`}>
-                            {sub.status}
-                          </span>
-                        </td>
+              <>
+                {/* Mobile View: Clean Cards for small screens */}
+                <div className="sm:hidden space-y-3">
+                  {pubSubmissions.slice(0, 10).map((sub) => (
+                    <div key={sub.id} className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-bold text-xs text-slate-900 dark:text-white">{sub.campaignName}</div>
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 font-semibold">{sub.clientName}</div>
+                          <div className="text-[10px] text-slate-400">{sub.clientPhone}</div>
+                        </div>
+                        <span className={`shrink-0 inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
+                          sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800' :
+                          sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-800' :
+                          sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 border border-amber-300 dark:border-amber-800 animate-pulse' :
+                          sub.status === 'Reject' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800' :
+                          'bg-blue-100 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350 border border-blue-300 dark:border-blue-800'
+                        }`}>
+                          {sub.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-800/60 text-[11px]">
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400 font-mono">₹{sub.payout || 0}</div>
+                        <div className="text-slate-400 text-[10px]">{sub.submitDate}</div>
+                        {sub.screenshot ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(sub.screenshot)}
+                            className="text-blue-600 dark:text-blue-400 font-bold text-[11px] underline cursor-pointer"
+                          >
+                            Screenshot ↗
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">No file</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tablet / Desktop View: Data Table */}
+                <div className="hidden sm:block overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">
+                        <th className="p-3 rounded-l-xl">Campaign Name</th>
+                        <th className="p-3">Client Name & Phone</th>
+                        <th className="p-3">Client Code</th>
+                        <th className="p-3">Payout</th>
+                        <th className="p-3">Date</th>
+                        <th className="p-3">Screenshot</th>
+                        <th className="p-3 rounded-r-xl text-right">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {pubSubmissions.slice(0, 10).map((sub) => (
+                        <tr key={sub.id} className="border-b border-slate-50 dark:border-slate-850/20 hover:bg-slate-50/50 dark:hover:bg-slate-850/10 transition">
+                          <td className="p-3 font-semibold text-slate-800 dark:text-slate-100">
+                            {sub.campaignName}
+                          </td>
+                          <td className="p-3 text-slate-700 dark:text-slate-300 font-medium">
+                            <span className="block font-bold">{sub.clientName}</span>
+                            <span className="block text-[10px] text-slate-400 mt-0.5">{sub.clientPhone}</span>
+                          </td>
+                          <td className="p-3 font-mono text-slate-500">
+                            {sub.clientCode || 'None'}
+                          </td>
+                          <td className="p-3 font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                            ₹{sub.payout || 0}
+                          </td>
+                          <td className="p-3 text-slate-400 text-[11px]">
+                            {sub.submitDate}
+                          </td>
+                          <td className="p-3">
+                            {sub.screenshot ? (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewImage(sub.screenshot)}
+                                className="text-brand-accent underline hover:text-blue-500 font-extrabold text-xs cursor-pointer inline-flex items-center gap-1"
+                              >
+                                View ↗
+                              </button>
+                            ) : (
+                              <span className="text-slate-400 text-[10px]">No file</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`inline-flex px-2.5 py-1 font-bold text-[10px] rounded-full uppercase tracking-wider ${
+                              sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800' :
+                              sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400 border border-indigo-300 dark:border-indigo-800' :
+                              sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 border border-amber-300 dark:border-amber-800 animate-pulse' :
+                              sub.status === 'Reject' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800' :
+                              'bg-blue-100 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350 border border-blue-300 dark:border-blue-800'
+                            }`}>
+                              {sub.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
 
@@ -2148,7 +2241,47 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </div>
             ) : (
               <>
-                <div className="overflow-x-auto">
+                {/* Mobile View: Cards */}
+                <div className="sm:hidden space-y-3">
+                  {pubSubmissions.map((sub) => (
+                    <div key={sub.id} className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-bold text-xs text-slate-900 dark:text-white">{sub.campaignName}</div>
+                          <div className="text-[11px] text-slate-600 dark:text-slate-300 font-semibold">{sub.clientName}</div>
+                          <div className="text-[10px] text-slate-400">{sub.clientPhone}</div>
+                        </div>
+                        <span className={`shrink-0 inline-flex px-2 py-0.5 font-bold text-[10px] rounded-full uppercase tracking-wider ${
+                          sub.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
+                          sub.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400' :
+                          sub.status === 'Process' ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-850 dark:text-amber-400 animate-pulse' :
+                          sub.status === 'Reject' ? 'bg-red-105 dark:bg-red-950/40 text-rose-700 dark:text-rose-400' :
+                          'bg-blue-105 dark:bg-blue-950/40 text-blue-750 dark:text-blue-350'
+                        }`}>
+                          {sub.status}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-200/60 dark:border-slate-800/60 text-[11px]">
+                        <div className="text-slate-500 font-mono text-[10px]">Code: {sub.clientCode || 'None'}</div>
+                        <div className="text-slate-400 text-[10px]">{sub.submitDate}</div>
+                        {sub.screenshot ? (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewImage(sub.screenshot)}
+                            className="text-blue-600 dark:text-blue-400 font-bold text-[11px] underline cursor-pointer"
+                          >
+                            Screenshot ↗
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">No file</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Tablet / Desktop View: Data Table */}
+                <div className="hidden sm:block overflow-x-auto">
                   <table className="w-full text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-450 uppercase font-extrabold tracking-widest bg-slate-50 dark:bg-slate-900/10">

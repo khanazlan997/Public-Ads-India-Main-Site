@@ -141,12 +141,12 @@ async function startServer() {
         store.publishers = store.publishers.filter((p: any) => p && p.systemVersion === 'v2');
       }
       // Purge old submissions and earnings that do not belong to current v2 publishers
-      const v2PubIdSet = new Set((store.publishers || []).map((p: any) => p.id));
+      const v2PubIdSet = new Set((store.publishers || []).map((p: any) => String(p?.id || '').trim().toUpperCase()));
       if (Array.isArray(store.submissions)) {
-        store.submissions = store.submissions.filter((s: any) => v2PubIdSet.has(s.publisherId));
+        store.submissions = store.submissions.filter((s: any) => s && (v2PubIdSet.size === 0 || v2PubIdSet.has(String(s.publisherId || '').trim().toUpperCase())));
       }
       if (Array.isArray(store.earnings)) {
-        store.earnings = store.earnings.filter((e: any) => v2PubIdSet.has(e.publisherId));
+        store.earnings = store.earnings.filter((e: any) => e && (v2PubIdSet.size === 0 || v2PubIdSet.has(String(e.publisherId || '').trim().toUpperCase())));
       }
       console.log(`Loaded ${store.submissions.length} submissions, ${store.earnings.length} earnings, and ${store.publishers.length} v2 publishers from server storage.`);
     }
@@ -267,41 +267,39 @@ async function startServer() {
         store.publishers = Array.from(pubMap.values());
       }
 
-      const validPubIds = new Set((store.publishers || []).map(p => p.id));
+      const validPubIdsUpper = new Set((store.publishers || []).map(p => String(p.id || '').trim().toUpperCase()));
 
-      // 2. Submissions (disconnect old database data; keep only current v2 publisher submissions)
+      // 2. Submissions (preserve all current submissions; merge any from Firestore)
+      const subMap = new Map<string, any>();
+      (store.submissions || []).forEach(s => {
+        if (s && s.id) subMap.set(s.id, s);
+      });
       if (subSnap.size > 0) {
-        const subMap = new Map<string, any>();
-        store.submissions.forEach(s => {
-          if (validPubIds.has(s.publisherId)) subMap.set(s.id, s);
-        });
         subSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          if (validPubIds.has(data.publisherId)) {
-            subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data });
+          const normPubId = String(data.publisherId || '').trim().toUpperCase();
+          if (validPubIdsUpper.size === 0 || validPubIdsUpper.has(normPubId) || !data.publisherId) {
+            subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data, publisherId: normPubId || data.publisherId });
           }
         });
-        store.submissions = Array.from(subMap.values());
-      } else {
-        store.submissions = store.submissions.filter(s => validPubIds.has(s.publisherId));
       }
+      store.submissions = Array.from(subMap.values());
 
-      // 3. Earnings (disconnect old database data; keep only current v2 publisher earnings)
+      // 3. Earnings (preserve all current earnings; merge any from Firestore)
+      const earnMap = new Map<string, any>();
+      (store.earnings || []).forEach(e => {
+        if (e && e.id) earnMap.set(e.id, e);
+      });
       if (earnSnap.size > 0) {
-        const earnMap = new Map<string, any>();
-        store.earnings.forEach(e => {
-          if (validPubIds.has(e.publisherId)) earnMap.set(e.id, e);
-        });
         earnSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
-          if (validPubIds.has(data.publisherId)) {
-            earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data });
+          const normPubId = String(data.publisherId || '').trim().toUpperCase();
+          if (validPubIdsUpper.size === 0 || validPubIdsUpper.has(normPubId) || !data.publisherId) {
+            earnMap.set(d.id, { ...(earnMap.get(d.id) || {}), ...data, publisherId: normPubId || data.publisherId });
           }
         });
-        store.earnings = Array.from(earnMap.values());
-      } else {
-        store.earnings = store.earnings.filter(e => validPubIds.has(e.publisherId));
       }
+      store.earnings = Array.from(earnMap.values());
 
       // 4. Campaigns
       if (campSnap.size > 0) {
@@ -354,6 +352,14 @@ async function startServer() {
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers
+      });
+      broadcastRealtime({
+        type: "SYNC_SUBMISSIONS",
+        payload: store.submissions
+      });
+      broadcastRealtime({
+        type: "SYNC_EARNINGS",
+        payload: store.earnings
       });
 
       return {
@@ -1088,26 +1094,37 @@ async function startServer() {
       const idx = store.publishers.findIndex(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       if (idx !== -1) {
         const existingAvatar = store.publishers[idx].avatar;
-        const finalAvatar = (avatar && avatar.startsWith('/api/publisher/avatar/'))
-          ? existingAvatar
-          : (avatar !== undefined ? avatar : existingAvatar);
+        const finalAvatar = (avatar && !avatar.startsWith('/api/publisher/avatar/'))
+          ? avatar
+          : (avatar !== undefined && !avatar.startsWith('/api/publisher/avatar/') ? avatar : existingAvatar);
         store.publishers[idx] = {
           ...store.publishers[idx],
+          id: normalizedPublisherId,
           ...(name ? { name } : {}),
-          avatar: finalAvatar
+          avatar: finalAvatar,
+          systemVersion: 'v2'
         };
       } else {
-        store.publishers.unshift({ id: publisherId, name: name || publisherId, avatar: avatar || '👤' });
+        store.publishers.unshift({
+          id: normalizedPublisherId,
+          name: name || normalizedPublisherId,
+          avatar: avatar || '👤',
+          systemVersion: 'v2'
+        });
       }
       scheduleSaveStore();
       const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
       const firestore = getServerFirestore();
       if (firestore && savedPublisher) {
-        await setDoc(
-          doc(firestore, "publishers", String(publisherId)),
-          sanitizeFirestoreData(savedPublisher),
-          { merge: true }
-        );
+        try {
+          await setDoc(
+            doc(firestore, "publishers", normalizedPublisherId),
+            sanitizeFirestoreData(savedPublisher),
+            { merge: true }
+          );
+        } catch (fErr) {
+          console.warn("[Sync] Could not save publisher profile to Firestore:", fErr);
+        }
       }
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
@@ -1471,35 +1488,44 @@ async function startServer() {
   return res.status(400).json({ error: "Missing submission data or ID" });
   }
 
-  const idx = store.submissions.findIndex(s => s.id === submission.id);
-  if (idx >= 0) {
-  store.submissions[idx] = { ...store.submissions[idx], ...submission };
-  } else {
-  store.submissions.unshift(submission);
-  }
-  scheduleSaveStore();
+    const normSub = {
+      ...submission,
+      publisherId: String(submission.publisherId || '').trim().toUpperCase()
+    };
 
-  const firestore = getServerFirestore();
-  if (firestore) {
-    try {
-      await setDoc(
-        doc(firestore, "submissions", String(submission.id)),
-        sanitizeFirestoreData(submission),
-        { merge: true }
-      );
-    } catch (firestoreError) {
-      // The server store and SSE are the canonical fallback when Firestore is unavailable.
-      console.warn('[Sync] Firestore lead write skipped; server lead remains saved:', firestoreError);
+    const idx = store.submissions.findIndex(s => s.id === normSub.id);
+    if (idx >= 0) {
+      store.submissions[idx] = { ...store.submissions[idx], ...normSub };
+    } else {
+      store.submissions.unshift(normSub);
     }
-  }
+    scheduleSaveStore();
 
-  broadcastRealtime({
-  type: "NEW_SUBMISSION",
-  payload: submission
-  });
-  console.log(`[Sync] Submission ${submission.id} saved for publisher ${submission.publisherId}; broadcasted to ${sseClients.length} clients.`);
+    const firestore = getServerFirestore();
+    if (firestore) {
+      try {
+        let firestorePayload = sanitizeFirestoreData(normSub);
+        if (firestorePayload.screenshot && typeof firestorePayload.screenshot === 'string' && firestorePayload.screenshot.length > 750000) {
+          firestorePayload = { ...firestorePayload, screenshot: firestorePayload.screenshot.substring(0, 50000) };
+        }
+        await setDoc(
+          doc(firestore, "submissions", String(normSub.id)),
+          firestorePayload,
+          { merge: true }
+        );
+      } catch (firestoreError) {
+        // The server store and SSE are the canonical fallback when Firestore is unavailable.
+        console.warn('[Sync] Firestore lead write skipped; server lead remains saved:', firestoreError);
+      }
+    }
 
-  res.json({ success: true, submission, connectedClients: sseClients.length });
+    broadcastRealtime({
+      type: "NEW_SUBMISSION",
+      payload: normSub
+    });
+    console.log(`[Sync] Submission ${normSub.id} saved for publisher ${normSub.publisherId}; broadcasted to ${sseClients.length} clients.`);
+
+    res.json({ success: true, submission: normSub, connectedClients: sseClients.length });
   } catch (err: any) {
   console.error("[Sync] Submission create failed:", err);
   res.status(500).json({ error: err.message });

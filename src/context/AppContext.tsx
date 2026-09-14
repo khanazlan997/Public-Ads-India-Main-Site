@@ -405,9 +405,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const json = await res.json();
           if (json.success && json.data) {
             if (Array.isArray(json.data.publishers)) {
-              const v2Pubs = json.data.publishers.filter((p: any) => p && p.systemVersion === 'v2');
-              setPublishers(v2Pubs);
-              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(v2Pubs)); } catch (e) {}
+              setPublishers(json.data.publishers);
+              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(json.data.publishers)); } catch (e) {}
             }
   if (Array.isArray(json.data.submissions)) {
   setSubmissions(json.data.submissions);
@@ -693,14 +692,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(sList)) {
         setSubmissions(prev => {
           const map = new Map<string, DataSubmission>();
-          // Server submissions
           sList.forEach(s => { if (s && s.id) map.set(s.id, s); });
-          // Preserve any optimistic local submissions
-          prev.forEach(s => {
-            if (s && s.id && !map.has(s.id)) {
-              map.set(s.id, s);
-            }
-          });
           const merged = Array.from(map.values()).sort((a, b) => {
             const keyA = (a.submitDate || '') + '_' + (a.id || '');
             const keyB = (b.submitDate || '') + '_' + (b.id || '');
@@ -717,16 +709,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
   if (Array.isArray(cList)) {
-  // The 4-second server heartbeat can briefly lag Firebase. Merge records so
-  // a campaign just published from Admin is not erased on client devices.
-  setCampaigns(prev => {
-    const merged = new Map<string, Campaign>();
-    prev.forEach(c => { if (c?.id) merged.set(c.id, c); });
-    cList.forEach((c: Campaign) => { if (c?.id) merged.set(c.id, c); });
-    const next = Array.from(merged.values());
-    safeSetLocal('pai_cached_campaigns', next);
-    return next;
-  });
+  setCampaigns(cList);
+  safeSetLocal('pai_cached_campaigns', cList);
   }
 
       if (Array.isArray(pList)) {
@@ -747,6 +731,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (Array.isArray(empList)) {
         setEmployees(empList);
       }
+      if (Array.isArray(data.activityLogs)) setActivityLogs(data.activityLogs);
+      if (Array.isArray(data.paymentEmailRecords)) setPaymentEmailRecords(data.paymentEmailRecords);
+      if (Array.isArray(data.testimonials)) setTestimonials(data.testimonials);
 
       if (Array.isArray(data.advertiserInquiries)) {
         setAdvertiserInquiries(data.advertiserInquiries);
@@ -799,13 +786,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       unsubPubs = onSnapshot(collection(db, 'publishers'), (snap) => {
         if (snap && !snap.empty) {
-          const v2Pubs = snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as Publisher))
-            .filter(p => p && p.systemVersion === 'v2');
-          if (v2Pubs.length > 0) {
-            setPublishers(v2Pubs);
-            safeSetLocal('pai_cached_publishers', v2Pubs);
-          }
+          const livePubs = snap.docs.map(d => ({ id: d.id, ...d.data() } as Publisher));
+          setPublishers(livePubs);
+          safeSetLocal('pai_cached_publishers', livePubs);
         }
       }, (err) => {
         console.warn("Firestore publishers listener warning:", err);
@@ -1076,10 +1059,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.warn("EventSource setup error:", err);
     }
 
-    // 4s backup heartbeat fetch (Zero Firestore reads, purely local Node.js Express memory)
+    // Fast backup heartbeat plus focus/visibility refresh keeps every device current.
     pollInterval = setInterval(fetchServerState, 4000);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') void fetchServerState(); };
+    const handleFocus = () => void fetchServerState();
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', handleFocus);
       if (es) es.close();
       if (pollInterval) clearInterval(pollInterval);
       if (unsubPubs) unsubPubs();

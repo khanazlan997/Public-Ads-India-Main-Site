@@ -716,18 +716,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeSetLocal('pai_cached_earnings', eList);
       }
 
-  if (Array.isArray(cList)) {
-  // The 4-second server heartbeat can briefly lag Firebase. Merge records so
-  // a campaign just published from Admin is not erased on client devices.
-  setCampaigns(prev => {
-    const merged = new Map<string, Campaign>();
-    prev.forEach(c => { if (c?.id) merged.set(c.id, c); });
-    cList.forEach((c: Campaign) => { if (c?.id) merged.set(c.id, c); });
-    const next = Array.from(merged.values());
-    safeSetLocal('pai_cached_campaigns', next);
-    return next;
-  });
-  }
+      if (Array.isArray(cList)) {
+        setCampaigns(cList);
+        safeSetLocal('pai_cached_campaigns', cList);
+      }
 
       if (Array.isArray(pList)) {
         setPublishers(pList);

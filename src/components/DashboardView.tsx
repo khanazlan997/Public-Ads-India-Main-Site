@@ -454,7 +454,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     if (!avatarToSave) return;
     
     // Save to profile context
-    updatePublisherProfile(profileName, avatarToSave);
+    void updatePublisherProfile(profileName, avatarToSave);
     if (newAvatar) setProfileAvatar(newAvatar);
     
     // Trigger Confetti Animation

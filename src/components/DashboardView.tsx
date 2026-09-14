@@ -350,7 +350,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     if (currentUser?.type === 'publisher') {
       const normCurId = String(currentUser.id || '').trim().toUpperCase();
       const p = publishers.find(pub => String(pub.id || '').trim().toUpperCase() === normCurId);
-      
       const bestName = p?.name || currentUser.name || normCurId;
       setProfileName(bestName);
 

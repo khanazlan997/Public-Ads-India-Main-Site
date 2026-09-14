@@ -691,9 +691,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       if (Array.isArray(sList)) {
         setSubmissions(prev => {
-          const map = new Map<string, DataSubmission>();
-          prev.forEach(s => { if (s && s.id) map.set(s.id, s); });
-          sList.forEach(s => { if (s && s.id) map.set(s.id, { ...(map.get(s.id) || {}), ...s }); });
+  const map = new Map<string, DataSubmission>();
+  sList.forEach(s => { if (s && s.id) map.set(s.id, s); });
           const merged = Array.from(map.values()).sort((a, b) => {
             const keyA = (a.submitDate || '') + '_' + (a.id || '');
             const keyB = (b.submitDate || '') + '_' + (b.id || '');
@@ -719,29 +718,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       }
 
-      if (Array.isArray(cList) && cList.length > 0) {
-        setCampaigns(cList);
-        safeSetLocal('pai_cached_campaigns', cList);
-      }
-
-      if (Array.isArray(pList) && pList.length > 0) {
-        setPublishers(prev => {
-          const map = new Map<string, Publisher>();
-          prev.forEach(p => { if (p && p.id) map.set(String(p.id).trim().toUpperCase(), p); });
-          pList.forEach(p => {
-            if (p && p.id) {
-              const upper = String(p.id).trim().toUpperCase();
-              map.set(upper, { ...(map.get(upper) || {}), ...p });
-            }
-          });
-          const merged = Array.from(map.values());
-          safeSetLocal('pai_cached_publishers', merged);
-          return merged;
-        });
-        setCurrentUser(prev => {
-          if (!prev || prev.type !== 'publisher') return prev;
-          const latest = pList.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
-          return latest ? { ...prev, name: latest.name, avatar: latest.avatar || prev.avatar } : prev;
+  if (Array.isArray(cList)) {
+  setCampaigns(cList);
+  safeSetLocal('pai_cached_campaigns', cList);
+  }
+  
+  if (Array.isArray(pList)) {
+  setPublishers(pList);
+  safeSetLocal('pai_cached_publishers', pList);
+  setCurrentUser(prev => {
+  if (!prev || prev.type !== 'publisher') return prev;
+  const latest = pList.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
+  return latest ? { ...prev, ...latest } : prev;
+  });
+  }
         });
       }
 
@@ -1647,13 +1637,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       broadcastSync('SYNC_PUBLISHERS', updatedPublishers);
 
-      // Direct write to Firestore for instant cross-device visibility
+      // Direct write to Firestore for instant cross-device visibility.
       try {
         await setDoc(doc(db, 'publishers', pubId), sanitizeFirestoreRecord({ id: pubId, name, avatar }), { merge: true });
       } catch (fErr) {
         console.warn("Direct Firestore profile update note:", fErr);
       }
-
       const response = await fetch('/api/publisher/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

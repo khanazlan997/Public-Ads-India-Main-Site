@@ -1114,17 +1114,13 @@ async function startServer() {
       }
       scheduleSaveStore();
       const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
-      const firestore = getServerFirestore();
-      if (firestore && savedPublisher) {
-        try {
-          await setDoc(
-            doc(firestore, "publishers", normalizedPublisherId),
-            sanitizeFirestoreData(savedPublisher),
-            { merge: true }
-          );
-        } catch (fErr) {
-          console.warn("[Sync] Could not save publisher profile to Firestore:", fErr);
-        }
+  const idx = store.submissions.findIndex(s => s.id === normSub.id);
+  if (idx >= 0) {
+  store.submissions[idx] = { ...store.submissions[idx], ...normSub };
+  } else {
+  store.submissions.unshift(normSub);
+  }
+  scheduleSaveStore();
       }
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
@@ -1493,15 +1489,15 @@ async function startServer() {
       publisherId: String(submission.publisherId || '').trim().toUpperCase()
     };
 
-    const idx = store.submissions.findIndex(s => s.id === normSub.id);
-    if (idx >= 0) {
-      store.submissions[idx] = { ...store.submissions[idx], ...normSub };
-    } else {
-      store.submissions.unshift(normSub);
-    }
-    scheduleSaveStore();
+  const idx = store.submissions.findIndex(s => s.id === normSub.id);
+  if (idx >= 0) {
+  store.submissions[idx] = { ...store.submissions[idx], ...normSub };
+  } else {
+  store.submissions.unshift(normSub);
+  }
+  scheduleSaveStore();
 
-    const firestore = getServerFirestore();
+  const firestore = getServerFirestore();
     if (firestore) {
       try {
         let firestorePayload = sanitizeFirestoreData(normSub);

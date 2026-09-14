@@ -405,9 +405,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const json = await res.json();
           if (json.success && json.data) {
             if (Array.isArray(json.data.publishers)) {
-              const v2Pubs = json.data.publishers.filter((p: any) => p && p.systemVersion === 'v2');
-              setPublishers(v2Pubs);
-              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(v2Pubs)); } catch (e) {}
+              setPublishers(json.data.publishers);
+              try { localStorage.setItem('pai_cached_publishers', JSON.stringify(json.data.publishers)); } catch (e) {}
             }
   if (Array.isArray(json.data.submissions)) {
   setSubmissions(json.data.submissions);
@@ -736,9 +735,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         safeSetLocal('pai_cached_bank_details', bMap);
       }
 
-      if (Array.isArray(empList)) {
-        setEmployees(empList);
-      }
+  if (Array.isArray(empList)) {
+  setEmployees(empList);
+  safeSetLocal('pai_cached_employees', empList);
+  }
 
       if (Array.isArray(data.advertiserInquiries)) {
         setAdvertiserInquiries(data.advertiserInquiries);
@@ -2705,9 +2705,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Staff Portal Login
   const loginEmployee = async (username: string, pass: string) => {
-    await refreshServerState();
-    const normalizedUsername = username.trim().toLowerCase();
-    const emp = employees.find(e => e.username?.trim().toLowerCase() === normalizedUsername && e.password === pass);
+  let latestEmployees = employees;
+  try {
+    const response = await fetch('/api/realtime/state', { cache: 'no-store' });
+    const payload = await response.json();
+    if (response.ok && Array.isArray(payload?.data?.employees)) {
+      latestEmployees = payload.data.employees;
+      setEmployees(latestEmployees);
+      safeSetLocal('pai_cached_employees', latestEmployees);
+    }
+  } catch (error) {
+    console.warn('[v0] Employee login server refresh failed; using cached records.', error);
+  }
+  const normalizedUsername = username.trim().toLowerCase();
+  const emp = latestEmployees.find(e => e.username?.trim().toLowerCase() === normalizedUsername && e.password === pass);
     if (!emp) {
       return { success: false, message: 'Invalid Employee login credentials.' };
     }

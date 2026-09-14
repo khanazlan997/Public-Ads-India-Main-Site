@@ -2011,10 +2011,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
 
     // Server-side instant deletion and cross-client SSE sync
-    fetch('/api/submission/delete', {
+    void fetch('/api/submission/delete', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id })
+    }).then(async response => {
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error(result?.error || 'Lead deletion failed');
+      if (Array.isArray(result.submissions)) {
+        setSubmissions(result.submissions);
+        try { localStorage.setItem('pai_cached_submissions', JSON.stringify(result.submissions)); } catch (e) {}
+      }
     }).catch(err => console.warn("Server submission delete notice:", err));
 
     addLog(currentUser?.id || 'ADMIN', currentUser?.name || 'Administrator', 'DELETE_SUBMISSION', `Lead submission deleted for reference ID: ${id}`);
@@ -2231,11 +2238,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       broadcastSync('SYNC_EMPLOYEES', next);
     } catch (err) {}
 
-    fetch('/api/employee/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee: newEmp })
-    }).catch(() => {});
+  void fetch('/api/employee/update', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ employee: newEmp })
+  }).then(async response => {
+    if (!response.ok) console.warn('[v0] Employee account was not persisted by server:', await response.text());
+  }).catch(error => console.warn('[v0] Employee account save failed:', error));
 
     addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${name} (Role: ${role})`);
     return { success: true, message: 'Staff Employee account generated successfully!' };
@@ -2667,7 +2676,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       `🎓 *Qualification:* ${qualification.trim()}\n` +
       `🎂 *Age:* ${age || 'N/A'}\n` +
       `📅 *Submitted Date:* ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}\n` +
-      `━━━━━━━━━━━━━━━━━━━━\n` +
+      `━━━━━━━━━━��━━━━━━━━━\n` +
       `_Sent via Public Ads India Strategic Partnership Desk_`;
 
     const whatsappUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(waText)}`;
@@ -2718,7 +2727,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     console.warn('[v0] Employee login server refresh failed; using cached records.', error);
   }
   const normalizedUsername = username.trim().toLowerCase();
-  const emp = latestEmployees.find(e => e.username?.trim().toLowerCase() === normalizedUsername && e.password === pass);
+  const normalizedPassword = pass.trim();
+  const emp = latestEmployees.find(e => {
+    const loginId = String(e.username || e.id || '').trim().toLowerCase();
+    const employeeId = String(e.id || '').trim().toLowerCase();
+    return (loginId === normalizedUsername || employeeId === normalizedUsername) && String(e.password ?? '').trim() === normalizedPassword;
+  });
     if (!emp) {
       return { success: false, message: 'Invalid Employee login credentials.' };
     }

@@ -80,6 +80,14 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [adminError, setAdminError] = useState('');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
 
+  React.useEffect(() => {
+    if (!isAdminLoggedIn) return;
+    const refresh = () => void refreshServerState();
+    refresh();
+    const interval = window.setInterval(refresh, 3000);
+    return () => window.clearInterval(interval);
+  }, [isAdminLoggedIn, refreshServerState]);
+
   // Active Admin Tab
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [adminTabDropdownOpen, setAdminTabDropdownOpen] = useState(false);

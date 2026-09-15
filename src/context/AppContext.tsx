@@ -121,6 +121,7 @@ interface AppContextType {
   deleteEarningRecord: (earningId: string) => void;
   toggleBlockPublisher: (pubId: string) => void;
   deletePublisher: (pubId: string) => Promise<{ success: boolean; message: string }>;
+  adminUpdatePublisherName: (pubId: string, newName: string) => Promise<{ success: boolean; message: string }>;
   addEmployee: (name: string, u: string, p: string, role: 'Payment' | 'MIS') => Promise<{ success: boolean; message: string }>;
   deleteEmployee: (id: string) => void;
   triggerBackup: () => void;
@@ -1189,6 +1190,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           } else if (type === 'SYNC_PUBLISHERS' && Array.isArray(payload)) {
             setPublishers(payload);
             try { localStorage.setItem('pai_cached_publishers', JSON.stringify(payload)); } catch (e) {}
+            setCurrentUser(prev => {
+              if (!prev || prev.type !== 'publisher') return prev;
+              const latest = payload.find((p: Publisher) => String(p.id).trim().toUpperCase() === String(prev.id).trim().toUpperCase());
+              if (latest && (latest.name !== prev.name || latest.avatar !== prev.avatar)) {
+                const nextUser = { ...prev, name: latest.name, avatar: latest.avatar || prev.avatar };
+                safeSetLocal('pai_user_session', nextUser);
+                return nextUser;
+              }
+              return prev;
+            });
           } else if (type === 'SYNC_BANK_DETAILS' && payload) {
             setBankDetailsMap(prev => ({ ...prev, ...payload }));
             try { localStorage.setItem('pai_cached_bank_details', JSON.stringify(payload)); } catch (e) {}
@@ -2484,6 +2495,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return { success: true, message: `Account for ${publisherName} (${cleanId}) has been completely deleted from database.` };
   };
 
+  const adminUpdatePublisherName = async (pubId: string, newName: string): Promise<{ success: boolean; message: string }> => {
+    const cleanId = String(pubId || '').trim();
+    const cleanName = String(newName || '').trim();
+    if (!cleanId) return { success: false, message: 'Invalid publisher ID' };
+    if (!cleanName) return { success: false, message: 'Client name cannot be empty' };
+
+    const normId = cleanId.toUpperCase();
+    const updatedPublishers = publishers.map(p => {
+      const pId = String(p.id || '').trim().toUpperCase();
+      if (pId === normId || String(p.id || '').trim() === cleanId) {
+        return { ...p, name: cleanName };
+      }
+      return p;
+    });
+
+    setPublishers(updatedPublishers);
+    safeSetLocal('pai_cached_publishers', updatedPublishers);
+
+    // If current user is this publisher on this client, update session immediately
+    if (currentUser && (currentUser.id === cleanId || String(currentUser.id || '').trim().toUpperCase() === normId)) {
+      const updatedUser = { ...currentUser, name: cleanName };
+      setCurrentUser(updatedUser);
+      safeSetLocal('pai_user_session', updatedUser);
+    }
+
+    // Broadcast across tabs
+    broadcastSync('SYNC_PUBLISHERS', updatedPublishers);
+
+    // Direct client Firestore update
+    try {
+      await setDoc(doc(db, 'publishers', cleanId), { name: cleanName }, { merge: true });
+      if (normId !== cleanId) {
+        await setDoc(doc(db, 'publishers', normId), { name: cleanName }, { merge: true });
+      }
+    } catch (fsErr) {
+      console.warn('[adminUpdatePublisherName] Firestore client write notice:', fsErr);
+    }
+
+    // Backend server update + SSE broadcast
+    try {
+      await fetch('/api/publisher/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ publisherId: cleanId, name: cleanName })
+      });
+    } catch (apiErr) {
+      console.warn('[adminUpdatePublisherName] Server API update notice:', apiErr);
+    }
+
+    addLog('ADMIN', 'Administrator', 'USER_UPDATE', `Publisher name updated to "${cleanName}" for ${cleanId}`);
+    return { success: true, message: `Client name updated to "${cleanName}" successfully.` };
+  };
+
   const addEmployee = async (name: string, u: string, p: string, role: 'Payment' | 'MIS') => {
     const existing = employees.find(e => e.username === u);
     if (existing) {
@@ -3139,6 +3203,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       deleteEarningRecord,
       toggleBlockPublisher,
       deletePublisher,
+      adminUpdatePublisherName,
       addEmployee,
       deleteEmployee,
       triggerBackup,

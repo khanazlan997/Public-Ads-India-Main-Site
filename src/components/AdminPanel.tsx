@@ -7,7 +7,7 @@ import {
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
   Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Mail,
-  MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3
+  MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3, X
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -37,7 +37,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     deleteEarningRecord,
     publishers, 
     toggleBlockPublisher, 
-    deletePublisher, 
+    deletePublisher,
+    adminUpdatePublisherName, 
     hasMoreSubmissions,
     loadMoreSubmissions,
     hasMoreEarnings,
@@ -164,6 +165,30 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [resetPubEmail, setResetPubEmail] = useState('');
   const [resetNewPass, setResetNewPass] = useState('');
   const [resetMsg, setResetMsg] = useState('');
+
+  // Publisher Name Editor states
+  const [editingPubNameId, setEditingPubNameId] = useState<string | null>(null);
+  const [editingPubNameValue, setEditingPubNameValue] = useState('');
+  const [isSavingPubName, setIsSavingPubName] = useState(false);
+  const [pubNameMsg, setPubNameMsg] = useState<{ id: string; text: string } | null>(null);
+
+  const handleSavePublisherName = async (pubId: string) => {
+    const trimmed = editingPubNameValue.trim();
+    if (!trimmed) {
+      alert('Client name cannot be empty.');
+      return;
+    }
+    setIsSavingPubName(true);
+    const res = await adminUpdatePublisherName(pubId, trimmed);
+    setIsSavingPubName(false);
+    if (res.success) {
+      setEditingPubNameId(null);
+      setPubNameMsg({ id: pubId, text: 'Name updated!' });
+      setTimeout(() => setPubNameMsg(null), 3000);
+    } else {
+      alert(res.message || 'Failed to update name');
+    }
+  };
 
   // Earnings Editor Dialog states
   const [editingEarningsPubId, setEditingEarningsPubId] = useState<string | null>(null);
@@ -1902,7 +1927,66 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                               )}
                             </td>
                             <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
-                            <td className="p-3 font-extrabold text-slate-800">{pub.name}</td>
+                            <td className="p-3">
+                              {editingPubNameId === pub.id ? (
+                                <div className="flex items-center gap-1.5 min-w-[200px]">
+                                  <input
+                                    type="text"
+                                    id={`input-edit-pub-name-${pub.id}`}
+                                    value={editingPubNameValue}
+                                    onChange={(e) => setEditingPubNameValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSavePublisherName(pub.id);
+                                      if (e.key === 'Escape') setEditingPubNameId(null);
+                                    }}
+                                    autoFocus
+                                    className="px-2.5 py-1 text-xs font-bold text-slate-800 dark:text-slate-100 bg-white dark:bg-slate-900 border border-indigo-400 dark:border-indigo-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm w-full"
+                                    placeholder="Enter client name"
+                                  />
+                                  <button
+                                    type="button"
+                                    id={`save-pub-name-${pub.id}`}
+                                    onClick={() => handleSavePublisherName(pub.id)}
+                                    disabled={isSavingPubName}
+                                    className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-all cursor-pointer shadow-sm disabled:opacity-50 flex items-center justify-center shrink-0"
+                                    title="Save Client Name"
+                                  >
+                                    <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    id={`cancel-edit-pub-name-${pub.id}`}
+                                    onClick={() => setEditingPubNameId(null)}
+                                    disabled={isSavingPubName}
+                                    className="p-1.5 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-all cursor-pointer flex items-center justify-center shrink-0"
+                                    title="Cancel"
+                                  >
+                                    <X className="w-3.5 h-3.5 stroke-[2.5]" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2 group">
+                                  <span className="font-extrabold text-slate-800 dark:text-slate-100">{pub.name}</span>
+                                  <button
+                                    type="button"
+                                    id={`edit-pub-name-btn-${pub.id}`}
+                                    onClick={() => {
+                                      setEditingPubNameId(pub.id);
+                                      setEditingPubNameValue(pub.name || '');
+                                    }}
+                                    className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-md transition-all cursor-pointer inline-flex items-center justify-center"
+                                    title="Edit client name"
+                                  >
+                                    <Edit3 className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                                  </button>
+                                  {pubNameMsg?.id === pub.id && (
+                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800 animate-fade-in">
+                                      {pubNameMsg.text}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
                             <td className="p-3 font-medium text-slate-650">{pub.phone}</td>
                             <td className="p-3">
                               {(() => {

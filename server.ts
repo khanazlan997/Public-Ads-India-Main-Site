@@ -1104,7 +1104,14 @@ async function startServer() {
         return res.status(400).json({ error: "Missing publisherId" });
       }
       const normalizedPublisherId = String(publisherId).trim().toUpperCase();
-      const idx = store.publishers.findIndex(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
+      const rawPublisherId = String(publisherId).trim();
+      const trimmedName = name ? String(name).trim() : '';
+
+      const idx = store.publishers.findIndex(p => 
+        String(p.id || '').trim().toUpperCase() === normalizedPublisherId ||
+        String(p.id || '').trim() === rawPublisherId
+      );
+
       if (idx !== -1) {
         const existingAvatar = store.publishers[idx].avatar;
         const finalAvatar = (avatar && !avatar.startsWith('/api/publisher/avatar/'))
@@ -1112,28 +1119,48 @@ async function startServer() {
           : (avatar !== undefined && !avatar.startsWith('/api/publisher/avatar/') ? avatar : existingAvatar);
         store.publishers[idx] = {
           ...store.publishers[idx],
-          id: normalizedPublisherId,
-          ...(name ? { name } : {}),
+          id: store.publishers[idx].id || normalizedPublisherId,
+          ...(trimmedName ? { name: trimmedName } : {}),
           avatar: finalAvatar,
           systemVersion: 'v2'
         };
       } else {
         store.publishers.unshift({
           id: normalizedPublisherId,
-          name: name || normalizedPublisherId,
+          name: trimmedName || normalizedPublisherId,
           avatar: avatar || '👤',
           systemVersion: 'v2'
         });
       }
       scheduleSaveStore();
-      const savedPublisher = store.publishers.find(p => String(p.id || '').trim().toUpperCase() === normalizedPublisherId);
+
+      const savedPublisher = store.publishers.find(p => 
+        String(p.id || '').trim().toUpperCase() === normalizedPublisherId ||
+        String(p.id || '').trim() === rawPublisherId
+      );
+
+      // Persist directly to Firestore
+      const firestore = getServerFirestore();
+      if (firestore) {
+        const docData: any = {};
+        if (trimmedName) docData.name = trimmedName;
+        if (savedPublisher?.avatar) docData.avatar = savedPublisher.avatar;
+        if (Object.keys(docData).length > 0) {
+          setDoc(doc(firestore, "publishers", normalizedPublisherId), docData, { merge: true }).catch(() => {});
+          if (rawPublisherId !== normalizedPublisherId) {
+            setDoc(doc(firestore, "publishers", rawPublisherId), docData, { merge: true }).catch(() => {});
+          }
+        }
+      }
+
       broadcastRealtime({
         type: "SYNC_PUBLISHERS",
         payload: store.publishers
       });
-      console.log(`[Sync] Profile saved for ${publisherId}; broadcasted to ${sseClients.length} clients.`);
+      console.log(`[Sync] Profile updated for ${publisherId} (name: "${trimmedName || 'N/A'}"); broadcasted to ${sseClients.length} clients.`);
       res.json({ success: true, publisher: savedPublisher });
     } catch (err: any) {
+      console.error("[Server /api/publisher/update] Error:", err);
       res.status(500).json({ error: err.message });
     }
   });

@@ -1991,9 +1991,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 </button>
                                 <button
                                   id={`delete-pub-${pub.id}`}
-                                  onClick={() => {
-                                    if (window.confirm(`Are you absolutely sure you want to permanently delete publisher account for ${pub.name} (${pub.id})? This is irreversible.`)) {
-                                      deletePublisher(pub.id);
+                                  onClick={async () => {
+                                    if (window.confirm(`Are you absolutely sure you want to permanently delete publisher account for ${pub.name} (${pub.id})? This will completely remove their account from the database so they can register afresh if needed.`)) {
+                                      await deletePublisher(pub.id);
                                     }
                                   }}
                                   className="px-2.5 py-1 text-[10px] font-black bg-red-100 hover:bg-red-200 text-red-650 hover:text-red-750 rounded-lg transition-colors cursor-pointer"

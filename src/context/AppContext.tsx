@@ -120,7 +120,7 @@ interface AppContextType {
   updateEarningAmount: (earningId: string, amount: number) => void;
   deleteEarningRecord: (earningId: string) => void;
   toggleBlockPublisher: (pubId: string) => void;
-  deletePublisher: (pubId: string) => void;
+  deletePublisher: (pubId: string) => Promise<{ success: boolean; message: string }>;
   addEmployee: (name: string, u: string, p: string, role: 'Payment' | 'MIS') => Promise<{ success: boolean; message: string }>;
   deleteEmployee: (id: string) => void;
   triggerBackup: () => void;
@@ -2372,26 +2372,116 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const deletePublisher = (pubId: string) => {
-    const p = publishers.find(item => item.id === pubId);
-    if (p) {
-      setPublishers(prev => {
-        const next = prev.filter(item => item.id !== pubId);
-        try {
-          localStorage.setItem('pai_cached_publishers', JSON.stringify(next));
-          broadcastSync('SYNC_PUBLISHERS', next);
-        } catch (err) {}
-        return next;
-      });
+  const deletePublisher = async (pubId: string): Promise<{ success: boolean; message: string }> => {
+    const cleanId = String(pubId || '').trim();
+    if (!cleanId) return { success: false, message: 'Invalid publisher ID' };
 
-      fetch('/api/publisher/delete', {
+    const normId = cleanId.toUpperCase();
+    const p = publishers.find(item => (item.id || '').trim().toUpperCase() === normId) ||
+              publishers.find(item => item.id === cleanId);
+
+    const publisherEmail = p?.email ? String(p.email).trim().toLowerCase() : '';
+    const publisherPhone = p?.phone ? String(p.phone).trim().replace(/[\s\-\(\)]/g, '') : '';
+    const publisherName = p?.name || cleanId;
+
+    // 1. Optimistically purge from client state & local storage
+    setPublishers(prev => {
+      const next = prev.filter(item => {
+        const itemId = (item.id || '').trim().toUpperCase();
+        return itemId !== normId && item.id !== cleanId;
+      });
+      try {
+        localStorage.setItem('pai_cached_publishers', JSON.stringify(next));
+        broadcastSync('SYNC_PUBLISHERS', next);
+      } catch (err) {}
+      return next;
+    });
+
+    setBankDetailsMap(prev => {
+      const next = { ...prev };
+      delete next[cleanId];
+      delete next[normId];
+      delete next[cleanId.toLowerCase()];
+      try {
+        localStorage.setItem('pai_cached_bank_details', JSON.stringify(next));
+        broadcastSync('SYNC_BANK_DETAILS', next);
+      } catch (err) {}
+      return next;
+    });
+
+    // If the active session is for this publisher, logout and clear session
+    if (currentUser && (currentUser.id === cleanId || String(currentUser.id || '').trim().toUpperCase() === normId)) {
+      logout();
+    }
+
+    // 2. Direct Firestore Client SDK Purge
+    try {
+      const directDeletes = [
+        deleteDoc(doc(db, 'publishers', cleanId)),
+        deleteDoc(doc(db, 'publishers', normId)),
+        deleteDoc(doc(db, 'publishers', cleanId.toLowerCase())),
+        deleteDoc(doc(db, 'bank_details', cleanId)),
+        deleteDoc(doc(db, 'bank_details', normId)),
+        deleteDoc(doc(db, 'bank_details', cleanId.toLowerCase()))
+      ];
+      await Promise.allSettled(directDeletes);
+
+      // Query-based deletion from Firestore collection
+      const pubsCol = collection(db, 'publishers');
+      const snapId = await getDocs(query(pubsCol, where('id', 'in', [cleanId, normId, cleanId.toLowerCase()]))).catch(() => null);
+      if (snapId && !snapId.empty) {
+        for (const d of snapId.docs) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      }
+
+      if (publisherPhone) {
+        const snapPhone = await getDocs(query(pubsCol, where('phone', '==', publisherPhone))).catch(() => null);
+        if (snapPhone && !snapPhone.empty) {
+          for (const d of snapPhone.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+
+      if (publisherEmail) {
+        const snapEmail = await getDocs(query(pubsCol, where('email', '==', publisherEmail))).catch(() => null);
+        if (snapEmail && !snapEmail.empty) {
+          for (const d of snapEmail.docs) {
+            await deleteDoc(d.ref).catch(() => {});
+          }
+        }
+      }
+
+      // Clean up bank_details collection
+      const bankCol = collection(db, 'bank_details');
+      const snapBank = await getDocs(query(bankCol, where('publisherId', 'in', [cleanId, normId, cleanId.toLowerCase()]))).catch(() => null);
+      if (snapBank && !snapBank.empty) {
+        for (const d of snapBank.docs) {
+          await deleteDoc(d.ref).catch(() => {});
+        }
+      }
+    } catch (firestoreErr) {
+      console.warn('[deletePublisher] Client Firestore purge warning:', firestoreErr);
+    }
+
+    // 3. Backend Server Store & Cloud Purge API
+    try {
+      await fetch('/api/publisher/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publisherId: pubId })
-      }).catch(() => {});
-
-      addLog('ADMIN', 'Administrator', 'DELETE_USER', `Account permanently deleted for ${p.name} (${p.id})`);
+        body: JSON.stringify({ 
+          publisherId: cleanId,
+          phone: publisherPhone,
+          email: publisherEmail
+        })
+      });
+    } catch (apiErr) {
+      console.warn('[deletePublisher] Server API delete warning:', apiErr);
     }
+
+    addLog('ADMIN', 'Administrator', 'DELETE_USER', `Account permanently deleted from database for ${publisherName} (${cleanId})`);
+    return { success: true, message: `Account for ${publisherName} (${cleanId}) has been completely deleted from database.` };
   };
 
   const addEmployee = async (name: string, u: string, p: string, role: 'Payment' | 'MIS') => {

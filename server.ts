@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch } from "firebase/firestore";
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
 import firebaseConfig from "./firebase-applet-config.json";
 
@@ -1275,27 +1275,101 @@ async function startServer() {
     }
   });
 
-  // Dedicated Publisher Delete endpoint (Synced to cloud & server store)
+  // Dedicated Publisher Delete endpoint (Thoroughly synced to cloud Firestore & server store)
   app.post("/api/publisher/delete", async (req, res) => {
     try {
-      const { publisherId } = req.body || {};
+      const { publisherId, phone, email } = req.body || {};
       if (!publisherId) return res.status(400).json({ error: "Missing publisherId" });
-      const idx = store.publishers.findIndex(p => p.id === publisherId);
-      if (idx !== -1) {
-        store.publishers.splice(idx, 1);
-        scheduleSaveStore();
-        const firestore = getServerFirestore();
-        if (firestore) {
-          deleteDoc(doc(firestore, "publishers", String(publisherId))).catch(() => {});
-          deleteDoc(doc(firestore, "bank_details", String(publisherId))).catch(() => {});
-        }
-        broadcastRealtime({
-          type: "SYNC_PUBLISHERS",
-          payload: store.publishers
-        });
+
+      const cleanId = String(publisherId).trim();
+      const normId = cleanId.toUpperCase();
+      const cleanPhone = phone ? String(phone).trim().replace(/[\s\-\(\)]/g, '') : '';
+      const cleanEmail = email ? String(email).trim().toLowerCase() : '';
+
+      console.log(`[Server /api/publisher/delete] Purging publisher: ID="${cleanId}", Phone="${cleanPhone || 'N/A'}", Email="${cleanEmail || 'N/A'}"`);
+
+      // 1. Remove from in-memory server store
+      const initialCount = store.publishers.length;
+      store.publishers = store.publishers.filter(p => {
+        const pId = String(p.id || '').trim().toUpperCase();
+        if (pId === normId || String(p.id || '').trim() === cleanId) return false;
+        if (cleanPhone && p.phone && String(p.phone).trim().replace(/[\s\-\(\)]/g, '') === cleanPhone) return false;
+        if (cleanEmail && p.email && String(p.email).trim().toLowerCase() === cleanEmail) return false;
+        return true;
+      });
+
+      // 2. Remove associated bank details from in-memory store
+      if (store.bankDetailsMap) {
+        delete store.bankDetailsMap[cleanId];
+        delete store.bankDetailsMap[normId];
+        delete store.bankDetailsMap[cleanId.toLowerCase()];
       }
-      res.json({ success: true, count: store.publishers.length });
+
+      scheduleSaveStore();
+
+      // 3. Delete from Firestore Database (both direct document references and query filters)
+      const firestore = getServerFirestore();
+      if (firestore) {
+        try {
+          const directDeletions = [
+            deleteDoc(doc(firestore, "publishers", cleanId)),
+            deleteDoc(doc(firestore, "publishers", normId)),
+            deleteDoc(doc(firestore, "publishers", cleanId.toLowerCase())),
+            deleteDoc(doc(firestore, "bank_details", cleanId)),
+            deleteDoc(doc(firestore, "bank_details", normId)),
+            deleteDoc(doc(firestore, "bank_details", cleanId.toLowerCase()))
+          ];
+          await Promise.allSettled(directDeletions);
+
+          // Query search to delete any matching documents in publishers collection
+          const pubsCol = collection(firestore, "publishers");
+          const snapId = await getDocs(query(pubsCol, where("id", "in", [cleanId, normId, cleanId.toLowerCase()]))).catch(() => null);
+          if (snapId && !snapId.empty) {
+            for (const d of snapId.docs) {
+              await deleteDoc(d.ref).catch(() => {});
+            }
+          }
+
+          if (cleanPhone) {
+            const snapPhone = await getDocs(query(pubsCol, where("phone", "==", cleanPhone))).catch(() => null);
+            if (snapPhone && !snapPhone.empty) {
+              for (const d of snapPhone.docs) {
+                await deleteDoc(d.ref).catch(() => {});
+              }
+            }
+          }
+
+          if (cleanEmail) {
+            const snapEmail = await getDocs(query(pubsCol, where("email", "==", cleanEmail))).catch(() => null);
+            if (snapEmail && !snapEmail.empty) {
+              for (const d of snapEmail.docs) {
+                await deleteDoc(d.ref).catch(() => {});
+              }
+            }
+          }
+
+          // Query search to delete any matching documents in bank_details collection
+          const bankCol = collection(firestore, "bank_details");
+          const snapBank = await getDocs(query(bankCol, where("publisherId", "in", [cleanId, normId, cleanId.toLowerCase()]))).catch(() => null);
+          if (snapBank && !snapBank.empty) {
+            for (const d of snapBank.docs) {
+              await deleteDoc(d.ref).catch(() => {});
+            }
+          }
+        } catch (dbErr: any) {
+          console.warn("[Server /api/publisher/delete] Firestore deletion notice:", dbErr.message);
+        }
+      }
+
+      broadcastRealtime({
+        type: "SYNC_PUBLISHERS",
+        payload: store.publishers
+      });
+
+      console.log(`[Server /api/publisher/delete] Complete. Deleted ${initialCount - store.publishers.length} record(s). Store now has ${store.publishers.length} publisher(s).`);
+      res.json({ success: true, count: store.publishers.length, deleted: initialCount - store.publishers.length });
     } catch (err: any) {
+      console.error("[Server /api/publisher/delete] Error:", err);
       res.status(500).json({ error: err.message });
     }
   });

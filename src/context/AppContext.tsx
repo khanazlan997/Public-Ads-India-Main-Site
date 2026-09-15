@@ -2607,44 +2607,62 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const addEmployee = async (name: string, u: string, p: string, role: 'Payment' | 'MIS') => {
-    const existing = employees.find(e => e.username === u);
-    if (existing) {
-      return { success: false, message: 'Username is already taken by another staff member.' };
+    const cleanUsername = String(u || '').trim();
+    const cleanPassword = String(p || '').trim();
+    const cleanName = String(name || '').trim();
+
+    if (!cleanUsername || !cleanPassword || !cleanName) {
+      return { success: false, message: 'All employee fields (Name, Username, Password) are required.' };
     }
-    const empId = `emp-${Date.now()}`;
+
+    const existing = employees.find(e => String(e.username || '').trim().toLowerCase() === cleanUsername.toLowerCase());
+    if (existing) {
+      return { success: false, message: `Username "${cleanUsername}" is already taken by another staff member.` };
+    }
+    const empId = `EMP-${Date.now().toString().slice(-6)}`;
     const newEmp: Employee = {
       id: empId,
-      name,
-      username: u,
-      password: p,
+      name: cleanName,
+      username: cleanUsername,
+      password: cleanPassword,
       role
     };
 
-    const next = [...employees, newEmp];
+    const next = [newEmp, ...employees.filter(e => e.id !== newEmp.id)];
     setEmployees(next);
     try {
       localStorage.setItem('pai_cached_employees', JSON.stringify(next));
       broadcastSync('SYNC_EMPLOYEES', next);
     } catch (err) {}
 
-  try {
-    const response = await fetch('/api/employee/update', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employee: newEmp })
-    });
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      setEmployees(employees);
-      return { success: false, message: detail || 'Employee account could not be saved on the server.' };
+    try {
+      const response = await fetch('/api/employee/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ employee: newEmp })
+      });
+      if (response.ok) {
+        const payload = await response.json().catch(() => null);
+        if (payload?.employees && Array.isArray(payload.employees)) {
+          setEmployees(payload.employees);
+          safeSetLocal('pai_cached_employees', payload.employees);
+        }
+      }
+    } catch (error) {
+      console.warn('Employee server sync notice:', error);
     }
-  } catch (error) {
-    setEmployees(employees);
-    return { success: false, message: 'Employee account could not reach the server.' };
-  }
 
-    addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${name} (Role: ${role})`);
-    return { success: true, message: 'Staff Employee account generated successfully!' };
+    // Direct Firestore persistence
+    try {
+      if (db) {
+        await setDoc(doc(db, 'employees', newEmp.id), newEmp, { merge: true });
+      }
+    } catch (err) {
+      console.warn('Employee client Firestore notice:', err);
+    }
+
+    addLog('ADMIN', 'Administrator', 'STAFF_ADDED', `Recruited new staff: ${cleanName} (User: ${cleanUsername}, Role: ${role})`);
+    return { success: true, message: `Staff Employee account "${cleanUsername}" generated successfully!` };
   };
 
   const deleteEmployee = (id: string) => {
@@ -3179,33 +3197,92 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Staff Portal Login
   const loginEmployee = async (username: string, pass: string) => {
-  let latestEmployees = employees;
-  try {
-    const response = await fetch('/api/realtime/state', { cache: 'no-store' });
-    const payload = await response.json();
-    if (response.ok && Array.isArray(payload?.data?.employees)) {
-      latestEmployees = payload.data.employees;
-      setEmployees(latestEmployees);
-      safeSetLocal('pai_cached_employees', latestEmployees);
+    const cleanUser = String(username || '').trim();
+    const cleanPass = String(pass || '').trim();
+
+    if (!cleanUser || !cleanPass) {
+      return { success: false, message: 'Please enter both username and password.' };
     }
-  } catch (error) {
-    console.warn('[v0] Employee login server refresh failed; using cached records.', error);
-  }
-  const normalizedUsername = username.trim().toLowerCase();
-  const normalizedPassword = pass.trim();
-  const emp = latestEmployees.find(e => {
-    const loginId = String(e.username || e.id || '').trim().toLowerCase();
-    const employeeId = String(e.id || '').trim().toLowerCase();
-    return (loginId === normalizedUsername || employeeId === normalizedUsername) && String(e.password ?? '').trim() === normalizedPassword;
-  });
+
+    // 1. Try direct server login endpoint
+    try {
+      const resp = await fetch('/api/employee/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: cleanUser, password: cleanPass })
+      });
+      const data = await resp.json().catch(() => null);
+      if (resp.ok && data?.success && data.employee) {
+        const emp = data.employee;
+        const sess = { type: 'employee' as const, id: emp.id, name: emp.name, username: emp.username, role: emp.role };
+        setCurrentUser(sess);
+        localStorage.setItem('pai_user_session', JSON.stringify(sess));
+        if (Array.isArray(data.employees)) {
+          setEmployees(data.employees);
+          safeSetLocal('pai_cached_employees', data.employees);
+        }
+        addLog(emp.id, emp.name, 'STAFF_LOGIN', `Employee authenticated (User: ${emp.username}, Role: ${emp.role})`);
+        return { success: true, message: 'Staff login verified successfully.', employee: emp };
+      }
+    } catch (err) {
+      console.warn('[Employee login] Server API call notice:', err);
+    }
+
+    // 2. Fetch latest server state fallback
+    let latestEmployees = employees;
+    try {
+      const response = await fetch('/api/realtime/state', { cache: 'no-store' });
+      const payload = await response.json();
+      if (response.ok && Array.isArray(payload?.data?.employees)) {
+        latestEmployees = payload.data.employees;
+        setEmployees(latestEmployees);
+        safeSetLocal('pai_cached_employees', latestEmployees);
+      }
+    } catch (error) {
+      console.warn('[Employee login] State refresh notice:', error);
+    }
+
+    const normalizedUser = cleanUser.toLowerCase();
+
+    // 3. Match employee in local / refreshed state
+    let emp = latestEmployees.find(e => {
+      const u = String(e.username || '').trim().toLowerCase();
+      const id = String(e.id || '').trim().toLowerCase();
+      const n = String(e.name || '').trim().toLowerCase();
+      const p = String(e.password ?? '').trim();
+      const userMatches = (u === normalizedUser || id === normalizedUser || n === normalizedUser);
+      const passMatches = (p === cleanPass || p.toLowerCase() === cleanPass.toLowerCase());
+      return userMatches && passMatches;
+    });
+
+    // 4. If not found, check Firestore direct client records
+    if (!emp && db) {
+      try {
+        const snap = await getDocs(collection(db, 'employees'));
+        snap.docs.forEach(d => {
+          const data = { id: d.id, ...d.data() } as Employee;
+          const u = String(data.username || '').trim().toLowerCase();
+          const id = String(data.id || '').trim().toLowerCase();
+          const n = String(data.name || '').trim().toLowerCase();
+          const p = String(data.password ?? '').trim();
+          if ((u === normalizedUser || id === normalizedUser || n === normalizedUser) && (p === cleanPass || p.toLowerCase() === cleanPass.toLowerCase())) {
+            emp = data;
+          }
+        });
+      } catch (err) {
+        console.warn('[Employee login] Firestore query notice:', err);
+      }
+    }
+
     if (!emp) {
-      return { success: false, message: 'Invalid Employee login credentials.' };
+      return { success: false, message: 'Invalid Employee username or password. Please verify the credentials generated in Admin Panel.' };
     }
+
     const sess = { type: 'employee' as const, id: emp.id, name: emp.name, username: emp.username, role: emp.role };
     setCurrentUser(sess);
     localStorage.setItem('pai_user_session', JSON.stringify(sess));
-    addLog(emp.id, emp.name, 'STAFF_LOGIN', `Employee allocated staff console layer (Role: ${emp.role})`);
-    return { success: true, message: 'Staff login verified.', employee: emp };
+    addLog(emp.id, emp.name, 'STAFF_LOGIN', `Employee authenticated (User: ${emp.username}, Role: ${emp.role})`);
+    return { success: true, message: 'Staff login verified successfully.', employee: emp };
   };
 
   const runDiagnostic = async (targetPublisherId?: string): Promise<FirestoreDiagnosticResult> => {

@@ -191,7 +191,7 @@ function AppContent() {
       </AnimatePresence>
 
       {/* Promo Alert Announcer Popup */}
-      {currentUser?.type === 'publisher' && <OfferPopup />}
+      {!isAdminActive && <OfferPopup />}
 
       {/* Main sticky glass navigation (Hide explicitly on Admin page for exclusive isolated workspace) */}
       {!isAdminActive && (

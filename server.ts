@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
+import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
 import firebaseConfig from "./firebase-applet-config.json";
 
@@ -883,6 +883,11 @@ async function startServer() {
           });
           store.bankDetailsMap = bankMap;
         }
+
+        const settingsDoc = await getDoc(doc(firestore, 'settings', 'global')).catch(() => null);
+        if (settingsDoc && settingsDoc.exists()) {
+          store.settings = { ...(store.settings || {}), ...settingsDoc.data() };
+        }
       } catch (error) {
         console.warn('[Sync] Could not hydrate canonical admin data from Firestore:', error);
       }
@@ -1298,7 +1303,7 @@ async function startServer() {
   });
 
   // Dedicated Settings Update endpoint (Zero Firestore quota)
-  app.post("/api/settings/update", (req, res) => {
+  app.post("/api/settings/update", async (req, res) => {
     try {
       const { settings } = req.body || {};
       if (settings && typeof settings === 'object') {
@@ -1308,6 +1313,15 @@ async function startServer() {
           type: "SYNC_SETTINGS",
           payload: store.settings
         });
+
+        const firestore = getServerFirestore();
+        if (firestore) {
+          try {
+            await setDoc(doc(firestore, 'settings', 'global'), sanitizeFirestoreData(store.settings), { merge: true });
+          } catch (e) {
+            console.warn('[Settings] Failed saving to Firestore:', e);
+          }
+        }
       }
       res.json({ success: true, settings: store.settings });
     } catch (err: any) {
@@ -1474,16 +1488,29 @@ async function startServer() {
       const { employee } = req.body || {};
       if (!employee || !employee.id) return res.status(400).json({ error: "Missing employee data" });
       if (!Array.isArray(store.employees)) store.employees = [];
-      const idx = store.employees.findIndex(e => e.id === employee.id);
+      const cleanUsername = String(employee.username || '').trim();
+      const cleanPassword = String(employee.password || '').trim();
+      const cleanName = String(employee.name || '').trim();
+      const sanitizedEmployee = {
+        ...employee,
+        name: cleanName,
+        username: cleanUsername,
+        password: cleanPassword,
+        role: employee.role || 'MIS'
+      };
+
+      const idx = store.employees.findIndex(e => e.id === employee.id || (e.username && cleanUsername && String(e.username).trim().toLowerCase() === cleanUsername.toLowerCase()));
       if (idx !== -1) {
-        store.employees[idx] = { ...store.employees[idx], ...employee };
+        store.employees[idx] = { ...store.employees[idx], ...sanitizedEmployee };
       } else {
-        store.employees.unshift(employee);
+        store.employees.unshift(sanitizedEmployee);
       }
       scheduleSaveStore();
       const firestore = getServerFirestore();
       if (firestore) {
-        await setDoc(doc(firestore, "employees", String(employee.id)), sanitizeFirestoreData(employee), { merge: true });
+        await setDoc(doc(firestore, "employees", String(employee.id)), sanitizeFirestoreData(sanitizedEmployee), { merge: true }).catch((err) => {
+          console.warn("[Employee update] Firestore write notice:", err);
+        });
       }
       broadcastRealtime({
         type: "SYNC_EMPLOYEES",
@@ -1492,6 +1519,62 @@ async function startServer() {
       res.json({ success: true, employees: store.employees });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post("/api/employee/login", async (req, res) => {
+    try {
+      const { username, password } = req.body || {};
+      if (!username || !password) {
+        return res.status(400).json({ success: false, message: "Username and password are required." });
+      }
+      const cleanUser = String(username).trim().toLowerCase();
+      const cleanPass = String(password).trim();
+
+      if (!Array.isArray(store.employees)) store.employees = [];
+
+      // 1. Check local server memory store
+      let emp = store.employees.find(e => {
+        const u = String(e.username || '').trim().toLowerCase();
+        const id = String(e.id || '').trim().toLowerCase();
+        const n = String(e.name || '').trim().toLowerCase();
+        const p = String(e.password || '').trim();
+        return (u === cleanUser || id === cleanUser || n === cleanUser) && (p === cleanPass || p.toLowerCase() === cleanPass.toLowerCase());
+      });
+
+      // 2. If not found in memory store, query Firestore employees collection
+      if (!emp) {
+        const firestore = getServerFirestore();
+        if (firestore) {
+          try {
+            const snap = await getDocs(collection(firestore, "employees"));
+            snap.docs.forEach((d: any) => {
+              const data = { id: d.id, ...d.data() } as any;
+              const u = String(data.username || '').trim().toLowerCase();
+              const id = String(data.id || '').trim().toLowerCase();
+              const n = String(data.name || '').trim().toLowerCase();
+              const p = String(data.password || '').trim();
+              if ((u === cleanUser || id === cleanUser || n === cleanUser) && (p === cleanPass || p.toLowerCase() === cleanPass.toLowerCase())) {
+                emp = data;
+                if (!store.employees.some(e => e.id === data.id)) {
+                  store.employees.unshift(data);
+                  scheduleSaveStore();
+                }
+              }
+            });
+          } catch (err) {
+            console.warn("[Employee login] Firestore fetch error:", err);
+          }
+        }
+      }
+
+      if (emp) {
+        return res.json({ success: true, employee: emp, employees: store.employees });
+      } else {
+        return res.status(401).json({ success: false, message: "Invalid Employee username or password. Please verify login credentials created in Admin Panel." });
+      }
+    } catch (err: any) {
+      res.status(500).json({ success: false, error: err.message });
     }
   });
 

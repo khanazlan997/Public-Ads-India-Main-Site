@@ -23,6 +23,7 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Search filtering state
   const [filterQuery, setFilterQuery] = useState('');
@@ -47,14 +48,22 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
     e.preventDefault();
     setLoginError('');
 
-    if (!username || !password) {
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
+
+    if (!cleanUser || !cleanPass) {
       setLoginError('Please enter both username and password.');
       return;
     }
 
-    const res = await loginEmployee(username, password);
-    if (!res.success) {
-      setLoginError(res.message);
+    setIsLoggingIn(true);
+    try {
+      const res = await loginEmployee(cleanUser, cleanPass);
+      if (!res.success) {
+        setLoginError(res.message);
+      }
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -145,9 +154,10 @@ export default function EmployeePanel({ onNavigate }: EmployeePanelProps) {
             <button
               type="submit"
               id="employee-login-sub-btn"
-              className="w-full py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white hover:bg-emerald-600 hover:text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md mt-6 cursor-pointer"
+              disabled={isLoggingIn}
+              className={`w-full py-3.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-950 dark:text-white hover:bg-emerald-600 hover:text-white font-extrabold text-xs tracking-wider uppercase rounded-xl transition-all shadow-md mt-6 cursor-pointer ${isLoggingIn ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
-              Verify Employee Session
+              {isLoggingIn ? 'Verifying Credentials...' : 'Verify Employee Session'}
             </button>
           </form>
 

@@ -638,8 +638,15 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const handleOfferSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateOfferPopup(offerUrl, offerActive, offerTitle, offerDescription, offerButtonText, offerLink, offerShowButton);
-    setOfferMsg('Promo Banner offering popup configurations saved site-wide!');
-    setTimeout(() => setOfferMsg(''), 3000);
+    setOfferMsg(offerActive ? 'Promo Banner Popup is ACTIVE and saved site-wide!' : 'Promo Banner Popup configurations saved (Currently INACTIVE).');
+    setTimeout(() => setOfferMsg(''), 3500);
+  };
+
+  const handleToggleOfferActive = (checked: boolean) => {
+    setOfferActive(checked);
+    updateOfferPopup(offerUrl, checked, offerTitle, offerDescription, offerButtonText, offerLink, offerShowButton);
+    setOfferMsg(checked ? 'Promo Banner Popup ACTIVATED site-wide!' : 'Promo Banner Popup DEACTIVATED site-wide.');
+    setTimeout(() => setOfferMsg(''), 3500);
   };
 
   // Update support channels
@@ -694,16 +701,16 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   };
 
   // Handle employee account generation
-  const handleStaffGenerate = (e: React.FormEvent) => {
+  const handleStaffGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
     setStaffMsg('');
 
-    if (!staffName || !staffUser || !staffPass) {
-      setStaffMsg('Fully fill staff demographic fields.');
+    if (!staffName.trim() || !staffUser.trim() || !staffPass.trim()) {
+      setStaffMsg('Fully fill all employee fields (Name, Username, Password).');
       return;
     }
 
-    const res = addEmployee(staffName, staffUser, staffPass, staffRole);
+    const res = await addEmployee(staffName.trim(), staffUser.trim(), staffPass.trim(), staffRole);
     setStaffMsg(res.message);
 
     if (res.success) {
@@ -2500,11 +2507,23 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center sm:justify-between gap-4">
                   <div className="flex items-center gap-2.5">
                     <input
-                      type="checkbox" id="popup-offer-active" checked={offerActive} onChange={(e) => setOfferActive(e.target.checked)}
-                      className="w-4.5 h-4.5 accent-indigo-600 rounded cursor-pointer"
+                      type="checkbox" 
+                      id="popup-offer-active" 
+                      checked={offerActive} 
+                      onChange={(e) => handleToggleOfferActive(e.target.checked)}
+                      className="w-5 h-5 accent-indigo-600 rounded cursor-pointer"
                     />
-                    <label htmlFor="popup-offer-active" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
-                      Activate Popup Overlay across all publisher screens on launch
+                    <label htmlFor="popup-offer-active" className="text-xs font-bold text-slate-800 cursor-pointer select-none flex items-center gap-2">
+                      <span>Activate Popup Overlay across all client & publisher screens</span>
+                      {offerActive ? (
+                        <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-extrabold text-[10px] rounded-full uppercase tracking-wider">
+                          ● Active
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-slate-200 text-slate-600 font-extrabold text-[10px] rounded-full uppercase tracking-wider">
+                          Disabled
+                        </span>
+                      )}
                     </label>
                   </div>
 

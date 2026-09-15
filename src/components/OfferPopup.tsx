@@ -8,32 +8,34 @@ export default function OfferPopup() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (offer.active && offer.image) {
+    if (offer && offer.active && (offer.image || offer.title || offer.description)) {
       // Check if user already dismissed this specific offer in the current session
-      const isClosed = sessionStorage.getItem('pai_offer_dismissed_img') === offer.image;
-      if (isClosed) {
+      const offerKey = `pai_dismissed_${offer.image || ''}_${offer.title || ''}`;
+      const isClosed = sessionStorage.getItem(offerKey);
+      if (isClosed === 'true') {
         setVisible(false);
         return;
       }
 
-      // Small delay for better UX feel
+      // Small smooth delay for optimal entrance feel
       const timer = setTimeout(() => {
         setVisible(true);
-      }, 1500);
+      }, 500);
       return () => clearTimeout(timer);
     } else {
       setVisible(false);
     }
-  }, [offer]);
+  }, [offer?.active, offer?.image, offer?.title, offer?.description]);
 
   const dismissOffer = () => {
     setVisible(false);
-    if (offer.image) {
-      sessionStorage.setItem('pai_offer_dismissed_img', offer.image);
+    if (offer) {
+      const offerKey = `pai_dismissed_${offer.image || ''}_${offer.title || ''}`;
+      sessionStorage.setItem(offerKey, 'true');
     }
   };
 
-  if (!visible) return null;
+  if (!visible || !offer?.active) return null;
 
   return (
     <AnimatePresence>
@@ -56,19 +58,26 @@ export default function OfferPopup() {
           </button>
 
           {/* Banner Image Container */}
-          <div className="relative aspect-video w-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border-b border-slate-100 dark:border-slate-800">
-            <img 
-              src={offer.image} 
-              alt="Public Ads India Offer Announcement" 
-              className="w-full h-full object-cover"
-              referrerPolicy="no-referrer"
-            />
-          </div>
+          {offer.image && (
+            <div className="relative aspect-video w-full bg-slate-100 dark:bg-slate-800/80 overflow-hidden border-b border-slate-100 dark:border-slate-800">
+              <img 
+                src={offer.image} 
+                alt={offer.title || "Public Ads India Offer Announcement"} 
+                className="w-full h-full object-cover"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+          )}
 
           {/* Body Content Area */}
           <div className="px-6 py-5 sm:px-8 sm:py-6 flex flex-col items-center text-center">
+            {offer.title && (
+              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white mb-2">
+                {offer.title}
+              </h3>
+            )}
             {/* Description */}
-            <p className="text-sm sm:text-[15px] text-black dark:text-white font-semibold leading-relaxed mb-5 max-w-md break-words">
+            <p className="text-sm sm:text-[15px] text-slate-800 dark:text-slate-100 font-semibold leading-relaxed mb-5 max-w-md break-words">
               {offer.description || "Limited time bonus directly to your wallet dashboard. Check active rates, submit valid leads, and request bulk approvals."}
             </p>
 

@@ -7,9 +7,11 @@ import {
   IndianRupee, Coins, Calendar, ArrowRight, User, Settings, CheckCircle2, 
   HelpCircle, Copy, AlertCircle, FileText, QrCode, Crown, Trophy, 
   Camera, UploadCloud, Edit3, LogOut, Check, ChevronDown, ChevronRight,
-  Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck, Gift
+  Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck, Gift,
+  Activity, RefreshCcw
 } from 'lucide-react';
 import { Publisher, BankDetails } from '../types';
+import { runFirestoreDiagnostic, type FirestoreDiagnosticResult } from '../lib/firestoreDiagnostics';
 
 // Constant for ₹99 Payment QR Code URL - Paste your image link inside the quotes below:
 const PAYMENT_QR_IMAGE_URL = ""; 
@@ -362,10 +364,13 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       setProfileAvatar(finalAvatar);
 
       // Load Bank Details too if present
-      const bank = bankDetailsMap[normCurId] || (p ? bankDetailsMap[p.id] : undefined);
+      const bank = bankDetailsMap[normCurId] || 
+        bankDetailsMap[currentUser.id] || 
+        (p ? bankDetailsMap[p.id] : undefined) ||
+        Object.entries(bankDetailsMap).find(([k]) => k.toUpperCase() === normCurId)?.[1];
       if (bank) {
         setBankHolderName(bank.holderName || bestName);
-        setBankPhone(bank.phone || p?.phone || '');
+        setBankPhone(bank.phone ? bank.phone.replace(/\D/g, '').slice(-10) : (p?.phone ? p.phone.replace(/\D/g, '').slice(-10) : ''));
         setBankEmail(bank.email || p?.email || '');
         setBankAccount(bank.accountNumber || '');
         setBankIfsc(bank.ifsc || '');
@@ -374,7 +379,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       } else {
         setBankHolderName(bestName);
         if (p) {
-          setBankPhone(p.phone);
+          setBankPhone(p.phone ? p.phone.replace(/\D/g, '').slice(-10) : '');
           setBankEmail(p.email);
         }
       }
@@ -595,20 +600,48 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     setBankWarningMsg('');
     const missing: string[] = [];
 
-    if (!bankHolderName || bankHolderName.trim().length < 2) {
-      missing.push('Account Holder Name');
+    const cleanHolder = (bankHolderName || '').trim();
+    if (!cleanHolder || cleanHolder.length < 2) {
+      missing.push('Account Holder Name (at least 2 characters)');
     }
-    if (!bankPhone || bankPhone.trim().length < 10) {
-      missing.push('Contact Phone Number (10 digits)');
+
+    const cleanPhoneDigits = (bankPhone || '').replace(/\D/g, '').slice(-10);
+    if (!cleanPhoneDigits || cleanPhoneDigits.length < 10) {
+      missing.push('Valid Contact Phone Number (10 digits)');
     }
-    if (!bankAccount || bankAccount.trim().length < 8) {
-      missing.push('Bank Account Number (minimum 8 digits)');
-    }
-    if (!bankIfsc || bankIfsc.trim().length < 4) {
-      missing.push('Valid IFSC Code (e.g. SBIN0001092)');
-    }
-    if (!bankUpi || !bankUpi.includes('@') || bankUpi.trim().length < 3) {
-      missing.push('Valid UPI ID Address (e.g. name@okaxis)');
+
+    const cleanAcc = (bankAccount || '').replace(/\s/g, '').trim();
+    const cleanIfsc = (bankIfsc || '').replace(/\s/g, '').toUpperCase().trim();
+    const cleanUpi = (bankUpi || '').replace(/\s/g, '').trim();
+
+    const hasBank = cleanAcc.length >= 6 && cleanIfsc.length >= 4;
+    const hasUpi = cleanUpi.length >= 3 && cleanUpi.includes('@');
+
+    // At least one valid payment route must be configured
+    if (!hasBank && !hasUpi) {
+      if (cleanAcc.length > 0 && cleanAcc.length < 6) {
+        missing.push('Valid Bank Account Number (at least 6 digits)');
+      }
+      if (cleanIfsc.length > 0 && cleanIfsc.length < 4) {
+        missing.push('Valid IFSC Code (e.g. SBIN0001092)');
+      }
+      if (cleanUpi.length > 0 && (!cleanUpi.includes('@') || cleanUpi.length < 3)) {
+        missing.push('Valid UPI ID Address (must include "@", e.g. name@okaxis)');
+      }
+      if (missing.length === (cleanHolder && cleanHolder.length >= 2 ? 0 : 1) + (cleanPhoneDigits.length >= 10 ? 0 : 1)) {
+        missing.push('Payout method required: Enter Bank Account (Number & IFSC) OR UPI ID (or both)');
+      }
+    } else {
+      // If user filled one part of Bank Account but missed the other
+      if (cleanAcc.length > 0 && cleanIfsc.length < 4) {
+        missing.push('Valid IFSC Code (required when Account Number is provided)');
+      }
+      if (cleanIfsc.length > 0 && cleanAcc.length < 6) {
+        missing.push('Valid Bank Account Number (minimum 6 digits, required when IFSC is provided)');
+      }
+      if (cleanUpi.length > 0 && (!cleanUpi.includes('@') || cleanUpi.length < 3)) {
+        missing.push('Valid UPI ID Address with @ (e.g. name@okaxis or 9876543210@paytm)');
+      }
     }
 
     if (missing.length > 0) {
@@ -626,14 +659,15 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const handleConfirmBankSave = async () => {
     setIsSavingBank(true);
     try {
+      const cleanPhoneDigits = (bankPhone || '').replace(/\D/g, '').slice(-10);
       const details: BankDetails = {
         publisherId: currentUser!.id,
         holderName: bankHolderName.trim(),
-        phone: bankPhone.trim(),
+        phone: cleanPhoneDigits || bankPhone.trim(),
         email: bankEmail.trim(),
-        accountNumber: bankAccount.trim(),
-        ifsc: bankIfsc.toUpperCase().trim(),
-        upi: bankUpi.trim(),
+        accountNumber: bankAccount.replace(/\s/g, '').trim(),
+        ifsc: bankIfsc.toUpperCase().replace(/\s/g, '').trim(),
+        upi: bankUpi.replace(/\s/g, '').trim(),
         qrCode: bankQrCode
       };
 
@@ -660,6 +694,26 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       setShowBankWarningModal(true);
     } finally {
       setIsSavingBank(false);
+    }
+  };
+
+  // User Firestore Diagnostic
+  const [userDiagnosticResult, setUserDiagnosticResult] = useState<FirestoreDiagnosticResult | null>(null);
+  const [isCheckingSync, setIsCheckingSync] = useState(false);
+
+  const handleUserDiagnostic = async () => {
+    setIsCheckingSync(true);
+    try {
+      const res = await runFirestoreDiagnostic({
+        user: currentUser,
+        targetPublisherId: currentUser?.id,
+        logToConsole: true
+      });
+      setUserDiagnosticResult(res);
+    } catch (err) {
+      console.error('[User Diagnostic] Error checking Firestore retrieval:', err);
+    } finally {
+      setIsCheckingSync(false);
     }
   };
 
@@ -2528,11 +2582,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
                     <span>Bank Account Number</span>
-                    <span className="text-rose-500 font-bold">*</span>
+                    <span className="text-slate-400 font-normal lowercase">(for bank transfer)</span>
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="Enter bank account number"
                     value={bankAccount}
                     onChange={(e) => setBankAccount(e.target.value.replace(/\s/g, ''))}
@@ -2544,11 +2597,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
                     <span>IFSC Code</span>
-                    <span className="text-rose-500 font-bold">*</span>
+                    <span className="text-slate-400 font-normal lowercase">(e.g. SBIN0001092)</span>
                   </label>
                   <input
                     type="text"
-                    required
                     placeholder="e.g. SBIN0001092"
                     value={bankIfsc}
                     onChange={(e) => setBankIfsc(e.target.value.toUpperCase().replace(/\s/g, ''))}
@@ -2562,11 +2614,10 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               <div className="flex flex-col gap-1.5">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
                   <span>UPI ID Address</span>
-                  <span className="text-rose-500 font-bold">*</span>
+                  <span className="text-slate-400 font-normal lowercase">(e.g. username@okaxis or 9876543210@paytm)</span>
                 </label>
                 <input
                   type="text"
-                  required
                   placeholder="e.g. username@okaxis or 9876543210@paytm"
                   value={bankUpi}
                   onChange={(e) => setBankUpi(e.target.value.replace(/\s/g, ''))}
@@ -2622,6 +2673,68 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </button>
 
             </form>
+
+            {/* Firestore Cloud Data Retrieval Verification Card */}
+            <div className="mt-8 pt-6 border-t border-slate-150 dark:border-slate-800 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Activity className="w-4 h-4 text-emerald-500 animate-pulse" />
+                  <div>
+                    <span className="text-xs font-black text-slate-850 dark:text-white uppercase tracking-wider block">
+                      Firestore Data Retrieval Verification
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      Directly verifies bank ledger & lead submissions in Firestore collection
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  id="user-run-diagnostic-btn"
+                  onClick={handleUserDiagnostic}
+                  disabled={isCheckingSync}
+                  className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 font-black text-xs rounded-xl border border-indigo-200 dark:border-indigo-800 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCcw className={`w-3.5 h-3.5 ${isCheckingSync ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingSync ? 'Checking Firestore...' : 'Test Data Retrieval'}</span>
+                </button>
+              </div>
+
+              {userDiagnosticResult && (
+                <div className="p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs space-y-2.5 animate-fade-in">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                    <span className="font-bold text-slate-600 dark:text-slate-300 text-[11px]">
+                      Database: <span className="font-mono text-indigo-600 dark:text-indigo-400 font-bold">{userDiagnosticResult.databaseId}</span>
+                    </span>
+                    <span className="font-mono font-bold text-emerald-600 dark:text-emerald-400 text-[11px]">
+                      ⚡ {userDiagnosticResult.performance.totalDurationMs} ms latency
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 dark:text-slate-400">🏦 Bank Ledger:</span>
+                      {userDiagnosticResult.bankDetails.targetUserRecordFound ? (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                          <span>Retrieved Successfully ({userDiagnosticResult.bankDetails.targetUserRecord?.holderName})</span>
+                        </span>
+                      ) : (
+                        <span className="text-amber-600 dark:text-amber-400 font-bold">
+                          ⚠️ Not found in Firestore (Save details first)
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 dark:text-slate-400">📋 Lead Submissions:</span>
+                      <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-indigo-500" />
+                        <span>{userDiagnosticResult.leads.targetUserLeadsCount} Lead(s) Active in Firestore</span>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Payout History Section (Last 5 Only) */}
@@ -2829,7 +2942,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
               </h3>
 
               <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed mb-4">
-                We could not save your bank details because some mandatory fields are missing or incomplete. Please review and fill out the details below:
+                {missingFieldsList.length > 0 
+                  ? "We could not save your bank details because some required fields are missing or incomplete. Please review and fill out the details below:"
+                  : (bankWarningMsg || "There was a problem saving your bank details. Please check your network connection and try again.")}
               </p>
 
               {missingFieldsList.length > 0 && (
@@ -2910,31 +3025,37 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   <span className="text-xs font-mono font-bold text-slate-800 dark:text-slate-200">{bankPhone}</span>
                 </div>
 
-                <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Number</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">
-                      {showMaskedAccount ? getMaskedAccount(bankAccount) : bankAccount}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowMaskedAccount(!showMaskedAccount)}
-                      className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-                    >
-                      {showMaskedAccount ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                    </button>
+                {bankAccount ? (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Account Number</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono font-extrabold text-emerald-600 dark:text-emerald-400 tracking-wider">
+                        {showMaskedAccount ? getMaskedAccount(bankAccount) : bankAccount}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowMaskedAccount(!showMaskedAccount)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                      >
+                        {showMaskedAccount ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
                   </div>
-                </div>
+                ) : null}
 
-                <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">IFSC Code</span>
-                  <span className="text-xs font-mono font-bold uppercase text-slate-800 dark:text-slate-200">{bankIfsc}</span>
-                </div>
+                {bankIfsc ? (
+                  <div className="flex items-center justify-between py-1 border-b border-slate-200/50 dark:border-slate-800/80">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">IFSC Code</span>
+                    <span className="text-xs font-mono font-bold uppercase text-slate-800 dark:text-slate-200">{bankIfsc}</span>
+                  </div>
+                ) : null}
 
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">UPI ID Address</span>
-                  <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{bankUpi}</span>
-                </div>
+                {bankUpi ? (
+                  <div className="flex items-center justify-between py-1">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">UPI ID Address</span>
+                    <span className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400">{bankUpi}</span>
+                  </div>
+                ) : null}
 
                 {bankQrCode && (
                   <div className="pt-2 border-t border-slate-200/50 dark:border-slate-800/80 flex items-center justify-between">

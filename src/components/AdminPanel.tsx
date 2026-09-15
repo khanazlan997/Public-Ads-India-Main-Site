@@ -10,6 +10,7 @@ import {
   MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
+import { runFirestoreDiagnostic, type FirestoreDiagnosticResult } from '../lib/firestoreDiagnostics';
 
 interface AdminPanelProps {
   onNavigate: (route: string) => void;
@@ -186,6 +187,72 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [isPushingCloud, setIsPushingCloud] = useState(false);
   const [cloudSyncMsg, setCloudSyncMsg] = useState('');
+
+  // Firestore Diagnostic utility state
+  const [diagnosticResult, setDiagnosticResult] = useState<FirestoreDiagnosticResult | null>(null);
+  const [isRunningDiagnostic, setIsRunningDiagnostic] = useState(false);
+  const [diagnosticTargetPub, setDiagnosticTargetPub] = useState('');
+  const [showDiagnosticModal, setShowDiagnosticModal] = useState(false);
+  const [diagnosticCopied, setDiagnosticCopied] = useState(false);
+
+  const handleRunDiagnostic = async (targetId?: string) => {
+    setIsRunningDiagnostic(true);
+    setShowDiagnosticModal(true);
+    try {
+      const res = await runFirestoreDiagnostic({
+        user: currentUser,
+        targetPublisherId: (targetId !== undefined ? targetId : diagnosticTargetPub).trim() || undefined,
+        logToConsole: true
+      });
+      setDiagnosticResult(res);
+    } catch (err: any) {
+      console.error('[Diagnostic] Error running check:', err);
+    } finally {
+      setIsRunningDiagnostic(false);
+    }
+  };
+
+  const fetchPublisherBank = async (pubId: string): Promise<any> => {
+    if (!pubId) return null;
+    const cleanId = String(pubId).trim();
+    const upper = cleanId.toUpperCase();
+    const lower = cleanId.toLowerCase();
+
+    let bank = bankDetailsMap[cleanId] || 
+      bankDetailsMap[upper] || 
+      bankDetailsMap[lower] || 
+      Object.entries(bankDetailsMap).find(([k]) => k.toLowerCase() === lower)?.[1] || 
+      null;
+
+    if (!bank) {
+      try {
+        let docSnap = await getDoc(doc(db, 'bank_details', upper));
+        if (!docSnap.exists()) {
+          docSnap = await getDoc(doc(db, 'bank_details', cleanId));
+        }
+        if (!docSnap.exists()) {
+          docSnap = await getDoc(doc(db, 'bank_details', lower));
+        }
+        if (docSnap.exists()) {
+          bank = docSnap.data();
+        }
+      } catch (error: any) {
+        console.warn("Notice fetching bank on-demand from Firestore:", error?.message || error);
+      }
+    }
+
+    if (!bank) {
+      try {
+        const res = await fetch(`/api/bank/${encodeURIComponent(upper)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.bankDetails) bank = json.bankDetails;
+        }
+      } catch (e) {}
+    }
+
+    return bank;
+  };
 
   const handleManualCloudSync = async () => {
     setIsCloudSyncing(true);
@@ -542,18 +609,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
     const pubMatch = publishers.find(p => p.id.toLowerCase() === paymentUid.trim().toLowerCase());
     if (pubMatch) {
-      let bank = bankDetailsMap[pubMatch.id] || null;
-      if (!bank) {
-        try {
-          const docRef = doc(db, 'bank_details', pubMatch.id);
-          const docSnap = await getDoc(docRef);
-          if (docSnap.exists()) {
-            bank = docSnap.data() as any;
-          }
-        } catch (error: any) {
-          console.warn("Notice fetching bank on-demand:", error?.message || error);
-        }
-      }
+      const bank = await fetchPublisherBank(pubMatch.id);
       setScannedBankDetails({
         id: pubMatch.id,
         name: pubMatch.name,
@@ -717,14 +773,27 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
             Admin: <span className="text-indigo-600">khanazlan997@gmail.com</span>
           </div>
 
-          <button
-            id="admin-logout-nav"
-            onClick={() => { logout(); setIsAdminLoggedIn(false); onNavigate('/Home'); }}
-            className="px-3.5 py-1.5 text-xs font-bold text-rose-500 border border-rose-250 hover:bg-rose-50 rounded-lg flex items-center gap-1.5"
-          >
-            <LogOut className="w-4 h-4" />
-            Sign Out
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              id="admin-firestore-diagnostic-btn"
+              onClick={() => handleRunDiagnostic()}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-black text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-all cursor-pointer shadow-xs active:scale-95"
+              title="Test Firestore data retrieval for bank details and leads directly"
+            >
+              <Activity className="w-3.5 h-3.5 text-indigo-600 animate-pulse" />
+              <span className="hidden sm:inline">Firestore Diagnostic</span>
+              <span className="sm:hidden">Diagnostic</span>
+            </button>
+
+            <button
+              id="admin-logout-nav"
+              onClick={() => { logout(); setIsAdminLoggedIn(false); onNavigate('/Home'); }}
+              className="px-3.5 py-1.5 text-xs font-bold text-rose-500 border border-rose-250 hover:bg-rose-50 rounded-lg flex items-center gap-1.5"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
+          </div>
 
         </div>
       </nav>
@@ -854,51 +923,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <div>
                   <h3 className="text-xl font-black text-slate-800">Console Admin Overview</h3>
                   <p className="text-xs text-slate-400 mt-1">Real-time supervision of active client devices, registries, and campaign leads.</p>
-                </div>
-                {/* Cloud Sync Action and Live Status */}
-                <div className="flex flex-wrap items-center gap-2">
-                  {cloudSyncMsg && (
-                    <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg animate-fade-in border border-indigo-200 shadow-xs">
-                      {cloudSyncMsg}
-                    </span>
-                  )}
-                  <button
-                    onClick={handleManualCloudPush}
-                    disabled={isPushingCloud || isCloudSyncing}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
-                    title="Push current local changes to Firestore Cloud on demand"
-                  >
-                    <UploadCloud className={`w-3.5 h-3.5 ${isPushingCloud ? 'animate-bounce' : ''}`} />
-                    <span>{isPushingCloud ? 'Pushing...' : 'Push to Cloud'}</span>
-                  </button>
-                  <button
-                    onClick={handleManualCloudSync}
-                    disabled={isCloudSyncing || isPushingCloud}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs active:scale-95"
-                    title="Pull all latest clients and submissions from cloud"
-                  >
-                    <RefreshCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
-                    <span>{isCloudSyncing ? 'Pulling...' : 'Pull from Cloud'}</span>
-                  </button>
-                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-xl max-w-max self-start sm:self-auto" title="Automatic Firestore writes are disabled to conserve quota">
-                    <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider font-mono">
-                      Auto-Sync OFF (Quota Guard)
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Informational Alert about Fresh Start & Quota Guard */}
-              <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-2xl flex items-start gap-3 text-sky-900 text-xs">
-                <div className="p-1.5 bg-sky-100 rounded-xl text-sky-700 shrink-0 mt-0.5">
-                  <Database className="w-4 h-4" />
-                </div>
-                <div className="flex-1">
-                  <span className="font-extrabold text-sky-950 block mb-0.5">Fresh Account System & Quota Protection Active</span>
-                  <p className="text-sky-800 leading-relaxed">
-                    All historical client records have been cleared. All clients will register fresh accounts. Background auto-sync is paused to protect Firestore quota — data will only sync when you manually click <strong>&quot;Push to Cloud&quot;</strong>.
-                  </p>
                 </div>
               </div>
 
@@ -1059,9 +1083,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       <CheckSquare className="w-5 h-5 text-orange-500" />
                       <h4 className="text-sm font-black text-slate-800">Recent Lead Actions Feed</h4>
                     </div>
-                    <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest font-mono">
-                      Last 48 hrs: {recentLeads.length}
-                    </span>
                   </div>
 
                   <p className="text-xs text-slate-400">
@@ -1110,77 +1131,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   >
                     Open MIS Lead Verification Dashboard →
                   </button>
-                </div>
-
-                {/* Advertiser Inquiries card */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 lg:col-span-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
-                        <Megaphone className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
-                          Advertiser Inquiries ({advertiserInquiries.length})
-                        </h4>
-                        <p className="text-[10px] text-slate-400">
-                          Directly dispatched to Admin WhatsApp (+91 8934932418)
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1.5 self-start sm:self-auto">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Admin WhatsApp: +91 8934932418
-                    </span>
-                  </div>
-
-                  <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-1">
-                    {advertiserInquiries.length === 0 ? (
-                      <div className="text-center py-8 text-slate-400 text-xs">
-                        No advertiser inquiries received yet. Any submissions from the "Become an Advertiser" form will appear here and are immediately routed to WhatsApp +91 8934932418.
-                      </div>
-                    ) : (
-                      advertiserInquiries.map(inq => (
-                        <div key={inq.id} className="p-3.5 bg-slate-50 rounded-xl hover:bg-amber-50/40 border border-slate-100 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="space-y-0.5">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-black text-slate-800">{inq.name}</span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md">
-                                {inq.company}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-600">
-                              <span>📞 <span className="font-semibold">{inq.phone}</span></span>
-                              <span>📧 <span className="font-semibold">{inq.email}</span></span>
-                              <span>🎯 Campaign: <span className="font-bold text-slate-800">{inq.campaign}</span></span>
-                            </div>
-                            <p className="text-[9px] text-slate-400 font-mono">
-                              ID: {inq.id} • {inq.submittedAt ? new Date(inq.submittedAt).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : 'Recent'}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                            <a
-                              href={`https://wa.me/${inq.phone.replace(/[^0-9]/g, '').length === 10 ? '91' + inq.phone.replace(/[^0-9]/g, '') : inq.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(`Hello ${inq.name}, we received your advertiser inquiry for "${inq.campaign}" on Public Ads India.`)}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-bold rounded-lg flex items-center gap-1.5 shadow-sm transition-transform hover:scale-105"
-                            >
-                              <MessageCircle className="w-3 h-3 fill-current" />
-                              Chat Advertiser
-                            </a>
-                            <button
-                              onClick={() => deleteAdvertiserInquiry(inq.id)}
-                              className="text-slate-400 hover:text-rose-500 transition-colors p-1.5 rounded-lg hover:bg-rose-50"
-                              title="Delete inquiry"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
                 </div>
 
               </div>
@@ -1554,6 +1504,15 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     className="text-xs p-2 border border-slate-200 rounded-xl outline-none"
                   />
                   <button
+                    id="mis-firestore-diagnostic-trigger"
+                    onClick={() => handleRunDiagnostic()}
+                    className="p-2.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-xl hover:shadow-sm border border-indigo-200 shrink-0 flex items-center gap-1.5 font-bold text-xs cursor-pointer"
+                    title="Verify leads retrieval directly from Firestore"
+                  >
+                    <Activity className="w-4 h-4 text-indigo-600" />
+                    <span className="hidden sm:inline">Diagnostic</span>
+                  </button>
+                  <button
                     id="export-mis-anchor-trigger"
                     onClick={triggerExportMIS}
                     className="p-2.5 bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-650 rounded-xl hover:shadow-sm border border-slate-200 shrink-0"
@@ -1564,14 +1523,6 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 </div>
               </div>
 
-              {/* Data Table */}
-              <div className="flex items-center justify-between rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3">
-                <div>
-                  <p className="text-xs font-black text-indigo-900">Client submissions in last 48 hours</p>
-                  <p className="text-[10px] text-indigo-700">Showing {recentLeads.length} recent lead{recentLeads.length === 1 ? '' : 's'} from the canonical server data.</p>
-                </div>
-                <span className="rounded-lg bg-white px-3 py-1 text-sm font-black text-indigo-700 shadow-sm">{recentLeads.length}</span>
-              </div>
               {submissions.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-xs font-semibold">
                   No publisher data submissions located in core databases yet.
@@ -1593,7 +1544,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                         {(() => {
-                          const filtered = recentLeads
+                          const filtered = submissions
                             .filter(sub => {
                               const f = misFilter.toLowerCase();
                               return (
@@ -1625,18 +1576,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                     type="button"
                                     id={`view-bank-sub-${sub.id}`}
                                     onClick={async () => {
-                                      let bank = bankDetailsMap[sub.publisherId] || null;
-                                      if (!bank) {
-                                        try {
-                                          const docRef = doc(db, 'bank_details', sub.publisherId);
-                                          const docSnap = await getDoc(docRef);
-                                          if (docSnap.exists()) {
-                                            bank = docSnap.data() as any;
-                                          }
-                                        } catch (error: any) {
-                                          console.warn("Notice fetching bank on-demand:", error?.message || error);
-                                        }
-                                      }
+                                      const bank = await fetchPublisherBank(sub.publisherId);
                                       setViewingBankDetails({
                                         id: sub.publisherId,
                                         name: sub.publisherName,
@@ -1929,6 +1869,15 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       <RefreshCcw className={`w-3.5 h-3.5 ${isCloudSyncing ? 'animate-spin' : ''}`} />
                       <span>{isCloudSyncing ? 'Syncing...' : 'Sync Cloud Data'}</span>
                     </button>
+                    <button
+                      onClick={() => handleRunDiagnostic()}
+                      disabled={isRunningDiagnostic}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-xs font-black transition-all cursor-pointer"
+                      title="Inspect bank details and leads directly from Firestore"
+                    >
+                      <Activity className={`w-3.5 h-3.5 text-indigo-600 ${isRunningDiagnostic ? 'animate-pulse' : ''}`} />
+                      <span>Diagnostic</span>
+                    </button>
                   </div>
                 </div>
 
@@ -2055,31 +2004,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 <button
                                   id={`view-bank-pub-${pub.id}`}
                                   onClick={async () => {
-                                    let bank = bankDetailsMap[pub.id] || 
-                                      Object.entries(bankDetailsMap).find(([k]) => k.toLowerCase() === pub.id.toLowerCase())?.[1] || 
-                                      null;
-                                    if (!bank) {
-                                      try {
-                                        const res = await fetch(`/api/bank/${pub.id}`);
-                                        if (res.ok) {
-                                          const json = await res.json();
-                                          if (json.bankDetails) {
-                                            bank = json.bankDetails;
-                                          }
-                                        }
-                                      } catch (e) {}
-                                    }
-                                    if (!bank) {
-                                      try {
-                                        const docRef = doc(db, 'bank_details', pub.id);
-                                        const docSnap = await getDoc(docRef);
-                                        if (docSnap.exists()) {
-                                          bank = docSnap.data() as any;
-                                        }
-                                      } catch (error: any) {
-                                        console.warn("Notice fetching bank on-demand:", error?.message || error);
-                                      }
-                                    }
+                                    const bank = await fetchPublisherBank(pub.id);
                                     setViewingBankDetails({
                                       id: pub.id,
                                       name: pub.name,
@@ -3431,7 +3356,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 <h4 className="text-base font-extrabold mt-0.5 text-slate-900">{viewingBankDetails.name}</h4>
               </div>
 
-              {viewingBankDetails.bank && (viewingBankDetails.bank.accountNumber || viewingBankDetails.bank.upi) ? (
+              {viewingBankDetails.bank && (viewingBankDetails.bank.accountNumber || viewingBankDetails.bank.upi || viewingBankDetails.bank.holderName || viewingBankDetails.bank.phone || viewingBankDetails.bank.qrCode) ? (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -3741,6 +3666,291 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
               <p className="text-[10px] text-slate-400 font-medium">
                 Changes persist to the server in real-time. Closing this modal updates the registry calculations instantly.
               </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Firestore Diagnostic Modal */}
+      {showDiagnosticModal && (
+        <div 
+          id="firestore-diagnostic-modal" 
+          className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setShowDiagnosticModal(false)}
+        >
+          <div 
+            className="relative bg-white rounded-3xl overflow-hidden max-w-4xl w-full border border-slate-200 shadow-2xl animate-scale-up max-h-[90vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-slate-150 bg-slate-50">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span>Firestore Live Diagnostic Inspector</span>
+                    {diagnosticResult && (
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider ${
+                        diagnosticResult.overallStatus === 'VERIFIED' ? 'bg-emerald-100 text-emerald-800' :
+                        diagnosticResult.overallStatus === 'PARTIAL' ? 'bg-amber-100 text-amber-800' :
+                        'bg-rose-100 text-rose-800'
+                      }`}>
+                        {diagnosticResult.overallStatus}
+                      </span>
+                    )}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    Direct collection verification for <span className="font-mono font-bold text-slate-700">bank_details</span> & <span className="font-mono font-bold text-slate-700">submissions</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleRunDiagnostic()}
+                  disabled={isRunningDiagnostic}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <RefreshCcw className={`w-3.5 h-3.5 ${isRunningDiagnostic ? 'animate-spin' : ''}`} />
+                  <span>{isRunningDiagnostic ? 'Running...' : 'Re-Run'}</span>
+                </button>
+                <button 
+                  onClick={() => setShowDiagnosticModal(false)}
+                  className="p-1.5 px-3 bg-slate-200 hover:bg-slate-300 rounded-xl font-black text-slate-700 cursor-pointer text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 text-xs text-slate-700 flex-1">
+              {isRunningDiagnostic && !diagnosticResult ? (
+                <div className="text-center py-16 space-y-3">
+                  <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                  <p className="font-bold text-slate-600 text-sm">Querying Firestore collections directly...</p>
+                  <p className="text-slate-400 text-xs">Testing bank_details and submissions collections retrieval</p>
+                </div>
+              ) : diagnosticResult ? (
+                <>
+                  {/* Status Banner */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Database ID</span>
+                      <span className="text-xs font-mono font-bold text-slate-800 break-all">{diagnosticResult.databaseId}</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Query Latency</span>
+                      <span className="text-xs font-bold text-emerald-600 font-mono">{diagnosticResult.performance.totalDurationMs} ms</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Bank Records</span>
+                      <span className="text-sm font-black text-indigo-700">{diagnosticResult.bankDetails.totalCount} docs</span>
+                    </div>
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Leads Submissions</span>
+                      <span className="text-sm font-black text-indigo-700">{diagnosticResult.leads.totalCount} docs</span>
+                    </div>
+                  </div>
+
+                  {/* Single Publisher ID Live Probe */}
+                  <div className="bg-indigo-50/70 border border-indigo-200/80 rounded-2xl p-4 space-y-3">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+                          <span>🎯 Target User / Publisher Probe</span>
+                        </h4>
+                        <p className="text-[11px] text-indigo-700">Test if a specific client's bank details and leads exist in Firestore</p>
+                      </div>
+                      <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <input
+                          type="text"
+                          placeholder="Enter Publisher ID (e.g. PUB1001)"
+                          value={diagnosticTargetPub}
+                          onChange={(e) => setDiagnosticTargetPub(e.target.value)}
+                          className="px-3 py-1.5 text-xs font-mono border border-indigo-200 bg-white rounded-xl outline-none focus:border-indigo-500 w-full sm:w-48"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRunDiagnostic(diagnosticTargetPub)}
+                          className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer shrink-0"
+                        >
+                          Verify ID
+                        </button>
+                      </div>
+                    </div>
+
+                    {diagnosticResult.authenticatedUser && (
+                      <div className="text-[11px] text-slate-600 bg-white/80 p-2.5 rounded-xl border border-indigo-100 flex flex-wrap gap-4 items-center">
+                        <span>Current Session: <strong className="text-slate-800">{diagnosticResult.authenticatedUser.name}</strong> ({diagnosticResult.authenticatedUser.type})</span>
+                        <span>ID: <strong className="font-mono text-slate-800">{diagnosticResult.authenticatedUser.id}</strong></span>
+                        {diagnosticResult.bankDetails.targetUserRecord ? (
+                          <span className="text-emerald-700 font-bold">✅ Bank Coordinates Stored ({diagnosticResult.bankDetails.targetUserRecord.holderName})</span>
+                        ) : (
+                          <span className="text-amber-600 font-bold">⚠️ No Bank Details for this ID in Firestore</span>
+                        )}
+                        <span className="text-indigo-700 font-bold">📋 {diagnosticResult.leads.targetUserLeadsCount} Lead(s) Submitted</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Details Grid: Bank Details vs Leads Submissions */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    
+                    {/* Bank Details Collection Card */}
+                    <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-3">
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                        <h4 className="font-black text-slate-850 flex items-center gap-1.5">
+                          <span>🏦 Collection: bank_details</span>
+                        </h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                          {diagnosticResult.bankDetails.totalCount} Documents ({diagnosticResult.performance.bankFetchDurationMs}ms)
+                        </span>
+                      </div>
+
+                      {diagnosticResult.bankDetails.allPublisherIds.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Verified Publisher IDs in Firestore:
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-50 rounded-xl border border-slate-150">
+                            {diagnosticResult.bankDetails.allPublisherIds.map((pid) => (
+                              <button
+                                key={pid}
+                                onClick={() => {
+                                  setDiagnosticTargetPub(pid);
+                                  handleRunDiagnostic(pid);
+                                }}
+                                className="px-2 py-0.5 text-[10px] font-mono font-bold bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 rounded-md transition-colors cursor-pointer"
+                                title="Click to test this publisher"
+                              >
+                                {pid}
+                              </button>
+                            ))}
+                          </div>
+
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-2">
+                            Sample Bank Coordinates (Sanitized):
+                          </div>
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {diagnosticResult.bankDetails.samples.map((s, idx) => (
+                              <div key={idx} className="p-2 bg-slate-50 border border-slate-150 rounded-xl text-[11px] flex justify-between items-center">
+                                <div>
+                                  <strong className="font-mono text-indigo-600">{s.publisherId}</strong>: {s.holderName}
+                                  <div className="text-[10px] text-slate-500 font-mono">
+                                    A/C: {s.maskedAccount} | UPI: {s.maskedUpi}
+                                  </div>
+                                </div>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${s.hasQrCode ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                                  {s.hasQrCode ? 'QR Available' : 'No QR'}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-slate-400 text-xs">
+                          No documents found in 'bank_details' collection.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Leads / Submissions Collection Card */}
+                    <div className="border border-slate-200 rounded-2xl p-4 bg-white space-y-3">
+                      <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+                        <h4 className="font-black text-slate-850 flex items-center gap-1.5">
+                          <span>📋 Collection: submissions</span>
+                        </h4>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600">
+                          {diagnosticResult.leads.totalCount} Leads ({diagnosticResult.performance.leadsFetchDurationMs}ms)
+                        </span>
+                      </div>
+
+                      {diagnosticResult.leads.totalCount > 0 ? (
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            Status Breakdown in Firestore:
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {Object.entries(diagnosticResult.leads.statusBreakdown).map(([st, cnt]) => (
+                              <span key={st} className="px-2 py-1 text-[11px] font-bold bg-slate-100 text-slate-700 rounded-xl border border-slate-200">
+                                {st}: <strong className="text-indigo-600">{cnt}</strong>
+                              </span>
+                            ))}
+                          </div>
+
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pt-2">
+                            Sample Leads Retrieved Directly:
+                          </div>
+                          <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                            {diagnosticResult.leads.globalSamples.map((l, idx) => (
+                              <div key={idx} className="p-2 bg-slate-50 border border-slate-150 rounded-xl text-[11px] flex justify-between items-center">
+                                <div>
+                                  <span className="font-bold text-slate-800">{l.clientName}</span> ({l.campaignName})
+                                  <div className="text-[10px] text-slate-500 font-mono">
+                                    By: {l.publisherId} • ₹{l.payout} • {l.submitDate}
+                                  </div>
+                                </div>
+                                <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                                  {l.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-6 text-slate-400 text-xs">
+                          No documents found in 'submissions' collection.
+                        </div>
+                      )}
+                    </div>
+
+                  </div>
+
+                  {/* Summary Footer Text */}
+                  <div className="p-3 bg-slate-100 rounded-xl text-[11px] text-slate-600 font-mono">
+                    {diagnosticResult.summary}
+                  </div>
+                </>
+              ) : null}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 border-t border-slate-150 bg-slate-50 flex justify-between items-center">
+              <span className="text-[11px] text-slate-500 font-medium">
+                Tip: Type <code className="text-indigo-600 font-bold">runFirestoreDiagnostic()</code> in DevTools console to test anytime.
+              </span>
+              <div className="flex gap-2">
+                {diagnosticResult && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const text = JSON.stringify(diagnosticResult, null, 2);
+                      const ta = document.createElement("textarea");
+                      ta.value = text;
+                      document.body.appendChild(ta);
+                      ta.select();
+                      document.execCommand('copy');
+                      document.body.removeChild(ta);
+                      setDiagnosticCopied(true);
+                      setTimeout(() => setDiagnosticCopied(false), 2000);
+                    }}
+                    className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                  >
+                    {diagnosticCopied ? 'Copied JSON! ✅' : 'Copy JSON'}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowDiagnosticModal(false)}
+                  className="px-4 py-1.5 bg-slate-800 hover:bg-slate-900 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

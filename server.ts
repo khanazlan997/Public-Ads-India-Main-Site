@@ -1145,20 +1145,31 @@ async function startServer() {
       if (!publisherId || !details) {
         return res.status(400).json({ error: "Missing publisherId or details" });
       }
-      const bankDetails = { ...details, publisherId };
+      const upperId = String(publisherId).trim().toUpperCase();
+      const cleanPubId = String(publisherId).trim();
+      const bankDetails = { ...details, publisherId: upperId };
       store.bankDetailsMap = {
         ...(store.bankDetailsMap || {}),
-        [publisherId]: bankDetails
+        [cleanPubId]: bankDetails,
+        [upperId]: bankDetails,
+        [cleanPubId.toLowerCase()]: bankDetails
       };
       scheduleSaveStore();
 
       const firestore = getServerFirestore();
       if (firestore) {
         await setDoc(
-          doc(firestore, "bank_details", String(publisherId)),
+          doc(firestore, "bank_details", upperId),
           sanitizeFirestoreData(bankDetails),
           { merge: true }
         );
+        if (cleanPubId !== upperId) {
+          await setDoc(
+            doc(firestore, "bank_details", cleanPubId),
+            sanitizeFirestoreData(bankDetails),
+            { merge: true }
+          );
+        }
       }
 
       broadcastRealtime({

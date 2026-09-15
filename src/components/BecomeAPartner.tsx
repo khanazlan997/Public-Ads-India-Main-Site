@@ -273,7 +273,7 @@ export default function BecomeAPartner({ onNavigate }: { onNavigate: (route: str
                 <input
                   type="tel"
                   required
-                  placeholder="10-digit mobile number"
+                  placeholder="10 to 15-digit mobile number"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-[#081020] border border-slate-200 dark:border-slate-800 text-xs font-medium text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500"

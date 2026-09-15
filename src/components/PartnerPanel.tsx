@@ -219,7 +219,7 @@ export default function PartnerPanel({ onNavigate }: PartnerPanelProps) {
                             type="tel"
                             name="phone"
                             required
-                            placeholder="10 digit mobile number"
+                            placeholder="10 to 15 digit mobile number"
                             value={formData.phone}
                             onChange={handleInputChange}
                             className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-brand-accent text-slate-900 dark:text-white font-medium"

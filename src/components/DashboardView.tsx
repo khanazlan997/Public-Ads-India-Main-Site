@@ -368,7 +368,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
         Object.entries(bankDetailsMap).find(([k]) => k.toUpperCase() === normCurId)?.[1];
       if (bank) {
         setBankHolderName(bank.holderName || bestName);
-        setBankPhone(bank.phone ? bank.phone.replace(/\D/g, '').slice(-10) : (p?.phone ? p.phone.replace(/\D/g, '').slice(-10) : ''));
+        setBankPhone(bank.phone ? bank.phone.replace(/\D/g, '').slice(-15) : (p?.phone ? p.phone.replace(/\D/g, '').slice(-15) : ''));
         setBankEmail(bank.email || p?.email || '');
         setBankAccount(bank.accountNumber || '');
         setBankIfsc(bank.ifsc || '');
@@ -377,7 +377,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       } else {
         setBankHolderName(bestName);
         if (p) {
-          setBankPhone(p.phone ? p.phone.replace(/\D/g, '').slice(-10) : '');
+          setBankPhone(p.phone ? p.phone.replace(/\D/g, '').slice(-15) : '');
           setBankEmail(p.email);
         }
       }
@@ -603,9 +603,9 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       missing.push('Account Holder Name (at least 2 characters)');
     }
 
-    const cleanPhoneDigits = (bankPhone || '').replace(/\D/g, '').slice(-10);
+    const cleanPhoneDigits = (bankPhone || '').replace(/\D/g, '').slice(-15);
     if (!cleanPhoneDigits || cleanPhoneDigits.length < 10) {
-      missing.push('Valid Contact Phone Number (10 digits)');
+      missing.push('Valid Contact Phone Number (10 to 15 digits)');
     }
 
     const cleanAcc = (bankAccount || '').replace(/\s/g, '').trim();
@@ -657,7 +657,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const handleConfirmBankSave = async () => {
     setIsSavingBank(true);
     try {
-      const cleanPhoneDigits = (bankPhone || '').replace(/\D/g, '').slice(-10);
+      const cleanPhoneDigits = (bankPhone || '').replace(/\D/g, '').slice(-15);
       const details: BankDetails = {
         publisherId: currentUser!.id,
         holderName: bankHolderName.trim(),
@@ -2126,8 +2126,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   <input
                     type="tel"
                     required
-                    maxLength={10}
-                    placeholder="Enter client matched phone"
+                    maxLength={15}
+                    placeholder="Enter client matched phone (up to 15 digits)"
                     value={leadClientPhone}
                     onChange={(e) => setLeadClientPhone(e.target.value)}
                     className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-855 rounded-xl outline-none text-slate-800 dark:text-white font-medium"
@@ -2544,8 +2544,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                   <input
                     type="tel"
                     required
-                    maxLength={10}
-                    placeholder="10-digit mobile number"
+                    maxLength={15}
+                    placeholder="10 to 15-digit mobile number"
                     value={bankPhone}
                     onChange={(e) => setBankPhone(e.target.value.replace(/\D/g, ''))}
                     className="w-full text-xs p-3 bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800 rounded-xl outline-none focus:border-emerald-500 text-slate-850 dark:text-white font-mono"

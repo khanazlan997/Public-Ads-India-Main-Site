@@ -230,7 +230,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
       return;
     }
     if (!newPubPhone.trim()) {
-      setNewPubError('Please provide 10-digit mobile number');
+      setNewPubError('Please provide mobile number (10 to 15 digits)');
       return;
     }
     if (!newPubPassword.trim() || newPubPassword.length < 4) {
@@ -2292,12 +2292,12 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
                       <div>
                         <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
-                          Mobile Number (10 digits) *
+                          Mobile Number (10 to 15 digits) *
                         </label>
                         <input
                           type="tel"
                           required
-                          maxLength={10}
+                          maxLength={15}
                           placeholder="e.g. 9876543210"
                           value={newPubPhone}
                           onChange={(e) => setNewPubPhone(e.target.value.replace(/\D/g, ''))}

@@ -2997,15 +2997,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const camp = campaigns.find(c => c.id === campaignId);
     if (!camp) return { success: false, message: 'Invalid Campaign selected' };
 
-    // Prevent duplicate submission for the same client phone under this campaign
-    const duplicate = submissions.some(s => 
-      s.campaignId === campaignId && 
-      s.clientPhone && 
-      clientPhone && 
-      s.clientPhone.trim() === clientPhone.trim()
-    );
+    // Prevent duplicate submission for the same client phone under this campaign for THIS publisher
+    const cleanInputPhone = (clientPhone || '').replace(/\D/g, '').slice(-15);
+    const currentPubId = (currentUser.id || '').trim().toUpperCase();
+
+    const duplicate = cleanInputPhone.length >= 10 && submissions.some(s => {
+      if (!s || !s.campaignId || s.status === 'Rejected') return false;
+      // Skip dummy preset snapshot submissions from duplicate check
+      if (s.id && (s.id.startsWith('sub-17893') || s.id.startsWith('sub-17894'))) return false;
+
+      const subPubId = (s.publisherId || '').trim().toUpperCase();
+      const cleanSubPhone = (s.clientPhone || '').replace(/\D/g, '').slice(-15);
+
+      return (
+        subPubId === currentPubId &&
+        s.campaignId === campaignId &&
+        cleanSubPhone.length >= 10 &&
+        cleanSubPhone === cleanInputPhone
+      );
+    });
+
     if (duplicate) {
-      return { success: false, message: 'This client phone number has already been submitted for this campaign!' };
+      return { success: false, message: 'You have already submitted a lead with this phone number for this campaign!' };
     }
 
     const subId = `sub-${Date.now()}`;

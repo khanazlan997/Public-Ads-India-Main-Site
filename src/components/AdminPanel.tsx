@@ -7,7 +7,7 @@ import {
   HelpCircle, Eye, Search, Landmark, LogOut, CheckCircle2, Upload, Coins, 
   FileText, Activity, Database, CheckSquare, MessageSquare, AlertTriangle, Download,
   Clock, Filter, ShieldCheck, RefreshCcw, Star, Megaphone, Mail,
-  MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3, X
+  MessageCircle, Phone, UploadCloud, DownloadCloud, Pause, Play, Edit3, X, UserPlus
 } from 'lucide-react';
 import { SubmissionStatus, Employee, Campaign } from '../types';
 
@@ -72,7 +72,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     testimonials,
     addTestimonial,
     editTestimonial,
-    deleteTestimonial
+    deleteTestimonial,
+    signupPublisher
   } = useAppState();
 
   // Admin login states
@@ -211,6 +212,56 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [isCloudSyncing, setIsCloudSyncing] = useState(false);
   const [isPushingCloud, setIsPushingCloud] = useState(false);
   const [cloudSyncMsg, setCloudSyncMsg] = useState('');
+
+  // Admin New Client Registration Modal States
+  const [isAddPublisherModalOpen, setIsAddPublisherModalOpen] = useState(false);
+  const [newPubName, setNewPubName] = useState('');
+  const [newPubPhone, setNewPubPhone] = useState('');
+  const [newPubEmail, setNewPubEmail] = useState('');
+  const [newPubPassword, setNewPubPassword] = useState('');
+  const [newPubLoading, setNewPubLoading] = useState(false);
+  const [newPubError, setNewPubError] = useState('');
+  const [newPubSuccess, setNewPubSuccess] = useState('');
+
+  const handleCreatePublisherByAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPubName.trim()) {
+      setNewPubError('Please provide client name');
+      return;
+    }
+    if (!newPubPhone.trim()) {
+      setNewPubError('Please provide 10-digit mobile number');
+      return;
+    }
+    if (!newPubPassword.trim() || newPubPassword.length < 4) {
+      setNewPubError('Please provide password (minimum 4 characters)');
+      return;
+    }
+    setNewPubLoading(true);
+    setNewPubError('');
+    setNewPubSuccess('');
+    try {
+      const generatedEmail = newPubEmail.trim() || `pub_${newPubPhone.trim().replace(/\D/g, '')}@publicadsindia.com`;
+      const res = await signupPublisher(newPubName.trim(), generatedEmail, newPubPhone.trim(), newPubPassword.trim());
+      if (res.success && res.publisher) {
+        setNewPubSuccess(`Account registered successfully! Publisher ID: ${res.publisher.id}`);
+        setNewPubName('');
+        setNewPubPhone('');
+        setNewPubEmail('');
+        setNewPubPassword('');
+        setTimeout(() => {
+          setIsAddPublisherModalOpen(false);
+          setNewPubSuccess('');
+        }, 2000);
+      } else {
+        setNewPubError(res.message || 'Registration failed');
+      }
+    } catch (err: any) {
+      setNewPubError(err?.message || 'Failed to create publisher account');
+    } finally {
+      setNewPubLoading(false);
+    }
+  };
 
   const fetchPublisherBank = async (pubId: string): Promise<any> => {
     if (!pubId) return null;
@@ -1023,10 +1074,15 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         No publishers registered yet.
                       </div>
                     ) : (
-                      (showAllOverviewClients 
-                        ? [...publishers].sort((a,b) => b.id.localeCompare(a.id))
-                        : [...publishers].sort((a,b) => b.id.localeCompare(a.id)).slice(0, 10)
-                      ).map(pub => (
+                      (() => {
+                        const sorted = [...publishers].sort((a, b) => {
+                          const dateA = a.joinedDate || '2000-01-01';
+                          const dateB = b.joinedDate || '2000-01-01';
+                          if (dateA !== dateB) return dateB.localeCompare(dateA);
+                          return String(b.id || '').localeCompare(String(a.id || ''));
+                        });
+                        const displayList = showAllOverviewClients ? sorted : sorted.slice(0, 10);
+                        return displayList.map(pub => (
                           <div key={pub.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-indigo-50/40 border border-slate-100 transition-colors">
                             <div className="flex items-center gap-3 min-w-0">
                               <span className="shrink-0 select-none flex items-center justify-center">
@@ -1051,7 +1107,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                               <span className="text-[9px] text-slate-400 mt-0.5 block">{pub.joinedDate}</span>
                             </div>
                           </div>
-                        ))
+                        ));
+                      })()
                     )}
                   </div>
 
@@ -1524,15 +1581,24 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         {(() => {
                           const filtered = submissions
                             .filter(sub => {
-                              const f = misFilter.toLowerCase();
+                              if (!sub) return false;
+                              const f = (misFilter || '').trim().toLowerCase();
+                              if (!f) return true;
+                              const cName = String(sub.clientName || '').toLowerCase();
+                              const pName = String(sub.publisherName || '').toLowerCase();
+                              const pId = String(sub.publisherId || '').toLowerCase();
+                              const camp = String(sub.campaignName || '').toLowerCase();
+                              const sid = String(sub.id || '').toLowerCase();
+                              const cPhone = String(sub.clientPhone || '').toLowerCase();
+                              const cCode = String(sub.clientCode || '').toLowerCase();
                               return (
-                                sub.clientName.toLowerCase().includes(f) ||
-                                sub.publisherName.toLowerCase().includes(f) ||
-                                sub.publisherId.toLowerCase().includes(f) ||
-                                sub.campaignName.toLowerCase().includes(f) ||
-                                sub.id.toLowerCase().includes(f) ||
-                                (sub.clientPhone && sub.clientPhone.includes(f)) ||
-                                (sub.clientCode && sub.clientCode.toLowerCase().includes(f))
+                                cName.includes(f) ||
+                                pName.includes(f) ||
+                                pId.includes(f) ||
+                                camp.includes(f) ||
+                                sid.includes(f) ||
+                                cPhone.includes(f) ||
+                                cCode.includes(f)
                               );
                             })
                             .sort((a, b) => {
@@ -1831,6 +1897,19 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <button
+                      id="admin-add-publisher-btn"
+                      onClick={() => {
+                        setNewPubError('');
+                        setNewPubSuccess('');
+                        setIsAddPublisherModalOpen(true);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-xs"
+                      title="Directly register a new publisher / client account"
+                    >
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>+ Register Client</span>
+                    </button>
+                    <button
                       onClick={handleManualCloudPush}
                       disabled={isPushingCloud || isCloudSyncing}
                       className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer disabled:opacity-50 shadow-xs"
@@ -1877,17 +1956,21 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                     <tbody className="divide-y divide-slate-100">
                       {(() => {
                         const filtered = publishers
-                          .filter(p => 
-                            !pubSearchQuery || 
-                            p.name.toLowerCase().includes(pubSearchQuery.toLowerCase()) || 
-                            p.id.toLowerCase().includes(pubSearchQuery.toLowerCase()) ||
-                            (p.phone && p.phone.includes(pubSearchQuery)) ||
-                            (p.email && p.email.toLowerCase().includes(pubSearchQuery.toLowerCase()))
-                          )
+                          .filter(p => {
+                            if (!p) return false;
+                            const q = (pubSearchQuery || '').trim().toLowerCase();
+                            if (!q) return true;
+                            const name = String(p.name || '').toLowerCase();
+                            const id = String(p.id || '').toLowerCase();
+                            const phone = String(p.phone || '').toLowerCase();
+                            const email = String(p.email || '').toLowerCase();
+                            return name.includes(q) || id.includes(q) || phone.includes(q) || email.includes(q);
+                          })
                           .sort((a, b) => {
-                            const keyA = (a.joinedDate || '') + '_' + (a.id || '');
-                            const keyB = (b.joinedDate || '') + '_' + (b.id || '');
-                            return keyB.localeCompare(keyA);
+                            const dateA = a.joinedDate || '2000-01-01';
+                            const dateB = b.joinedDate || '2000-01-01';
+                            if (dateA !== dateB) return dateB.localeCompare(dateA);
+                            return String(b.id || '').localeCompare(String(a.id || ''));
                           });
 
                         if (filtered.length === 0) {
@@ -2163,6 +2246,112 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   </button>
                 </form>
               </div>
+
+              {/* Modal: Direct Client / Publisher Registration */}
+              {isAddPublisherModalOpen && (
+                <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                  <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 animate-scale-up space-y-6">
+                    <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                      <div>
+                        <h4 className="text-base font-black text-slate-900">Register New Client Account</h4>
+                        <p className="text-xs text-slate-500 mt-0.5">Creates instant account in Firestore & server memory.</p>
+                      </div>
+                      <button
+                        onClick={() => setIsAddPublisherModalOpen(false)}
+                        className="p-1.5 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition-colors"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    </div>
+
+                    {newPubError && (
+                      <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold rounded-xl">
+                        {newPubError}
+                      </div>
+                    )}
+                    {newPubSuccess && (
+                      <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl">
+                        {newPubSuccess}
+                      </div>
+                    )}
+
+                    <form onSubmit={handleCreatePublisherByAdmin} className="space-y-4">
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
+                          Client Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Rahul Sharma"
+                          value={newPubName}
+                          onChange={(e) => setNewPubName(e.target.value)}
+                          className="w-full text-xs p-3 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
+                          Mobile Number (10 digits) *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          maxLength={10}
+                          placeholder="e.g. 9876543210"
+                          value={newPubPhone}
+                          onChange={(e) => setNewPubPhone(e.target.value.replace(/\D/g, ''))}
+                          className="w-full text-xs p-3 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-mono font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
+                          Email Address (Optional)
+                        </label>
+                        <input
+                          type="email"
+                          placeholder="Leave blank to auto-generate"
+                          value={newPubEmail}
+                          onChange={(e) => setNewPubEmail(e.target.value)}
+                          className="w-full text-xs p-3 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-extrabold text-slate-600 uppercase tracking-wider mb-1">
+                          Account Password *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 123456"
+                          value={newPubPassword}
+                          onChange={(e) => setNewPubPassword(e.target.value)}
+                          className="w-full text-xs p-3 border border-slate-200 rounded-xl outline-none focus:border-indigo-500 font-mono font-bold"
+                        />
+                      </div>
+
+                      <div className="flex gap-2 pt-2">
+                        <button
+                          type="button"
+                          onClick={() => setIsAddPublisherModalOpen(false)}
+                          className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer transition-colors"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={newPubLoading}
+                          className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl cursor-pointer transition-colors disabled:opacity-50"
+                        >
+                          {newPubLoading ? 'Creating Account...' : 'Create Account'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
 
             </div>
           )}

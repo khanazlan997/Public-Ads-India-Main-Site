@@ -74,6 +74,7 @@ export interface PartnerApplication {
 }
 
 export interface BankDetails {
+  id?: string;
   publisherId: string;
   holderName: string;
   phone: string;

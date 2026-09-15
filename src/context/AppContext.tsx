@@ -284,16 +284,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [publishers, setPublishers] = useState<Publisher[]>(() => {
     try {
+      const pubMap = new Map<string, Publisher>();
+      snapshotPublishers.forEach(p => {
+        if (p && p.id) pubMap.set(String(p.id).trim().toUpperCase(), { ...p, systemVersion: 'v2' });
+      });
       const stored = localStorage.getItem('pai_cached_publishers');
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.filter((p: Publisher) => p && p.systemVersion === 'v2');
+          parsed.forEach((p: Publisher) => {
+            if (p && p.id) {
+              const key = String(p.id).trim().toUpperCase();
+              pubMap.set(key, { ...(pubMap.get(key) || {}), ...p, systemVersion: 'v2' });
+            }
+          });
         }
       }
-      return snapshotPublishers.filter(p => p && p.systemVersion === 'v2');
+      return Array.from(pubMap.values());
     } catch {
-      return snapshotPublishers.filter(p => p && p.systemVersion === 'v2');
+      return snapshotPublishers;
     }
   });
 
@@ -312,12 +321,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [submissions, setSubmissions] = useState<DataSubmission[]>(() => {
     try {
+      const subMap = new Map<string, DataSubmission>();
+      snapshotSubmissions.forEach(s => {
+        if (s && s.id) subMap.set(s.id, s);
+      });
       const stored = localStorage.getItem('pai_cached_submissions');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          parsed.forEach((s: DataSubmission) => {
+            if (s && s.id) subMap.set(s.id, { ...(subMap.get(s.id) || {}), ...s });
+          });
+        }
       }
-      return snapshotSubmissions;
+      const list = Array.from(subMap.values());
+      list.sort((a, b) => {
+        const keyA = (a.submitDate || '') + '_' + (a.id || '');
+        const keyB = (b.submitDate || '') + '_' + (b.id || '');
+        return keyB.localeCompare(keyA);
+      });
+      return list;
     } catch {
       return snapshotSubmissions;
     }
@@ -805,22 +828,55 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Initial state fetch from server memory (0 Firestore reads)
     fetchServerState();
 
-    // Direct real-time live sync for publishers (new v2 database accounts)
+    // Direct real-time live sync for publishers
     let unsubPubs: (() => void) | null = null;
     try {
       unsubPubs = onSnapshot(collection(db, 'publishers'), (snap) => {
         if (snap && !snap.empty) {
-          const v2Pubs = snap.docs
-            .map(d => ({ id: d.id, ...d.data() } as Publisher))
-            .filter(p => p && p.systemVersion === 'v2');
-          if (v2Pubs.length > 0) {
-            setPublishers(v2Pubs);
-            safeSetLocal('pai_cached_publishers', v2Pubs);
+          const freshPubs = snap.docs.map(d => ({ id: d.id, ...d.data(), systemVersion: 'v2' } as Publisher));
+          if (freshPubs.length > 0) {
+            setPublishers(prev => {
+              const map = new Map<string, Publisher>();
+              prev.forEach(p => { if (p?.id) map.set(String(p.id).trim().toUpperCase(), p); });
+              freshPubs.forEach(p => {
+                if (p?.id) {
+                  const key = String(p.id).trim().toUpperCase();
+                  map.set(key, { ...(map.get(key) || {}), ...p });
+                }
+              });
+              const merged = Array.from(map.values());
+              safeSetLocal('pai_cached_publishers', merged);
+              return merged;
+            });
           }
         }
       }, (err) => {
         console.warn("Firestore publishers listener warning:", err);
       });
+    } catch (e) {}
+
+    // Direct one-time startup query for publishers from Firestore
+    try {
+      getDocs(collection(db, 'publishers')).then(snap => {
+        if (snap && snap.size > 0) {
+          const freshPubs = snap.docs.map(d => ({ id: d.id, ...d.data(), systemVersion: 'v2' } as Publisher));
+          if (freshPubs.length > 0) {
+            setPublishers(prev => {
+              const map = new Map<string, Publisher>();
+              prev.forEach(p => { if (p?.id) map.set(String(p.id).trim().toUpperCase(), p); });
+              freshPubs.forEach(p => {
+                if (p?.id) {
+                  const key = String(p.id).trim().toUpperCase();
+                  map.set(key, { ...(map.get(key) || {}), ...p });
+                }
+              });
+              const merged = Array.from(map.values());
+              safeSetLocal('pai_cached_publishers', merged);
+              return merged;
+            });
+          }
+        }
+      }).catch(err => console.warn("Firestore publishers startup fetch notice:", err));
     } catch (e) {}
 
     // Direct real-time live sync for campaigns (ensures newly live campaigns appear immediately)
@@ -1640,23 +1696,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         broadcastSync('SYNC_PUBLISHERS', nextPubs);
       } catch (e) {}
 
-      // 2. Server & Firestore Persistence (Non-blocking async sync)
+      // 2. Server & Firestore Persistence (Awaited for guaranteed persistence across all devices)
       try {
-        setDoc(doc(db, 'publishers', newId), cleanForFirestore(newPub)).catch(err => console.warn("Firestore pub save notice:", err));
-        setDoc(doc(db, 'bank_details', newId), cleanForFirestore(emptyBank)).catch(err => console.warn("Firestore bank save notice:", err));
-      } catch (e) {}
-
-      fetch('/api/publisher/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publisher: newPub })
-      }).catch(err => console.warn("Server publisher register notice:", err));
-
-      fetch('/api/bank/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publisherId: newId, details: emptyBank })
-      }).catch(err => console.warn("Server bank init notice:", err));
+        await Promise.allSettled([
+          setDoc(doc(db, 'publishers', newId), cleanForFirestore(newPub)),
+          setDoc(doc(db, 'bank_details', newId), cleanForFirestore(emptyBank)),
+          fetch('/api/publisher/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ publisher: newPub })
+          }),
+          fetch('/api/bank/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ publisherId: newId, details: emptyBank })
+          })
+        ]);
+      } catch (e) {
+        console.warn("Account sync notice during signup:", e);
+      }
 
       const sess = { type: 'publisher' as const, id: newId, name: cleanName, avatar: newPub.avatar };
       setCurrentUser(sess);

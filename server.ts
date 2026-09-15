@@ -209,6 +209,19 @@ async function startServer() {
     }, 1000);
   }
 
+  function saveStoreNow() {
+    try {
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      store.updatedAt = Date.now();
+      fs.writeFileSync(DATA_FILE, JSON.stringify(store), "utf-8");
+    } catch (err) {
+      console.error("Error synchronously writing server_data/store.json:", err);
+    }
+  }
+
   // Manual / Explicit Firestore Cloud Synchronization
   // Cached single Firestore instance to prevent socket/connection leaks across repeated calls
   let cachedServerFirestore: any = null;
@@ -244,31 +257,34 @@ async function startServer() {
         getDocs(collection(firestore, "testimonials")).catch(() => ({ size: 0, docs: [] } as any)),
       ]);
 
-      // 1. Publishers (strictly v2 accounts from new database)
+      // 1. Publishers: Merge server store and Firestore documents safely
       if (pubSnap.size > 0) {
         const pubMap = new Map<string, any>();
         store.publishers.forEach(p => {
-          if (p && p.systemVersion === 'v2') pubMap.set(p.id, p);
+          if (p && p.id) pubMap.set(String(p.id).trim().toUpperCase(), { ...p, systemVersion: 'v2' });
         });
         pubSnap.docs.forEach((d: any) => {
-          const data = { id: d.id, ...d.data() };
-          if (data.systemVersion === 'v2') {
-            pubMap.set(d.id, { ...(pubMap.get(d.id) || {}), ...data });
-          }
+          const data = { id: d.id, ...d.data(), systemVersion: 'v2' };
+          const key = String(d.id).trim().toUpperCase();
+          pubMap.set(key, { ...(pubMap.get(key) || {}), ...data });
         });
         store.publishers = Array.from(pubMap.values());
       }
 
       const validPubIdsUpper = new Set((store.publishers || []).map(p => String(p.id || '').trim().toUpperCase()));
 
-      // 2. Submissions: Firestore is canonical when available. Never retain
-      // device/server-only records after a successful Firestore read.
+      // 2. Submissions: Merge all store and Firestore submissions
       if (subSnap.size > 0) {
-        store.submissions = subSnap.docs.map((d: any) => {
+        const subMap = new Map<string, any>();
+        (store.submissions || []).forEach(s => {
+          if (s && s.id) subMap.set(s.id, s);
+        });
+        subSnap.docs.forEach((d: any) => {
           const data = { id: d.id, ...d.data() };
           const publisherId = String(data.publisherId || '').trim().toUpperCase();
-          return { ...data, publisherId: publisherId || data.publisherId };
+          subMap.set(d.id, { ...(subMap.get(d.id) || {}), ...data, publisherId: publisherId || data.publisherId });
         });
+        store.submissions = Array.from(subMap.values());
       }
 
       // 3. Earnings (preserve all current earnings; merge any from Firestore)
@@ -833,16 +849,39 @@ async function startServer() {
           getDocs(collection(firestore, 'bank_details')),
         ]);
         if (submissionSnapshot.size > 0) {
-          store.submissions = submissionSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
+          const subMap = new Map<string, any>();
+          (store.submissions || []).forEach(s => { if (s && s.id) subMap.set(s.id, s); });
+          submissionSnapshot.docs.forEach((item: any) => {
+            const data = { id: item.id, ...item.data() };
+            subMap.set(item.id, { ...(subMap.get(item.id) || {}), ...data });
+          });
+          store.submissions = Array.from(subMap.values());
         }
         if (employeeSnapshot.size > 0) {
-          store.employees = employeeSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
+          const empMap = new Map<string, any>();
+          (store.employees || []).forEach(e => { if (e && e.id) empMap.set(e.id, e); });
+          employeeSnapshot.docs.forEach((item: any) => {
+            empMap.set(item.id, { ...(empMap.get(item.id) || {}), id: item.id, ...item.data() });
+          });
+          store.employees = Array.from(empMap.values());
         }
         if (publisherSnapshot.size > 0) {
-          store.publishers = publisherSnapshot.docs.map((item: any) => ({ id: item.id, ...item.data() }));
+          const pubMap = new Map<string, any>();
+          (store.publishers || []).forEach(p => {
+            if (p && p.id) pubMap.set(String(p.id).trim().toUpperCase(), { ...p, systemVersion: 'v2' });
+          });
+          publisherSnapshot.docs.forEach((item: any) => {
+            const idKey = String(item.id).trim().toUpperCase();
+            pubMap.set(idKey, { ...(pubMap.get(idKey) || {}), id: item.id, ...item.data(), systemVersion: 'v2' });
+          });
+          store.publishers = Array.from(pubMap.values());
         }
         if (bankSnapshot.size > 0) {
-          store.bankDetailsMap = Object.fromEntries(bankSnapshot.docs.map((item: any) => [item.id, { id: item.id, ...item.data() }]));
+          const bankMap = { ...(store.bankDetailsMap || {}) };
+          bankSnapshot.docs.forEach((item: any) => {
+            bankMap[item.id] = { ...(bankMap[item.id] || {}), id: item.id, ...item.data() };
+          });
+          store.bankDetailsMap = bankMap;
         }
       } catch (error) {
         console.warn('[Sync] Could not hydrate canonical admin data from Firestore:', error);
@@ -1016,7 +1055,7 @@ async function startServer() {
   console.log(`[Auth Attempt] Target: ${target}, Server publishers count: ${store.publishers.length}`);
       
       let pub = store.publishers.find(p => 
-        p.systemVersion === 'v2' &&
+        (!p.systemVersion || p.systemVersion === 'v2') &&
         (p.id?.trim().toLowerCase() === target || p.email?.trim().toLowerCase() === target || p.phone?.trim().replace(/[\s\-\(\)]/g, '') === targetDigits) &&
         p.password === password
       );
@@ -1028,16 +1067,16 @@ async function startServer() {
           try {
             const pubSnap = await getDocs(collection(firestore, "publishers"));
             pubSnap.forEach((d: any) => {
-              const data = { id: d.id, ...d.data() };
+              const data = { id: d.id, ...d.data(), systemVersion: 'v2' };
               if (
-                data.systemVersion === 'v2' &&
+                (!data.systemVersion || data.systemVersion === 'v2') &&
                 (data.id?.trim().toLowerCase() === target || data.email?.trim().toLowerCase() === target || data.phone?.trim().replace(/[\s\-\(\)]/g, '') === targetDigits) &&
                 data.password === password
               ) {
                 pub = data;
                 if (!store.publishers.some(p => p.id === data.id)) {
                   store.publishers.unshift(data);
-                  scheduleSaveStore();
+                  saveStoreNow();
                 }
               }
             });
@@ -1061,7 +1100,7 @@ async function startServer() {
   });
 
   // Dedicated Publisher Register endpoint (Zero Firestore quota dependency, synced to cloud)
-  app.post("/api/publisher/register", (req, res) => {
+  app.post("/api/publisher/register", async (req, res) => {
     try {
       const { publisher } = req.body || {};
       if (!publisher || !publisher.id) {
@@ -1079,11 +1118,15 @@ async function startServer() {
       } else {
         store.publishers.unshift(v2Pub);
       }
-      scheduleSaveStore();
+      saveStoreNow();
       
       const firestore = getServerFirestore();
       if (firestore) {
-        setDoc(doc(firestore, "publishers", v2Pub.id), v2Pub, { merge: true }).catch(() => {});
+        try {
+          await setDoc(doc(firestore, "publishers", v2Pub.id), v2Pub, { merge: true });
+        } catch (fErr) {
+          console.warn("[Register] Firestore sync notice:", fErr);
+        }
       }
 
       broadcastRealtime({

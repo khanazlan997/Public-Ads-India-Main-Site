@@ -602,32 +602,29 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
     resetCampForm();
   };
 
-  // Convert campaign image or offer to Base64 and compress
+  // Convert campaign image or offer to Base64 (compress only for campaigns, keep original quality for popup offer banner)
   const handleImageUploadBase64 = (e: React.ChangeEvent<HTMLInputElement>, target: 'camp' | 'offer') => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Support uploads up to 6MB since we compress them on-the-fly
-    if (file.size > 6 * 1024 * 1024) {
-      alert(`File is too large! Max limit is 6.0 MB.`);
+    const maxSize = target === 'offer' ? 15 * 1024 * 1024 : 6 * 1024 * 1024;
+    if (file.size > maxSize) {
+      alert(`File is too large! Max limit is ${target === 'offer' ? '15.0 MB' : '6.0 MB'}.`);
       return;
     }
 
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      try {
-        const compressed = await compressImageBase64(base64String, 1000, 1000, 0.75);
-        if (target === 'camp') {
+      if (target === 'offer') {
+        // Keep original high resolution image quality without any compression
+        setOfferUrl(base64String);
+      } else {
+        try {
+          const compressed = await compressImageBase64(base64String, 1000, 1000, 0.75);
           setCampImage(compressed);
-        } else {
-          setOfferUrl(compressed);
-        }
-      } catch (err) {
-        if (target === 'camp') {
+        } catch (err) {
           setCampImage(base64String);
-        } else {
-          setOfferUrl(base64String);
         }
       }
     };
@@ -2418,7 +2415,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                         <span className="text-xs font-bold text-indigo-650 block group-hover:scale-[1.01] transition-transform">
                           📁 Select or Drop Photo File
                         </span>
-                        <span className="text-[10px] text-slate-400 mt-1 block font-medium">Supports JPG, JPEG, PNG, WEBP (Max 2 MB)</span>
+                        <span className="text-[10px] text-slate-400 mt-1 block font-medium">Supports JPG, JPEG, PNG, WEBP (Original Quality, Max 15 MB)</span>
                       </div>
                     </div>
 

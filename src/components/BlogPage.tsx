@@ -84,10 +84,24 @@ const BLOG_POSTS: BlogPost[] = [
 
 const CATEGORIES = ['All', 'Earning Strategies', 'Industry Insights', 'Compliance & Quality'];
 
-export default function BlogPage({ onNavigate }: { onNavigate: (route: string) => void }) {
+export default function BlogPage({ onNavigate, currentRoute }: { onNavigate: (route: string) => void, currentRoute?: string }) {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [activePost, setActivePost] = useState<BlogPost | null>(null);
+
+  // Check if currentRoute specifies a specific blog post slug (e.g. /blog/demat-sip-scaling-guide-2026)
+  const initialPostId = currentRoute?.startsWith('/blog/') ? currentRoute.replace('/blog/', '') : null;
+  const initialPost = BLOG_POSTS.find(p => p.id === initialPostId) || null;
+  const [activePost, setActivePost] = useState<BlogPost | null>(initialPost);
+
+  const handleOpenPost = (post: BlogPost) => {
+    setActivePost(post);
+    onNavigate(`/blog/${post.id}`);
+  };
+
+  const handleClosePost = () => {
+    setActivePost(null);
+    onNavigate('/blogpage');
+  };
 
   const filteredPosts = BLOG_POSTS.filter(post => {
     const matchesCategory = selectedCategory === 'All' || post.category === selectedCategory;
@@ -209,7 +223,7 @@ export default function BlogPage({ onNavigate }: { onNavigate: (route: string) =
                 </span>
 
                 <button
-                  onClick={() => setActivePost(post)}
+                  onClick={() => handleOpenPost(post)}
                   className="inline-flex items-center gap-1 text-xs font-extrabold text-brand-primary dark:text-sky-400 hover:translate-x-0.5 transition-transform"
                 >
                   <span>Read Article</span>
@@ -237,7 +251,7 @@ export default function BlogPage({ onNavigate }: { onNavigate: (route: string) =
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[1000] bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
-            onClick={() => setActivePost(null)}
+            onClick={handleClosePost}
           >
             <motion.div
               initial={{ scale: 0.95, y: 20 }}
@@ -252,7 +266,7 @@ export default function BlogPage({ onNavigate }: { onNavigate: (route: string) =
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
                 
                 <button
-                  onClick={() => setActivePost(null)}
+                  onClick={handleClosePost}
                   className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors"
                   aria-label="Close article"
                 >

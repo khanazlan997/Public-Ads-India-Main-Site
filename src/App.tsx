@@ -18,6 +18,7 @@ import ResourceHub from './components/ResourceHub';
 import IndustrySolutions from './components/IndustrySolutions';
 import BecomeAPartner from './components/BecomeAPartner';
 import BusinessSitemap from './components/BusinessSitemap';
+import ZeroInvestmentLanding from './components/ZeroInvestmentLanding';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Helper to normalize route paths
@@ -29,7 +30,8 @@ function normalizeRoute(rawPath: string): string {
   if (lower === '/partner') return '/Partner';
   if (lower === '/employee') return '/Employee';
   if (lower === '/ads-earning') return '/ads-earning';
-  if (lower === '/blogpage' || lower === '/blog') return '/blogpage';
+  if (lower === '/blogpage' || lower === '/blog' || lower.startsWith('/blog/')) return lower;
+  if (lower === '/zero-investment-work' || lower === '/zero-investment') return '/zero-investment-work';
   if (lower === '/aboutus' || lower === '/about') return '/aboutus';
   if (lower === '/overview') return '/overview';
   if (lower === '/termandcondition' || lower === '/terms' || lower === '/termsandconditions' || lower === '/terms-and-conditions') return '/termandcondition';
@@ -219,7 +221,8 @@ function AppContent() {
             {route === '/Partner' && <PartnerPanel onNavigate={navigateTo} />}
             {route === '/Employee' && <EmployeePanel onNavigate={navigateTo} />}
             {route.toLowerCase() === '/ads-earning' && <AdsEarningView onNavigate={navigateTo} />}
-            {route.toLowerCase() === '/blogpage' && <BlogPage onNavigate={navigateTo} />}
+            {route.toLowerCase() === '/zero-investment-work' && <ZeroInvestmentLanding onNavigate={navigateTo} />}
+            {(route.toLowerCase() === '/blogpage' || route.toLowerCase() === '/blog' || route.toLowerCase().startsWith('/blog/')) && <BlogPage onNavigate={navigateTo} currentRoute={route} />}
             {route.toLowerCase() === '/aboutus' && <AboutUs onNavigate={navigateTo} />}
             {route.toLowerCase() === '/overview' && <Overview onNavigate={navigateTo} />}
             {route.toLowerCase() === '/termandcondition' && <TermsAndConditions onNavigate={navigateTo} />}
@@ -227,7 +230,7 @@ function AppContent() {
             {route.toLowerCase() === '/industry' && <IndustrySolutions onNavigate={navigateTo} />}
             {route.toLowerCase() === '/becomeapartner' && <BecomeAPartner onNavigate={navigateTo} />}
             {route.toLowerCase() === '/sitemap' && <BusinessSitemap onNavigate={navigateTo} />}
-            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/blogpage', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap'].includes(route.toLowerCase()) && (
+            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/zero-investment-work', '/blogpage', '/blog', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap'].includes(route.toLowerCase()) && !route.toLowerCase().startsWith('/blog/') && (
               <NotFoundView onNavigate={navigateTo} />
             )}
           </motion.div>

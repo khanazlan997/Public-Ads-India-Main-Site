@@ -2153,13 +2153,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const earningId = `earning-${submissionId}`;
       const normPubId = (oldSub.publisherId || '').trim().toLowerCase();
 
-      // Check if this submission or client already has an earning in state
-      const alreadyHasEarning = earnings.some(e => 
-        e.id === earningId || 
-        ((e.publisherId || '').trim().toLowerCase() === normPubId && 
-         e.campaignId === oldSub!.campaignId && 
-         Number(e.amount) === Number(oldSub!.payout))
-      );
+      // Check if this specific submission already has an earning in state
+      const alreadyHasEarning = earnings.some(e => e.id === earningId);
 
       if (alreadyHasEarning) {
         console.log(`[Duplicate Guard] Earning record already exists for ${submissionId}, will not create duplicate.`);
@@ -2190,10 +2185,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       removedEarningId = `earning-${submissionId}`;
       const normPubId = (oldSub.publisherId || '').trim().toLowerCase();
       setEarnings(prev => {
-        const next = prev.filter(e => 
-          e.id !== removedEarningId && 
-          !((e.publisherId || '').trim().toLowerCase() === normPubId && e.campaignId === oldSub!.campaignId && Number(e.amount) === Number(oldSub!.payout))
-        );
+        const next = prev.filter(e => e.id !== removedEarningId);
         try {
           localStorage.setItem('pai_cached_earnings', JSON.stringify(next));
         } catch (e) {}

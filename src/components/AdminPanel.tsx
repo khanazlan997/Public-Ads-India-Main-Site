@@ -148,9 +148,14 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
 
   // MIS DB status state
   const [misFilter, setMisFilter] = useState('');
-  const recentLeads = submissions.filter((submission) => {
-    const timestamp = new Date(submission.submitDate || '').getTime();
-    return Number.isFinite(timestamp) && Date.now() - timestamp <= 48 * 60 * 60 * 1000;
+  const recentLeads = [...submissions].sort((a, b) => {
+    const parseDate = (dStr: string) => {
+      if (!dStr) return 0;
+      const normalized = dStr.includes('T') ? dStr : dStr.replace(' ', 'T');
+      const t = new Date(normalized).getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+    return parseDate(b.submitDate) - parseDate(a.submitDate);
   });
 
   // Payment search states
@@ -159,6 +164,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
   const [isBankDetailsRevealed, setIsBankDetailsRevealed] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [viewingBankDetails, setViewingBankDetails] = useState<{ id: string; name: string; bank: any } | null>(null);
+  const [viewingPubLeads, setViewingPubLeads] = useState<{ id: string; name: string } | null>(null);
 
   // Publisher list search & Reset states
   const [pubSearchQuery, setPubSearchQuery] = useState('');
@@ -2013,7 +2019,17 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 pub.avatar || '😎'
                               )}
                             </td>
-                            <td className="p-3 font-mono font-bold text-indigo-650">{pub.id}</td>
+                            <td className="p-3">
+                              <div className="font-mono font-bold text-indigo-650">{pub.id}</div>
+                              <button
+                                type="button"
+                                id={`view-leads-btn-${pub.id}`}
+                                onClick={() => setViewingPubLeads({ id: pub.id, name: pub.name })}
+                                className="mt-1 text-[11px] font-extrabold text-purple-650 dark:text-purple-400 hover:text-purple-800 dark:hover:text-purple-300 underline cursor-pointer inline-flex items-center gap-1 bg-purple-50 dark:bg-purple-950/40 px-2 py-0.5 rounded-md transition-colors"
+                              >
+                                View Leads
+                              </button>
+                            </td>
                             <td className="p-3">
                               {editingPubNameId === pub.id ? (
                                 <div className="flex items-center gap-1.5 min-w-[200px]">
@@ -3686,6 +3702,118 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <p className="text-[10px] text-slate-400 max-w-xs mx-auto font-normal">This client has not filled out or saved their bank or UPI details inside their dashboard yet.</p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publisher Submitted Leads Modal */}
+      {viewingPubLeads && (
+        <div 
+          id="publisher-leads-modal" 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
+          onClick={() => setViewingPubLeads(null)}
+        >
+          <div 
+            className="relative bg-white dark:bg-slate-900 rounded-3xl overflow-hidden max-w-4xl w-full max-h-[85vh] flex flex-col border border-slate-200 dark:border-slate-800 shadow-2xl animate-scale-up"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 border-b border-slate-150 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  Submitted Leads by {viewingPubLeads.name}
+                </h3>
+                <span className="text-[10px] font-mono text-purple-650 dark:text-purple-400 font-bold block mt-0.5">
+                  Publisher ID: {viewingPubLeads.id}
+                </span>
+              </div>
+              <button 
+                onClick={() => setViewingPubLeads(null)}
+                className="p-1.5 px-3 bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl font-black text-slate-700 dark:text-slate-300 cursor-pointer text-xs"
+              >
+                ✕ Close
+              </button>
+            </div>
+            
+            {/* Body */}
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              {(() => {
+                const normPubId = viewingPubLeads.id.trim().toLowerCase();
+                const pubLeads = (submissions || []).filter(s => {
+                  const sPubId = (s.publisherId || '').trim().toLowerCase();
+                  return sPubId === normPubId || sPubId.includes(normPubId);
+                });
+
+                if (pubLeads.length === 0) {
+                  return (
+                    <div className="text-center py-12 space-y-3">
+                      <p className="text-3xl">📭</p>
+                      <p className="text-sm font-bold text-slate-800 dark:text-white">No Lead Submissions Found</p>
+                      <p className="text-xs text-slate-500 max-w-sm mx-auto">This publisher account has not submitted any client conversion leads yet.</p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <div className="text-xs font-extrabold text-slate-500 uppercase tracking-widest mb-2">
+                      Total Submitted Leads: {pubLeads.length}
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead>
+                          <tr className="bg-slate-100 dark:bg-slate-950 text-slate-450 uppercase font-extrabold tracking-wider border-b border-slate-200 dark:border-slate-800">
+                            <th className="p-3 rounded-l-xl">Campaign</th>
+                            <th className="p-3">Client Name & Phone</th>
+                            <th className="p-3">Client Code</th>
+                            <th className="p-3">Payout</th>
+                            <th className="p-3">Date</th>
+                            <th className="p-3">Proof</th>
+                            <th className="p-3 rounded-r-xl text-right">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {pubLeads.map(lead => (
+                            <tr key={lead.id} className="hover:bg-slate-50 dark:hover:bg-slate-850/20">
+                              <td className="p-3 font-bold text-slate-900 dark:text-white">{lead.campaignName}</td>
+                              <td className="p-3 text-slate-700 dark:text-slate-300">
+                                <span className="block font-bold">{lead.clientName}</span>
+                                <span className="block text-[10px] text-slate-400 font-mono">{lead.clientPhone}</span>
+                              </td>
+                              <td className="p-3 font-mono text-slate-500">{lead.clientCode || 'None'}</td>
+                              <td className="p-3 font-mono font-bold text-emerald-600 dark:text-emerald-400">₹{lead.payout}</td>
+                              <td className="p-3 text-slate-450 text-[11px]">{lead.submitDate}</td>
+                              <td className="p-3">
+                                {lead.screenshot ? (
+                                  <button
+                                    onClick={() => setPreviewImage(lead.screenshot)}
+                                    className="px-2 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-bold text-[10px] cursor-pointer"
+                                  >
+                                    View Proof
+                                  </button>
+                                ) : (
+                                  <span className="text-slate-400 text-[10px]">No image</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-right">
+                                <span className={`inline-px px-2.5 py-1 text-[10px] font-black rounded-full uppercase tracking-wider ${
+                                  lead.status === 'Payment Done' ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400' :
+                                  lead.status === 'Trade Done' ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400' :
+                                  lead.status === 'Rejected' ? 'bg-rose-100 dark:bg-rose-950/40 text-rose-800 dark:text-rose-400' :
+                                  'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400'
+                                }`}>
+                                  {lead.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

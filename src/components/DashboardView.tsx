@@ -745,7 +745,15 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const getPublisherEarnings = (pubId: string) => {
     const normPubId = (pubId || '').trim().toLowerCase();
     const pubEarnings = earnings.filter(e => (e.publisherId || '').trim().toLowerCase() === normPubId);
-    const pubSubmissions = submissions.filter(s => (s.publisherId || '').trim().toLowerCase() === normPubId);
+    const currEmail = (currentUser as any)?.email?.trim()?.toLowerCase() || '';
+    const currName = (currentUser?.name || '').trim().toLowerCase();
+    const pubSubmissions = submissions.filter(s => {
+      const sPubId = (s.publisherId || '').trim().toLowerCase();
+      const sPubName = (s.publisherName || '').trim().toLowerCase();
+      return sPubId === normPubId || 
+        (currEmail && sPubId === currEmail) ||
+        (currName && sPubName === currName);
+    });
     const paidSubs = pubSubmissions.filter(s => {
       const st = (s.status || '').toLowerCase().trim();
       return st === 'payment done' || st === 'paymentdone' || st === 'paid' || st === 'approved';
@@ -1092,7 +1100,13 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
     if (c.active === false || c.active === 0 || String(c.active).toLowerCase() === 'false') return false;
     return true;
   });
-  const pubSubmissions = submissions.filter(s => validPubIds.has((s.publisherId || '').trim().toLowerCase()));
+  const pubSubmissions = submissions.filter(s => {
+    const sPubId = (s.publisherId || '').trim().toLowerCase();
+    const sPubName = (s.publisherName || '').trim().toLowerCase();
+    return validPubIds.has(sPubId) || 
+      (currentPubEmail && sPubId === currentPubEmail) ||
+      (currName && sPubName === currName);
+  });
 
   // User's successful UPI settlements / payouts (Last 5 only)
   const paidSubmissions = pubSubmissions.filter(s => {

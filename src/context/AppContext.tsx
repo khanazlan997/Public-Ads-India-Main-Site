@@ -149,6 +149,9 @@ interface AppContextType {
   runDiagnostic: (targetPublisherId?: string) => Promise<FirestoreDiagnosticResult>;
   fetchDirectBankDetails: (targetPublisherId?: string) => Promise<any>;
   fetchDirectLeads: (targetPublisherId?: string) => Promise<any>;
+
+  congratsPopupInfo: { id: string; name: string } | null;
+  setCongratsPopupInfo: (info: { id: string; name: string } | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -433,6 +436,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   
   const [currentUser, setCurrentUser] = useState<AppContextType['currentUser']>(null);
+  const [congratsPopupInfo, setCongratsPopupInfo] = useState<{ id: string; name: string } | null>(null);
   const fetchServerStateRef = useRef<() => Promise<void>>();
 
   useEffect(() => {
@@ -1720,6 +1724,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(sess);
       localStorage.setItem('pai_user_session', JSON.stringify(sess));
       
+      setCongratsPopupInfo({ id: newId, name: cleanName });
       addLog(newId, cleanName, 'SIGNUP', `New publisher account created with Publisher ID ${newId}`);
       return { success: true, message: `Account created successfully! Your Publisher ID is ${newId}`, publisher: newPub };
     } catch (error: any) {

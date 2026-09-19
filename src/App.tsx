@@ -19,6 +19,7 @@ import IndustrySolutions from './components/IndustrySolutions';
 import BecomeAPartner from './components/BecomeAPartner';
 import BusinessSitemap from './components/BusinessSitemap';
 import ZeroInvestmentLanding from './components/ZeroInvestmentLanding';
+import CongratsModal from './components/CongratsModal';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Helper to normalize route paths
@@ -44,7 +45,7 @@ function normalizeRoute(rawPath: string): string {
 
 // Sub App content receiver that utilizes state context
 function AppContent() {
-  const { theme, currentUser, quotaError } = useAppState();
+  const { theme, currentUser, quotaError, congratsPopupInfo, setCongratsPopupInfo } = useAppState();
   
   // Custom SPA Routing State
   const [route, setRoute] = useState<string>('/Home');
@@ -261,6 +262,11 @@ function AppContent() {
           </svg>
         </a>
       </div>
+
+      <CongratsModal 
+        publisherInfo={congratsPopupInfo} 
+        onClose={() => setCongratsPopupInfo(null)} 
+      />
 
     </div>
   );

@@ -2105,7 +2105,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 const combined = [...pubEarnings];
                                 paidSubs.forEach(sub => {
                                   const alreadyPresent = pubEarnings.some(e => 
-                                    (e.campaignId === sub.campaignId && Number(e.amount) === Number(sub.payout)) ||
+                                     false ||
                                     e.id === `earning-${sub.id}`
                                   );
                                   if (!alreadyPresent) {
@@ -3933,9 +3933,9 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   const combined = [...pubEarnings];
                   paidSubs.forEach(sub => {
                     const alreadyPresent = pubEarnings.some(e => 
-                      (e.campaignId === sub.campaignId && Number(e.amount) === Number(sub.payout)) ||
                       e.id === `earning-${sub.id}` ||
-                      e.id === `earning-sub-${sub.id}`
+                      e.id === `earning-sub-${sub.id}` ||
+                      e.id.endsWith(`-${sub.id}`)
                     );
                     if (!alreadyPresent) {
                       combined.push({

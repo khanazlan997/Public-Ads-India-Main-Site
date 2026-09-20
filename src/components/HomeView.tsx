@@ -238,7 +238,7 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         <GeometricBackground />
 
         {/* Realistic Waving 3D Graphical Flags (India & UAE) - Amne Samne (Facing Each Other) */}
-        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 flex items-center justify-between px-2 md:px-12 opacity-[0.12] dark:opacity-[0.18] select-none">
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 hidden sm:flex items-center justify-between px-2 md:px-12 opacity-[0.12] dark:opacity-[0.18] select-none">
           {/* India Flag Graphic (Left - Facing Right) */}
           <div className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 w-64 md:w-[420px] h-44 md:h-72 transform -rotate-6 scale-100 filter drop-shadow-2xl">
             <svg viewBox="0 0 900 600" className="w-full h-full object-contain overflow-visible">
@@ -300,46 +300,10 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
           
           {/* Left Column: Headline, subtext & CTAs */}
           <div className="lg:col-span-7 text-center lg:text-left animate-fade-up">
-            {/* Pill Badges - Responsive Inline on Desktop, Stacked on Mobile */}
-            <div className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 mb-6 select-none">
-              {/* Existing Badge */}
-              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded-full font-bold text-xs uppercase tracking-wider border border-blue-200/50 dark:border-blue-900/40 shrink-0">
-                <TrendingUp className="w-4 h-4 text-brand-accent animate-bounce" />
-                India's #1 Fintech Publishers Network
-              </div>
-
-              {/* New Dubai Branch Badge with Neon Color Loop */}
-              <div className="inline-flex flex-col items-center sm:items-start px-4 py-1.5 bg-indigo-50/90 dark:bg-indigo-950/40 rounded-2xl border border-indigo-200/60 dark:border-indigo-900/40 shadow-xs relative overflow-hidden backdrop-blur-xs">
-                <style dangerouslySetInnerHTML={{ __html: `
-                  @keyframes slowRainbowCycle {
-                    0% { color: #10b981; text-shadow: 0 0 5px rgba(16,185,129,0.3); }
-                    10% { color: #059669; text-shadow: 0 0 5px rgba(5,150,105,0.3); }
-                    20% { color: #0d9488; text-shadow: 0 0 5px rgba(13,148,136,0.3); }
-                    30% { color: #06b6d4; text-shadow: 0 0 5px rgba(6,182,212,0.3); }
-                    40% { color: #0284c7; text-shadow: 0 0 5px rgba(2,132,199,0.3); }
-                    50% { color: #2563eb; text-shadow: 0 0 5px rgba(37,99,235,0.3); }
-                    60% { color: #4f46e5; text-shadow: 0 0 5px rgba(79,70,229,0.3); }
-                    70% { color: #7c3aed; text-shadow: 0 0 5px rgba(124,58,237,0.3); }
-                    80% { color: #db2777; text-shadow: 0 0 5px rgba(219,39,119,0.3); }
-                    90% { color: #f43f5e; text-shadow: 0 0 5px rgba(244,63,94,0.3); }
-                    100% { color: #10b981; text-shadow: 0 0 5px rgba(16,185,129,0.3); }
-                  }
-                  .neon-soft-glow {
-                    animation: slowRainbowCycle 80s linear infinite;
-                  }
-                ` }} />
-                <div className="flex flex-row items-center gap-1.5">
-                  <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-350 uppercase tracking-wider">
-                    Now Open New Branch In
-                  </span>
-                  <span className="text-xs font-black uppercase tracking-widest neon-soft-glow">
-                    Dubai UAE
-                  </span>
-                </div>
-                <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wide leading-none mt-1">
-                  Established 2023 in India
-                </span>
-              </div>
+            {/* Pill Badge */}
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-100/80 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300 rounded-full font-bold text-xs uppercase tracking-wider mb-6 border border-blue-200/50 dark:border-blue-900/40 select-none">
+              <TrendingUp className="w-4 h-4 text-brand-accent animate-bounce" />
+              India's #1 Fintech Publishers Network
             </div>
 
             {/* Shimmer/Gradient Hero Heading */}

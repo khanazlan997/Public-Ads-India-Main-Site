@@ -2098,7 +2098,7 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                                 const paidSubs = (submissions || []).filter(s => {
                                   const matchesPub = (s.publisherId || '').trim().toLowerCase() === normId;
                                   const st = (s.status || '').toLowerCase().trim();
-                                  return matchesPub && (st === 'payment done' || st === 'paymentdone' || st === 'paid');
+                                  return matchesPub && (st === 'payment done' || st === 'paymentdone' || st === 'paid' || st === 'approved');
                                 });
 
                                 // Combined earnings ensuring zero double-counting
@@ -3923,11 +3923,38 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                 {(() => {
                   const normEditPubId = (editingEarningsPubId || '').trim().toLowerCase();
                   const pubEarnings = (earnings || []).filter(e => (e.publisherId || '').trim().toLowerCase() === normEditPubId);
-                  const sortedEarnings = [...pubEarnings].sort((a, b) => {
+                  const paidSubs = (submissions || []).filter(s => {
+                    const matchesPub = (s.publisherId || '').trim().toLowerCase() === normEditPubId;
+                    const st = (s.status || '').toLowerCase().trim();
+                    return matchesPub && (st === 'payment done' || st === 'paymentdone' || st === 'paid');
+                  });
+
+                  // Combined list ensuring zero duplicate entries
+                  const combined = [...pubEarnings];
+                  paidSubs.forEach(sub => {
+                    const alreadyPresent = pubEarnings.some(e => 
+                      (e.campaignId === sub.campaignId && Number(e.amount) === Number(sub.payout)) ||
+                      e.id === `earning-${sub.id}` ||
+                      e.id === `earning-sub-${sub.id}`
+                    );
+                    if (!alreadyPresent) {
+                      combined.push({
+                        id: `earning-sub-${sub.id}`,
+                        publisherId: editingEarningsPubId!,
+                        campaignId: sub.campaignId,
+                        campaignName: sub.campaignName,
+                        amount: Number(sub.payout) || 0,
+                        date: (sub.submitDate || '').substring(0, 10),
+                        time: (sub.submitDate || '').substring(11, 16)
+                      });
+                    }
+                  });
+
+                  const sortedEarnings = [...combined].sort((a, b) => {
                     const keyA = (a.date || '') + '_' + (a.time || '') + '_' + (a.id || '');
                     const keyB = (b.date || '') + '_' + (b.time || '') + '_' + (b.id || '');
                     return keyB.localeCompare(keyA);
-                  });
+                  }).slice(0, 5);
 
                   if (sortedEarnings.length === 0) {
                     return (

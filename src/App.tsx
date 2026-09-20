@@ -20,6 +20,7 @@ import BecomeAPartner from './components/BecomeAPartner';
 import BusinessSitemap from './components/BusinessSitemap';
 import ZeroInvestmentLanding from './components/ZeroInvestmentLanding';
 import CongratsModal from './components/CongratsModal';
+import OfflineIndicator from './components/OfflineIndicator';
 import { motion, AnimatePresence } from 'motion/react';
 
 // Helper to normalize route paths
@@ -267,6 +268,8 @@ function AppContent() {
         publisherInfo={congratsPopupInfo} 
         onClose={() => setCongratsPopupInfo(null)} 
       />
+
+      <OfflineIndicator />
 
     </div>
   );

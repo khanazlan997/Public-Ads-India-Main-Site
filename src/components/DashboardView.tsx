@@ -293,7 +293,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const [authPassword, setAuthPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState('');
-  const [hasVerifiedDashboardSession, setHasVerifiedDashboardSession] = useState(false);
+  const [hasVerifiedDashboardSession, setHasVerifiedDashboardSession] = useState(true);
 
   // Password recovery flow
   const [forgotPasswordMode, setForgotPasswordMode] = useState(false);
@@ -1084,6 +1084,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const normCurrentUserId = (currentUser?.id || '').trim().toLowerCase();
   const currentPubEmail = (currentUser as any)?.email?.trim()?.toLowerCase() || '';
   const currentPubPhone = (currentUser as any)?.phone?.trim()?.replace(/[\s\-\(\)]/g, '') || '';
+  const currName = (currentUser?.name || '').trim().toLowerCase();
   const pubRecord = publishers.find(pub => {
     const pId = (pub.id || '').trim().toLowerCase();
     const pEmail = (pub.email || '').trim().toLowerCase();

@@ -14,8 +14,6 @@ export interface Campaign {
   image: string; // Base64 or standard asset URL/placeholder icon
   active: boolean;
   directOpen?: boolean;
-  createdAt?: number | string;
-  updatedAt?: number | string;
 }
 
 export interface Publisher {

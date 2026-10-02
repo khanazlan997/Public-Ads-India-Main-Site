@@ -52,16 +52,9 @@ const defaultTestimonials = [
   }
 ];
 
-process.on('uncaughtException', (err) => {
-  console.error('[Process] Uncaught Exception caught safely:', err?.message || err);
-});
-process.on('unhandledRejection', (reason) => {
-  console.warn('[Process] Unhandled Rejection caught safely:', reason);
-});
-
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT) || 3000;
+  const PORT = 3000;
 
   // CORS middleware for seamless cross-device mobile and desktop access
   app.use((req, res, next) => {
@@ -969,13 +962,9 @@ async function startServer() {
       if (Array.isArray(allCampaigns) && allCampaigns.length > 0) {
         store.campaigns = allCampaigns;
         if (firestore) {
-          try {
-            await Promise.all(allCampaigns.filter((c: any) => c && c.id).map((c: any) =>
-              setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
-            ));
-          } catch (fsErr: any) {
-            console.warn("[Sync Warning] Firestore campaign batch save skipped (quota/offline):", fsErr?.message);
-          }
+          await Promise.all(allCampaigns.filter((c: any) => c && c.id).map((c: any) =>
+            setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
+          ));
         }
       } else if (campaign && (campaign.id || id)) {
         const campId = campaign.id || id;
@@ -1000,42 +989,24 @@ async function startServer() {
           store.campaigns.unshift(campaignWithActive);
         }
         if (firestore) {
-          try {
-            const targetCamp = store.campaigns.find(c => c.id === campId);
-            if (targetCamp) {
-              await setDoc(doc(firestore, "campaigns", campId), sanitizeFirestoreData(targetCamp), { merge: true });
-            }
-          } catch (fsErr: any) {
-            console.warn("[Sync Warning] Firestore campaign save skipped (quota/offline):", fsErr?.message);
+          const targetCamp = store.campaigns.find(c => c.id === campId);
+          if (targetCamp) {
+            await setDoc(doc(firestore, "campaigns", campId), sanitizeFirestoreData(targetCamp), { merge: true });
           }
         }
       } else if (id && active !== undefined) {
         let camp = store.campaigns.find(c => c.id === id);
-        const isNowActive = Boolean(active);
         if (camp) {
-          camp.active = isNowActive;
-          camp.updatedAt = Date.now();
-          if (isNowActive) {
-            // Put newly active campaign at the front so clients see it at the top
-            store.campaigns = [camp, ...store.campaigns.filter(c => c.id !== id)];
-          }
+          camp.active = Boolean(active);
         } else {
           const snap = snapshotCampaigns.find(c => c.id === id);
           if (snap) {
-            camp = { ...snap, active: isNowActive, updatedAt: Date.now() };
-            if (isNowActive) {
-              store.campaigns.unshift(camp);
-            } else {
-              store.campaigns.push(camp);
-            }
+            camp = { ...snap, active: Boolean(active) };
+            store.campaigns.push(camp);
           }
         }
         if (camp && firestore) {
-          try {
-            await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
-          } catch (fsErr: any) {
-            console.warn("[Sync Warning] Firestore campaign toggle save skipped (quota/offline):", fsErr?.message);
-          }
+          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
         }
       }
 
@@ -2223,7 +2194,7 @@ async function startServer() {
     });
   }
 
-  const server = app.listen(PORT, "0.0.0.0", () => {
+  app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
     // Auto-sync clean data from Firestore on boot
     syncFromFirestore().then((res: any) => {
@@ -2237,18 +2208,6 @@ async function startServer() {
       syncFromFirestore().catch(() => {});
     }, 25000);
   });
-
-  const handleShutdown = (signal: string) => {
-    console.log(`[Server] Received ${signal}. Closing HTTP listener cleanly...`);
-    server.close(() => {
-      console.log("[Server] HTTP listener closed cleanly.");
-      process.exit(0);
-    });
-    setTimeout(() => process.exit(0), 1500);
-  };
-
-  process.on("SIGTERM", () => handleShutdown("SIGTERM"));
-  process.on("SIGINT", () => handleShutdown("SIGINT"));
 }
 
 startServer();

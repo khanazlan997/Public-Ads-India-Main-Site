@@ -9,7 +9,8 @@ import {
   Camera, UploadCloud, Edit3, LogOut, Check, ChevronDown, ChevronRight,
   Lock, X, Download, ExternalLink, Eye, EyeOff, ShieldCheck, Gift
 } from 'lucide-react';
-import { Publisher, BankDetails } from '../types';
+import { Publisher, BankDetails, Campaign } from '../types';
+import { snapshotCampaigns } from '../data/databaseSnapshot';
 
 // Constant for ₹99 Payment QR Code URL - Paste your image link inside the quotes below:
 const PAYMENT_QR_IMAGE_URL = ""; 
@@ -1098,10 +1099,36 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
 
   const publisherEarningStats = getPublisherEarnings(currentUser.id);
   const matchedEarnings = earnings.filter(e => validPubIds.has((e.publisherId || '').trim().toLowerCase())).slice(0, 5);
-  const activeAndAdminCamps = campaigns.filter(c => {
-    if (c.active === false || c.active === 0 || String(c.active).toLowerCase() === 'false') return false;
-    return true;
-  });
+  
+  // Safe resolution: guarantee clients always receive active campaigns even if offline/cleared
+  const effectiveCampaigns: Campaign[] = (() => {
+    const base = Array.isArray(campaigns) && campaigns.length > 0 ? campaigns : snapshotCampaigns;
+    return base.map(c => ({
+      ...c,
+      active: c.active !== false && String(c.active).toLowerCase() !== 'false'
+    }));
+  })();
+
+  const getCampSortKey = (c: Campaign): number => {
+    if (c.updatedAt) {
+      const t = typeof c.updatedAt === 'number' ? c.updatedAt : Date.parse(String(c.updatedAt));
+      if (!isNaN(t)) return t;
+    }
+    if (c.createdAt) {
+      const t = typeof c.createdAt === 'number' ? c.createdAt : Date.parse(String(c.createdAt));
+      if (!isNaN(t)) return t;
+    }
+    const match = c.id.match(/\d+/g);
+    if (match && match.length > 0) {
+      const val = parseInt(match[0], 10);
+      if (!isNaN(val)) return val;
+    }
+    return 0;
+  };
+
+  const activeAndAdminCamps = effectiveCampaigns
+    .filter(c => c.active)
+    .sort((a, b) => getCampSortKey(b) - getCampSortKey(a));
   const pubSubmissions = submissions.filter(s => {
     const sPubId = (s.publisherId || '').trim().toLowerCase();
     const sPubName = (s.publisherName || '').trim().toLowerCase();
@@ -1661,6 +1688,144 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       {activeTab === 'dashboard' && (
         <div id="tabPanel-dashboard" className="space-y-8 animate-fade-up">
 
+          {/* TOP SECTION: Newly Live Campaigns Showcase directly on Top of Main Dashboard */}
+          <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-emerald-500/30 dark:border-emerald-500/20 shadow-lg shadow-emerald-500/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5 relative z-10">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                    <span>🔥 Newly Live Campaigns ({activeAndAdminCamps.length} Active Deals)</span>
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                    Live Now
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
+                  Active campaigns are live above for instant promotion. Click Open or Copy Link to collect client leads.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('campaign')}
+                  className="text-[11px] font-extrabold px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <span>View All Campaigns ↗</span>
+                </button>
+              </div>
+            </div>
+
+            {activeAndAdminCamps.length === 0 ? (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                No campaigns currently active. Admin will activate new campaigns soon.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
+                {activeAndAdminCamps.map((camp, idx) => (
+                  <div key={camp.id} className={`p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border flex flex-col justify-between gap-3 transition-all group ${idx === 0 ? 'border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/20' : 'border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/40'}`}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <img 
+                          src={camp.image} 
+                          alt={camp.name} 
+                          className="w-11 h-11 rounded-full object-cover border border-slate-200 bg-white shrink-0 shadow-2xs" 
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            target.onerror = null;
+                            target.src = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200';
+                          }}
+                        />
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h5 className="text-xs font-black text-slate-900 dark:text-white capitalize group-hover:text-emerald-600 transition-colors">{camp.name}</h5>
+                            {idx === 0 && (
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-600 text-white animate-pulse">
+                                ⚡ NEW
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono">
+                              {camp.vertical}
+                            </span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded font-mono">
+                              {camp.model}
+                            </span>
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded capitalize font-mono">
+                              {camp.platform}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Payout</span>
+                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">₹{camp.payout}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-[10px] text-slate-600 dark:text-slate-300 font-medium bg-white dark:bg-slate-850 p-2 rounded-xl border border-slate-100 dark:border-slate-800 truncate" title={camp.kpi}>
+                      <span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Target:</span>
+                      {camp.kpi || 'Account opening verification'}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 gap-2">
+                      <div className="text-[9px] text-slate-400 truncate max-w-[140px] font-mono select-all">
+                        {camp.link}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') && (
+                          <a
+                            href={camp.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-xs"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                            <span>Open</span>
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => copyCampLink(camp.link, camp.id)}
+                          className={`px-2.5 py-1 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all cursor-pointer ${
+                            copiedCampId === camp.id 
+                              ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-200' 
+                              : 'bg-brand-primary text-white border-transparent hover:bg-blue-700'
+                          }`}
+                        >
+                          {copiedCampId === camp.id ? (
+                            <>
+                              <Check className="w-3 h-3" />
+                              <span>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCampaignId(camp.id);
+                            setActiveTab('datasubmit');
+                          }}
+                          className="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer"
+                        >
+                          <span>Submit Lead</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Main cards display */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             
@@ -1946,8 +2111,8 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {activeAndAdminCamps.map((camp) => (
-                <div key={camp.id} className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-slate-200/80 dark:border-slate-800/80 hover:shadow-xl transition-all duration-300 group hover:border-brand-accent/40 flex flex-col justify-between">
+              {activeAndAdminCamps.map((camp, idx) => (
+                <div key={camp.id} className={`bg-white dark:bg-[#0d1628] rounded-3xl p-6 border hover:shadow-xl transition-all duration-300 group hover:border-brand-accent/40 flex flex-col justify-between ${idx === 0 ? 'border-emerald-500/50 shadow-md ring-1 ring-emerald-500/20' : 'border-slate-200/80 dark:border-slate-800/80'}`}>
                   <div>
                     {/* Header with circular image */}
                     <div className="flex gap-4 items-center mb-4">
@@ -1969,9 +2134,16 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                         </div>
                       )}
                       <div>
-                        <h4 className="text-sm font-extrabold text-slate-900 dark:text-white capitalize group-hover:text-brand-accent">
-                          {camp.name}
-                        </h4>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <h4 className="text-sm font-extrabold text-slate-900 dark:text-white capitalize group-hover:text-brand-accent">
+                            {camp.name}
+                          </h4>
+                          {idx === 0 && (
+                            <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-600 text-white animate-pulse">
+                              ⚡ NEW LIVE
+                            </span>
+                          )}
+                        </div>
                         <div className="flex gap-1.5 items-center mt-1">
                           <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 bg-blue-105 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono">
                             {camp.vertical}

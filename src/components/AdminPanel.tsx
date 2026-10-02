@@ -1428,11 +1428,11 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                      {campaigns.filter(c => c.active !== false).length} Live for Clients
+                      {campaigns.filter(c => c.active !== false).length} Live
                     </span>
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-extrabold bg-slate-100 text-slate-600 border border-slate-300">
                       <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
-                      {campaigns.filter(c => c.active === false).length} Paused / Hidden
+                      {campaigns.filter(c => c.active === false).length} Paused
                     </span>
                   </div>
                 </div>
@@ -1444,8 +1444,8 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                       <th className="p-3.5">Campaign Name & Vertical</th>
                       <th className="p-3.5">Payout</th>
                       <th className="p-3.5">KPI Target</th>
-                      <th className="p-3.5 text-center">Current Status</th>
-                      <th className="p-3.5 text-center">Actions & Toggle Visibility</th>
+                      <th className="p-3.5 text-center">Status</th>
+                      <th className="p-3.5 text-center">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1481,12 +1481,12 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                           {camp.active !== false ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs">
                               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                              LIVE (VISIBLE TO CLIENTS)
+                              Live
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200">
                               <span className="w-2 h-2 rounded-full bg-rose-400"></span>
-                              PAUSED (HIDDEN FROM CLIENTS)
+                              Paused
                             </span>
                           )}
                         </td>
@@ -1509,20 +1509,20 @@ export default function AdminPanel({ onNavigate }: AdminPanelProps) {
                               }}
                               className={`px-2.5 py-1.5 text-[10px] font-extrabold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
                                 camp.active !== false
-                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 shadow-2xs' 
-                                  : 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'
+                                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300 shadow-2xs'
                               }`}
-                              title={camp.active !== false ? "Currently LIVE. Click to Pause and hide from client dashboard" : "Currently PAUSED. Click to Make Live and show on client dashboard"}
+                              title={camp.active !== false ? "Live (Click to Pause)" : "Paused (Click to Make Live)"}
                             >
                               {camp.active !== false ? (
                                 <>
-                                  <Pause className="w-3 h-3 text-amber-600" />
-                                  <span>Pause (Hide from Clients)</span>
+                                  <Play className="w-3 h-3 fill-white text-white" />
+                                  <span>Live</span>
                                 </>
                               ) : (
                                 <>
-                                  <Play className="w-3 h-3 fill-white text-white" />
-                                  <span>Make Live (Show to Clients)</span>
+                                  <Pause className="w-3 h-3 text-amber-600" />
+                                  <span>Paused</span>
                                 </>
                               )}
                             </button>

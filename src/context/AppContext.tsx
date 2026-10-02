@@ -259,8 +259,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const stored = localStorage.getItem('pai_cached_campaigns');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(c => ({
+            ...c,
+            active: c.active !== false && String(c.active).toLowerCase() !== 'false'
+          }));
         }
       }
       return snapshotCampaigns.length > 0 ? snapshotCampaigns.map(c => ({ ...c, active: true })) : defaultCampaigns;
@@ -887,11 +890,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubCamps: (() => void) | null = null;
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
-        const list = snap?.docs?.map(d => ({ id: d.id, ...d.data() } as Campaign)) || [];
-        // An empty Firestore snapshot must not erase campaigns loaded from the shared server store.
-        if (list.length > 0) {
-          setCampaigns(list);
-          safeSetLocal('pai_cached_campaigns', list);
+        if (snap && !snap.empty) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
+          if (list.length > 0) {
+            setCampaigns(prev => {
+              const base = (prev && prev.length > 0) ? prev : snapshotCampaigns;
+              const map = new Map<string, Campaign>();
+              base.forEach(c => { if (c && c.id) map.set(c.id, c); });
+              list.forEach(c => {
+                if (c && c.id) {
+                  const existing = map.get(c.id) || {};
+                  map.set(c.id, { 
+                    ...existing, 
+                    ...c, 
+                    active: c.active !== false && String(c.active).toLowerCase() !== 'false'
+                  });
+                }
+              });
+              const merged = Array.from(map.values());
+              safeSetLocal('pai_cached_campaigns', merged);
+              return merged;
+            });
+          }
         }
       }, (err) => {
         console.warn("Firestore campaigns listener warning:", err);
@@ -952,8 +972,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (snap && snap.size > 0) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
           if (list.length > 0) {
-            setCampaigns(list);
-            safeSetLocal('pai_cached_campaigns', list);
+            setCampaigns(prev => {
+              const base = (prev && prev.length > 0) ? prev : snapshotCampaigns;
+              const map = new Map<string, Campaign>();
+              base.forEach(c => { if (c && c.id) map.set(c.id, c); });
+              list.forEach(c => {
+                if (c && c.id) {
+                  const existing = map.get(c.id) || {};
+                  map.set(c.id, { 
+                    ...existing, 
+                    ...c, 
+                    active: c.active !== false && String(c.active).toLowerCase() !== 'false'
+                  });
+                }
+              });
+              const merged = Array.from(map.values());
+              safeSetLocal('pai_cached_campaigns', merged);
+              return merged;
+            });
           }
         }
       }).catch((err) => {
@@ -1826,10 +1862,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const newCamp: Campaign = {
       ...c,
       id: newId,
-      active: c.active !== undefined ? Boolean(c.active) : true
+      active: c.active !== undefined ? Boolean(c.active) : true,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     };
     
-    // Immediate optimistic update & cache
+    // Immediate optimistic update & cache - put new campaign at the top
     setCampaigns(prev => {
       const next = [newCamp, ...prev.filter(x => x.id !== newId)];
       try {
@@ -1866,9 +1904,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const c = campaigns.find(item => item.id === id);
     if (c) {
       const newActive = c.active === false ? true : false;
-      const updated: Campaign = { ...c, active: newActive };
+      const updated: Campaign = { 
+        ...c, 
+        active: newActive,
+        updatedAt: Date.now()
+      };
       setCampaigns(prev => {
-        const next = prev.map(item => item.id === id ? updated : item);
+        let next: Campaign[];
+        if (newActive) {
+          // When newly made Live, move it to the top so clients see it at the top of the dashboard
+          next = [updated, ...prev.filter(item => item.id !== id)];
+        } else {
+          next = prev.map(item => item.id === id ? updated : item);
+        }
         try {
           localStorage.setItem('pai_cached_campaigns', JSON.stringify(next));
           broadcastSync('SYNC_CAMPAIGNS', next);
@@ -1880,7 +1928,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       fetch('/api/campaign/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, active: newActive })
+        body: JSON.stringify({ id, active: newActive, updatedAt: Date.now() })
       }).catch(err => console.warn("Server campaign toggle dispatch notice:", err));
 
       try {

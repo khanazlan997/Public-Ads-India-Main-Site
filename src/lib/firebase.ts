@@ -2,6 +2,8 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { 
   getFirestore, 
+  initializeFirestore,
+  setLogLevel,
   collection, 
   doc, 
   setDoc, 
@@ -18,7 +20,25 @@ import {
 import firebaseConfig from '../../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+
+// Silence internal offline connection retry noise from Firestore Web SDK
+try {
+  setLogLevel('silent');
+} catch (e) {
+  // Ignore in case of environment limitation
+}
+
+let dbInstance;
+try {
+  dbInstance = initializeFirestore(app, {
+    experimentalForceLongPolling: true,
+    ignoreUndefinedProperties: true
+  }, firebaseConfig.firestoreDatabaseId || undefined);
+} catch (e) {
+  dbInstance = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+}
+
+export const db = dbInstance;
 export const auth = getAuth(app);
 
 export {
@@ -35,3 +55,4 @@ export {
   limit,
   orderBy
 };
+

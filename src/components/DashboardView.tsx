@@ -1926,14 +1926,23 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       {/* TAB B: Campaigns Catalog */}
       {activeTab === 'campaign' && (
         <div id="tabPanel-campaign" className="animate-fade-up">
-          <div className="bg-slate-100/50 dark:bg-[#090f1d] p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 mb-6 text-center max-w-2xl mx-auto">
-            <h4 className="text-xs.5 font-bold text-slate-700 dark:text-slate-200 uppercase tracking-widest">Available Campaigns</h4>
-            <p className="text-[10px] text-slate-450 mt-1">Only active, high-convert, verified programs are displayed. Take action links below to create leads.</p>
+          <div className="bg-slate-100/50 dark:bg-[#090f1d] p-5 rounded-2xl border border-slate-200/50 dark:border-slate-800/80 mb-6 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div>
+              <h4 className="text-xs.5 font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-widest flex items-center gap-2">
+                <span>Available Live Campaigns</span>
+              </h4>
+              <p className="text-[10px] text-slate-450 mt-1">Official verified high-converting programs live now. Take tracking links below to create client leads.</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 rounded-full text-[11px] font-black shrink-0">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              {activeAndAdminCamps.length} Live Campaigns
+            </span>
           </div>
 
           {activeAndAdminCamps.length === 0 ? (
-            <div className="text-center py-8 text-slate-450 text-xs">
-              No campaigns currently active. Check back shortly.
+            <div className="text-center py-12 px-4 text-slate-450 text-xs bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+              <p className="font-bold text-slate-600 dark:text-slate-300">No campaigns currently active on the client desk.</p>
+              <p className="text-[11px] text-slate-400 mt-1">Campaigns paused by the administrator will not be displayed here until activated.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

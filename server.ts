@@ -962,9 +962,13 @@ async function startServer() {
       if (Array.isArray(allCampaigns) && allCampaigns.length > 0) {
         store.campaigns = allCampaigns;
         if (firestore) {
-          await Promise.all(allCampaigns.filter((c: any) => c && c.id).map((c: any) =>
-            setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
-          ));
+          try {
+            await Promise.all(allCampaigns.filter((c: any) => c && c.id).map((c: any) =>
+              setDoc(doc(firestore, "campaigns", c.id), sanitizeFirestoreData(c), { merge: true })
+            ));
+          } catch (fsErr: any) {
+            console.warn("[Sync Warning] Firestore campaign batch save skipped (quota/offline):", fsErr?.message);
+          }
         }
       } else if (campaign && (campaign.id || id)) {
         const campId = campaign.id || id;
@@ -989,9 +993,13 @@ async function startServer() {
           store.campaigns.unshift(campaignWithActive);
         }
         if (firestore) {
-          const targetCamp = store.campaigns.find(c => c.id === campId);
-          if (targetCamp) {
-            await setDoc(doc(firestore, "campaigns", campId), sanitizeFirestoreData(targetCamp), { merge: true });
+          try {
+            const targetCamp = store.campaigns.find(c => c.id === campId);
+            if (targetCamp) {
+              await setDoc(doc(firestore, "campaigns", campId), sanitizeFirestoreData(targetCamp), { merge: true });
+            }
+          } catch (fsErr: any) {
+            console.warn("[Sync Warning] Firestore campaign save skipped (quota/offline):", fsErr?.message);
           }
         }
       } else if (id && active !== undefined) {
@@ -1006,7 +1014,11 @@ async function startServer() {
           }
         }
         if (camp && firestore) {
-          await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
+          try {
+            await setDoc(doc(firestore, "campaigns", id), sanitizeFirestoreData(camp), { merge: true });
+          } catch (fsErr: any) {
+            console.warn("[Sync Warning] Firestore campaign toggle save skipped (quota/offline):", fsErr?.message);
+          }
         }
       }
 

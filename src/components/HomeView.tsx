@@ -237,7 +237,59 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
         {/* Dynamic Geometric background animation */}
         <GeometricBackground />
 
+        {/* Realistic Waving 3D Graphical Flags (India & UAE) - Amne Samne (Facing Each Other) */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 hidden sm:flex items-center justify-between px-2 md:px-12 opacity-[0.12] dark:opacity-[0.18] select-none">
+          {/* India Flag Graphic (Left - Facing Right) */}
+          <div className="absolute left-2 md:left-8 top-1/2 -translate-y-1/2 w-64 md:w-[420px] h-44 md:h-72 transform -rotate-6 scale-100 filter drop-shadow-2xl">
+            <svg viewBox="0 0 900 600" className="w-full h-full object-contain overflow-visible">
+              <defs>
+                <linearGradient id="indiaWaveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fff" stopOpacity="0.4" />
+                  <stop offset="50%" stopColor="#000" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#fff" stopOpacity="0.3" />
+                </linearGradient>
+                <filter id="waveShadow" x="-10%" y="-10%" width="120%" height="120%">
+                  <feDropShadow dx="0" dy="12" stdDeviation="15" floodColor="#000" floodOpacity="0.35" />
+                </filter>
+              </defs>
+              <g filter="url(#waveShadow)">
+                <path d="M 30,30 Q 250,10 470,30 T 870,30 L 870,570 Q 650,590 470,570 T 30,570 Z" fill="#fff" />
+                <path d="M 30,30 Q 250,10 470,30 T 870,30 L 870,220 Q 650,240 470,220 T 30,220 Z" fill="#FF9933" />
+                <path d="M 30,220 Q 250,200 470,220 T 870,220 L 870,380 Q 650,400 470,380 T 30,380 Z" fill="#FFFFFF" />
+                <path d="M 30,380 Q 250,360 470,380 T 870,380 L 870,570 Q 650,590 470,570 T 30,570 Z" fill="#138808" />
+                <path d="M 30,30 Q 250,10 470,30 T 870,30 L 870,570 Q 650,590 470,570 T 30,570 Z" fill="url(#indiaWaveGrad)" />
+                <g transform="translate(450, 300)">
+                  <circle r="75" fill="none" stroke="#000080" strokeWidth="8" />
+                  <circle r="10" fill="#000080" />
+                  {Array.from({ length: 24 }).map((_, i) => (
+                    <line key={i} x1="0" y1="0" x2="0" y2="-75" stroke="#000080" strokeWidth="4" transform={`rotate(${i * 15})`} />
+                  ))}
+                </g>
+              </g>
+            </svg>
+          </div>
 
+          {/* UAE Flag Graphic (Right - Facing Left) */}
+          <div className="absolute right-2 md:right-8 top-1/2 -translate-y-1/2 w-64 md:w-[420px] h-44 md:h-72 transform rotate-6 scale-100 filter drop-shadow-2xl">
+            <svg viewBox="0 0 900 600" className="w-full h-full object-contain overflow-visible">
+              <defs>
+                <linearGradient id="uaeWaveGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#fff" stopOpacity="0.4" />
+                  <stop offset="50%" stopColor="#000" stopOpacity="0.15" />
+                  <stop offset="100%" stopColor="#fff" stopOpacity="0.3" />
+                </linearGradient>
+              </defs>
+              <g filter="url(#waveShadow)">
+                <path d="M 30,30 Q 250,10 470,30 T 870,30 L 870,570 Q 650,590 470,570 T 30,570 Z" fill="#fff" />
+                <path d="M 300,30 Q 585,10 870,30 L 870,210 Q 585,230 300,210 Z" fill="#00732F" />
+                <path d="M 300,210 Q 585,190 870,210 L 870,390 Q 585,410 300,390 Z" fill="#FFFFFF" />
+                <path d="M 300,390 Q 585,370 870,390 L 870,570 Q 650,590 470,570 L 30,570 Z" fill="#000000" />
+                <path d="M 30,30 Q 250,10 300,30 L 300,570 Q 250,590 30,570 Z" fill="#CE1126" />
+                <path d="M 30,30 Q 250,10 470,30 T 870,30 L 870,570 Q 650,590 470,570 T 30,570 Z" fill="url(#uaeWaveGrad)" />
+              </g>
+            </svg>
+          </div>
+        </div>
 
         {/* Glow decorative orbs */}
         <div className="absolute top-1/4 left-1/10 w-96 h-96 bg-blue-400/10 dark:bg-blue-600/5 rounded-full blur-3xl pointer-events-none z-0" />

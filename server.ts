@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import { initializeApp, getApps } from "firebase/app";
 import { getFirestore, collection, getDocs, getDoc, doc, setDoc, deleteDoc, writeBatch, query, where } from "firebase/firestore";
 import { snapshotPublishers, snapshotCampaigns } from "./src/data/databaseSnapshot";
+import { getHourlyHeadline, SEO_HEADLINES } from "./src/data/seoHeadlines";
 import firebaseConfig from "./firebase-applet-config.json";
 
 const defaultTestimonials = [
@@ -73,6 +74,56 @@ async function startServer() {
   // Add standard api health check
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
+  });
+
+  // LLM.txt & GEO (Generative Engine Optimization) markdown standards endpoints
+  // Optimized for AI search crawlers (Google AI Overviews, Perplexity, ChatGPT, Claude)
+  app.get(["/llms.txt", "/.well-known/llms.txt"], (req, res) => {
+    try {
+      const filePath = path.resolve(process.cwd(), "public", "llms.txt");
+      if (fs.existsSync(filePath)) {
+        res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        return res.sendFile(filePath);
+      }
+    } catch (e) {}
+    res.status(404).send("# Public Ads India\n\nIndia's #1 Zero Investment Company.");
+  });
+
+  app.get("/llms-full.txt", (req, res) => {
+    try {
+      const filePath = path.resolve(process.cwd(), "public", "llms-full.txt");
+      if (fs.existsSync(filePath)) {
+        res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        return res.sendFile(filePath);
+      }
+    } catch (e) {}
+    res.status(404).send("# Public Ads India Full Knowledge Base\n\nIndia's #1 Zero Investment Company.");
+  });
+
+  app.get("/sitemap.xml", (req, res) => {
+    try {
+      const filePath = path.resolve(process.cwd(), "public", "sitemap.xml");
+      if (fs.existsSync(filePath)) {
+        res.setHeader("Content-Type", "application/xml; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=3600");
+        return res.sendFile(filePath);
+      }
+    } catch (e) {}
+    res.status(404).send("Sitemap not found");
+  });
+
+  app.get("/robots.txt", (req, res) => {
+    try {
+      const filePath = path.resolve(process.cwd(), "public", "robots.txt");
+      if (fs.existsSync(filePath)) {
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
+        res.setHeader("Cache-Control", "public, max-age=86400");
+        return res.sendFile(filePath);
+      }
+    } catch (e) {}
+    res.send("User-agent: *\nAllow: /\nSitemap: https://www.publicadsindia.com/sitemap.xml");
   });
 
   // ==========================================
@@ -1329,6 +1380,106 @@ async function startServer() {
     }
   });
 
+  // Dedicated Campaign Update / Add / Toggle endpoint (Realtime across all devices & Firestore synced)
+  app.post("/api/campaign/update", async (req, res) => {
+    try {
+      const { id, active, campaign } = req.body || {};
+      if (!Array.isArray(store.campaigns)) store.campaigns = [];
+      
+      const targetId = id || campaign?.id;
+      if (!targetId) return res.status(400).json({ error: "Missing campaign id" });
+
+      let updatedCamp: any = null;
+      const idx = store.campaigns.findIndex(c => String(c.id).trim() === String(targetId).trim());
+
+      if (idx !== -1) {
+        // Update existing campaign
+        const existing = store.campaigns[idx];
+        const newActive = active !== undefined ? Boolean(active) : (campaign?.active !== undefined ? Boolean(campaign.active) : existing.active);
+        updatedCamp = {
+          ...existing,
+          ...(campaign || {}),
+          id: targetId,
+          active: newActive
+        };
+        store.campaigns[idx] = updatedCamp;
+      } else if (campaign) {
+        // Add new campaign
+        const newActive = campaign.active !== undefined ? Boolean(campaign.active) : (active !== undefined ? Boolean(active) : true);
+        updatedCamp = {
+          ...campaign,
+          id: targetId,
+          active: newActive
+        };
+        store.campaigns.unshift(updatedCamp);
+      }
+
+      scheduleSaveStore();
+
+      // Persist to Firestore
+      const firestore = getServerFirestore();
+      if (firestore && updatedCamp) {
+        try {
+          await setDoc(doc(firestore, "campaigns", String(targetId)), sanitizeFirestoreData(updatedCamp), { merge: true });
+        } catch (e) {
+          console.warn("[Campaign Update] Firestore sync notice:", e);
+        }
+      }
+
+      // Broadcast real-time update to all connected clients immediately!
+      broadcastRealtime({
+        type: "SYNC_CAMPAIGNS",
+        payload: store.campaigns
+      });
+
+      console.log(`[Sync] Campaign ${targetId} updated (active: ${updatedCamp?.active}); broadcasted to ${sseClients.length} clients.`);
+      res.json({ success: true, campaign: updatedCamp, campaigns: store.campaigns });
+    } catch (err: any) {
+      console.error("[Server /api/campaign/update] Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated Campaign Delete endpoint
+  app.post("/api/campaign/delete", async (req, res) => {
+    try {
+      const { id } = req.body || {};
+      if (!id) return res.status(400).json({ error: "Missing campaign id" });
+      const targetId = String(id).trim();
+
+      if (!Array.isArray(store.campaigns)) store.campaigns = [];
+      const initialCount = store.campaigns.length;
+      store.campaigns = store.campaigns.filter(c => String(c.id).trim() !== targetId);
+
+      scheduleSaveStore();
+
+      const firestore = getServerFirestore();
+      if (firestore) {
+        try {
+          await deleteDoc(doc(firestore, "campaigns", targetId));
+        } catch (e) {
+          console.warn("[Campaign Delete] Firestore delete notice:", e);
+        }
+      }
+
+      broadcastRealtime({
+        type: "SYNC_CAMPAIGNS",
+        payload: store.campaigns
+      });
+
+      console.log(`[Sync] Campaign ${targetId} deleted; broadcasted to ${sseClients.length} clients.`);
+      res.json({ success: true, count: store.campaigns.length, deleted: initialCount - store.campaigns.length, campaigns: store.campaigns });
+    } catch (err: any) {
+      console.error("[Server /api/campaign/delete] Error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Dedicated GET Campaigns endpoint
+  app.get("/api/campaigns", (req, res) => {
+    res.json({ success: true, data: store.campaigns || [] });
+  });
+
   // Dedicated Submission Delete endpoint (Synced to cloud & server store)
   app.post("/api/submission/delete", async (req, res) => {
     try {
@@ -2145,14 +2296,63 @@ async function startServer() {
     res.json({ success: true, data: store.advertiserInquiries || [] });
   });
 
+  // Dynamic Hourly SEO & Sitelink Injector Function
+  // Rotates titles and descriptions hourly from 100+ high-converting headlines so Google always sees fresh, captivating copy.
+  function injectDynamicSeo(html: string, reqUrl: string = '/'): string {
+    const hourly = getHourlyHeadline();
+    let title = hourly.title;
+    let description = hourly.description;
+
+    // Tailor specific sitelink slugs with exact targeted metadata
+    const cleanPath = reqUrl.split('?')[0].split('#')[0].toLowerCase();
+    if (cleanPath === '/zero-investment-work' || cleanPath === '/zero-investment') {
+      title = "Zero Investment Work | Public Ads India | India's #1 Zero Investment Platform";
+      description = "Start 100% Zero Investment Work with Public Ads India. Demat account opening tasks, telecalling projects, and daily UPI bank payouts. Free registration!";
+    } else if (cleanPath === '/signin' || cleanPath === '/login' || cleanPath === '/dashboard') {
+      title = "Publisher Sign In | Public Ads India | Access Live Earnings & Campaigns";
+      description = "Sign in to your Public Ads India publisher portal. Track live lead verification, view active Demat campaigns, and disburse daily wallet payouts.";
+    } else if (cleanPath === '/becomeapartner' || cleanPath === '/partner' || cleanPath === '/partner-signup') {
+      title = "Partner Sign Up | Public Ads India | #1 Zero Investment Agency Franchise";
+      description = "Become an authorized partner or team leader with Public Ads India. Lead telecalling teams, access bulk CPA offers, and earn master tier commissions.";
+    } else if (cleanPath === '/industry' || cleanPath === '/advertiser' || cleanPath === '/advertiser-apply') {
+      title = "Advertiser Apply | Public Ads India | High Conversion Financial Leads";
+      description = "Promote your stockbroking, banking, and Demat apps with Public Ads India's verified network of active calling agents across India.";
+    } else if (cleanPath === '/overview') {
+      title = "Work Overview | Public Ads India | Demat Opening & Telecalling Rates";
+      description = "Learn how Demat account opening and telecalling work operates at Public Ads India. Check commission rates, daily payout cycles, and guidelines.";
+    } else if (cleanPath === '/resource') {
+      title = "Resource Hub | Public Ads India | Publisher Tutorials & Lead Guides";
+      description = "Access complete step-by-step guides, stockbroking CPA tutorials, and payment rules for zero investment work on Public Ads India.";
+    } else if (cleanPath === '/blogpage' || cleanPath.startsWith('/blog')) {
+      title = "Fintech & Work Blog | Public Ads India | Earning Strategies 2026";
+      description = "Read insightful articles on zero investment work, work from home opportunities, Demat account KYC procedures, and daily UPI earning methods.";
+    } else if (cleanPath === '/aboutus') {
+      title = "About Us | Public Ads India | 5-Star Rated Fintech Company in Kanpur";
+      description = "Learn about Public Ads India's mission, leadership, ISO certification, Kanpur headquarters, and legal compliance as India's #1 Zero Investment Company.";
+    } else if (cleanPath === '/sitemap') {
+      title = "Business Sitemap Directory | Public Ads India Official Links";
+      description = "Complete directory of all pages, publisher portals, franchise applications, and resource hubs on Public Ads India.";
+    }
+
+    let updated = html;
+    // Replace <title>
+    updated = updated.replace(/<title>[\s\S]*?<\/title>/i, `<title>${title}</title>`);
+    // Replace description
+    updated = updated.replace(/<meta\s+name=["']description["']\s+content=["'][\s\S]*?["']\s*\/?>/i, `<meta name="description" content="${description}" />`);
+    // Replace OpenGraph title & desc
+    updated = updated.replace(/<meta\s+property=["']og:title["']\s+content=["'][\s\S]*?["']\s*\/?>/i, `<meta property="og:title" content="${title}" />`);
+    updated = updated.replace(/<meta\s+property=["']og:description["']\s+content=["'][\s\S]*?["']\s*\/?>/i, `<meta property="og:description" content="${description}" />`);
+    // Replace Twitter title & desc
+    updated = updated.replace(/<meta\s+name=["']twitter:title["']\s+content=["'][\s\S]*?["']\s*\/?>/i, `<meta name="twitter:title" content="${title}" />`);
+    updated = updated.replace(/<meta\s+name=["']twitter:description["']\s+content=["'][\s\S]*?["']\s*\/?>/i, `<meta name="twitter:description" content="${description}" />`);
+
+    return updated;
+  }
+
   // Vite middleware for development or Static Assets for production
   if (process.env.NODE_ENV !== "production") {
     console.log("Starting server in development mode...");
     const vite = await createViteServer({
-      // Express owns the HTTP listener below, so Vite cannot receive the
-      // WebSocket upgrade required by its default HMR client in middleware mode.
-      // Disable HMR here to prevent the client from retrying a socket that can
-      // never be upgraded; the preview server still reloads on restart.
       server: { middlewareMode: true, hmr: false },
       appType: "spa",
     });
@@ -2160,7 +2360,7 @@ async function startServer() {
     // Use vite's connect instance as middleware
     app.use(vite.middlewares);
 
-    // Handle SPA fallback routing in development so page refresh doesn't return 404
+    // Handle SPA fallback routing in development with dynamic SEO injection
     app.get("*", async (req, res, next) => {
       const url = req.originalUrl;
       try {
@@ -2169,13 +2369,12 @@ async function startServer() {
           path.resolve(process.cwd(), "index.html"),
           "utf-8"
         );
-        // Apply Vite HTML transforms. HMR is disabled because this Express
-        // middleware does not own the WebSocket upgrade handler. Remove the
-        // injected client as a final safeguard so the browser never retries
-        // an unavailable HMR socket in the preview.
         template = await vite.transformIndexHtml(url, template);
         template = template.replace(/<script[^>]*[\s/]src=["']\/?@vite\/client["'][^>]*>\s*<\/script>/gi, "");
-        // Send the transformed HTML back
+        
+        // Inject hourly SEO headline and description
+        template = injectDynamicSeo(template, url);
+        
         res.status(200).set({ "Content-Type": "text/html" }).end(template);
       } catch (e) {
         next(e);
@@ -2188,9 +2387,20 @@ async function startServer() {
     // Serve static files
     app.use(express.static(distPath));
     
-    // Handle SPA fallback routing for index.html (Very important to prevent 404s on page refresh)
+    // Handle SPA fallback routing for index.html with dynamic SEO injection
     app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
+      try {
+        const indexPath = path.join(distPath, "index.html");
+        if (fs.existsSync(indexPath)) {
+          let html = fs.readFileSync(indexPath, "utf-8");
+          html = injectDynamicSeo(html, req.originalUrl);
+          res.status(200).set({ "Content-Type": "text/html" }).end(html);
+        } else {
+          res.sendFile(indexPath);
+        }
+      } catch (err) {
+        res.sendFile(path.join(distPath, "index.html"));
+      }
     });
   }
 

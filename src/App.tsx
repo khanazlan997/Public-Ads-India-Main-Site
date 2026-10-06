@@ -23,23 +23,25 @@ import CongratsModal from './components/CongratsModal';
 import OfflineIndicator from './components/OfflineIndicator';
 import { motion, AnimatePresence } from 'motion/react';
 
+import { getHourlyHeadline } from './data/seoHeadlines';
+
 // Helper to normalize route paths
 function normalizeRoute(rawPath: string): string {
   const lower = rawPath.toLowerCase().trim();
   if (lower === '/home' || lower === '/' || lower === '') return '/Home';
-  if (lower === '/dashboard' || lower.startsWith('/dashboard/') || lower.startsWith('/dashboard?')) return '/Dashboard';
+  if (lower === '/dashboard' || lower.startsWith('/dashboard/') || lower.startsWith('/dashboard?') || lower === '/signin' || lower === '/login' || lower === '/publisher-login') return '/Dashboard';
   if (lower === '/admin') return '/Admin';
   if (lower === '/partner') return '/Partner';
   if (lower === '/employee') return '/Employee';
   if (lower === '/ads-earning') return '/ads-earning';
   if (lower === '/blogpage' || lower === '/blog' || lower.startsWith('/blog/')) return lower;
-  if (lower === '/zero-investment-work' || lower === '/zero-investment') return '/zero-investment-work';
+  if (lower === '/zero-investment-work' || lower === '/zero-investment' || lower === '/zero-investment-company') return '/zero-investment-work';
   if (lower === '/aboutus' || lower === '/about') return '/aboutus';
   if (lower === '/overview') return '/overview';
   if (lower === '/termandcondition' || lower === '/terms' || lower === '/termsandconditions' || lower === '/terms-and-conditions') return '/termandcondition';
   if (lower === '/resource' || lower === '/resources' || lower === '/resourcehub') return '/resource';
-  if (lower === '/industry' || lower === '/industries' || lower === '/industrysolutions') return '/industry';
-  if (lower === '/becomeapartner' || lower === '/become-a-partner' || lower === '/partnerships') return '/becomeapartner';
+  if (lower === '/industry' || lower === '/industries' || lower === '/industrysolutions' || lower === '/advertiser' || lower === '/advertiser-apply' || lower === '/advertise') return '/industry';
+  if (lower === '/becomeapartner' || lower === '/become-a-partner' || lower === '/partnerships' || lower === '/partner-signup' || lower === '/partnersignup') return '/becomeapartner';
   if (lower === '/sitemap' || lower === '/business-sitemap') return '/sitemap';
   return '/404';
 }
@@ -125,6 +127,61 @@ function AppContent() {
       setIsPageNavigating(false);
     }, 650);
   };
+
+  // Dynamic Hourly SEO & Sitelink Title Sync
+  useEffect(() => {
+    const updateSeo = () => {
+      const lowerRoute = route.toLowerCase();
+      let title = '';
+      let description = '';
+
+      if (lowerRoute === '/zero-investment-work') {
+        title = "Zero Investment Work | Public Ads India | India's #1 Zero Investment Platform";
+        description = "Start 100% Zero Investment Work with Public Ads India. Demat account opening tasks, telecalling projects, and daily UPI bank payouts. Free registration!";
+      } else if (lowerRoute === '/dashboard' || lowerRoute === '/signin' || lowerRoute === '/login') {
+        title = "Publisher Sign In | Public Ads India | Access Live Earnings & Campaigns";
+        description = "Sign in to your Public Ads India publisher portal. Track live lead verification, view active Demat campaigns, and disburse daily wallet payouts.";
+      } else if (lowerRoute === '/becomeapartner' || lowerRoute === '/partner') {
+        title = "Partner Sign Up | Public Ads India | #1 Zero Investment Agency Franchise";
+        description = "Become an authorized partner or team leader with Public Ads India. Lead telecalling teams, access bulk CPA offers, and earn master tier commissions.";
+      } else if (lowerRoute === '/industry') {
+        title = "Advertiser Apply | Public Ads India | High Conversion Financial Leads";
+        description = "Promote your stockbroking, banking, and Demat apps with Public Ads India's verified network of active calling agents across India.";
+      } else if (lowerRoute === '/overview') {
+        title = "Work Overview | Public Ads India | Demat Opening & Telecalling Rates";
+        description = "Learn how Demat account opening and telecalling work operates at Public Ads India. Check commission rates, daily payout cycles, and guidelines.";
+      } else if (lowerRoute === '/resource') {
+        title = "Resource Hub | Public Ads India | Publisher Tutorials & Lead Guides";
+        description = "Access complete step-by-step guides, stockbroking CPA tutorials, and payment rules for zero investment work on Public Ads India.";
+      } else if (lowerRoute === '/blogpage' || lowerRoute.startsWith('/blog')) {
+        title = "Fintech & Work Blog | Public Ads India | Earning Strategies 2026";
+        description = "Read insightful articles on zero investment work, work from home opportunities, Demat account KYC procedures, and daily UPI earning methods.";
+      } else if (lowerRoute === '/aboutus') {
+        title = "About Us | Public Ads India | 5-Star Rated Fintech Company in Kanpur";
+        description = "Learn about Public Ads India's mission, leadership, ISO certification, Kanpur headquarters, and legal compliance as India's #1 Zero Investment Company.";
+      } else if (lowerRoute === '/sitemap') {
+        title = "Business Sitemap Directory | Public Ads India Official Links";
+        description = "Complete directory of all pages, publisher portals, franchise applications, and resource hubs on Public Ads India.";
+      } else if (lowerRoute === '/admin') {
+        title = "Admin Console | Public Ads India Management Panel";
+        description = "Secure administrator control panel for campaign status, MIS approvals, and publisher settlements.";
+      } else {
+        const hourly = getHourlyHeadline();
+        title = hourly.title;
+        description = hourly.description;
+      }
+
+      if (title) document.title = title;
+      if (description) {
+        const metaDesc = document.querySelector('meta[name="description"]');
+        if (metaDesc) metaDesc.setAttribute('content', description);
+      }
+    };
+
+    updateSeo();
+    const interval = setInterval(updateSeo, 60000);
+    return () => clearInterval(interval);
+  }, [route]);
 
   // Bind site-wide HTML dark mode Class changes
   useEffect(() => {

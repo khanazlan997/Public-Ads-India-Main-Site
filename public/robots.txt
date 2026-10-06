@@ -1,4 +1,45 @@
+# Robots.txt for Public Ads India (https://www.publicadsindia.com)
+# Configured for maximum Google Indexing, Sitelinks, Generative Engine Optimization (GEO), and AI Crawlers
+
 User-agent: *
 Allow: /
+Disallow: /admin
+Disallow: /api/private/
 
+# Explicitly Allow All Major Search Engines and AI Crawlers for GEO (Google Gemini, SearchGPT, Perplexity, Claude, Applebot)
+User-agent: Googlebot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: GoogleOther
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+# Sitemaps & Knowledge Feeds
 Sitemap: https://www.publicadsindia.com/sitemap.xml
+# LLM & AI Context Specification: https://www.publicadsindia.com/llms.txt

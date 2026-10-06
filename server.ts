@@ -276,11 +276,29 @@ async function startServer() {
   // Manual / Explicit Firestore Cloud Synchronization
   // Cached single Firestore instance to prevent socket/connection leaks across repeated calls
   let cachedServerFirestore: any = null;
+  let firestoreQuotaExceededUntil = 0;
+
+  function isQuotaError(err: any): boolean {
+    if (!err) return false;
+    const msg = (err.message || String(err) || '').toLowerCase();
+    const code = (err.code || '').toLowerCase();
+    return code === 'resource-exhausted' || msg.includes('quota limit exceeded') || msg.includes('quota exceeded') || msg.includes('free daily read units');
+  }
+
+  function handleFirestoreError(context: string, err: any) {
+    if (isQuotaError(err)) {
+      firestoreQuotaExceededUntil = Date.now() + 15 * 60 * 1000; // 15 min graceful backoff
+      console.warn(`[Sync] Firestore read quota reached daily limit during ${context}; seamlessly serving 100% of data from server persistent store.`);
+    } else {
+      console.warn(`[Sync] Firestore notice (${context}):`, err?.message || err);
+    }
+  }
+
   function getServerFirestore() {
     if (cachedServerFirestore) return cachedServerFirestore;
     try {
-  const config = firebaseConfig;
-  if (!config.apiKey || !config.projectId) return null;
+      const config = firebaseConfig;
+      if (!config.apiKey || !config.projectId) return null;
       const existingApps = getApps();
       const firebaseApp = existingApps.find(a => a.name === "server-app") || initializeApp(config, "server-app");
       cachedServerFirestore = getFirestore(firebaseApp, config.firestoreDatabaseId);
@@ -293,19 +311,43 @@ async function startServer() {
 
   // Only called when Admin explicitly triggers a Push or Pull, avoiding automatic background quota consumption
   async function syncFromFirestore() {
+    if (Date.now() < firestoreQuotaExceededUntil) {
+      return { 
+        success: true, 
+        message: "Serving from server persistent store (quota protection active).",
+        publishersCount: store.publishers.length,
+        submissionsCount: store.submissions.length,
+        earningsCount: store.earnings.length,
+        campaignsCount: store.campaigns.length,
+        testimonialsCount: store.testimonials.length,
+        testimonials: store.testimonials,
+        campaigns: store.campaigns,
+        publishers: store.publishers
+      };
+    }
+
     try {
       const firestore = getServerFirestore();
       if (!firestore) return { success: false, message: "Firebase is not configured or reachable." };
 
       console.log("[Server Firestore Sync (Manual)] Fetching collections from Firestore on demand...");
       
+      const safeGetDocs = async (colName: string) => {
+        try {
+          return await getDocs(collection(firestore, colName));
+        } catch (e: any) {
+          handleFirestoreError(colName, e);
+          return { size: 0, docs: [] } as any;
+        }
+      };
+
       const [pubSnap, subSnap, earnSnap, campSnap, bankSnap, testiSnap] = await Promise.all([
-        getDocs(collection(firestore, "publishers")).catch(() => ({ size: 0, docs: [] } as any)),
-        getDocs(collection(firestore, "submissions")).catch(() => ({ size: 0, docs: [] } as any)),
-        getDocs(collection(firestore, "earnings")).catch(() => ({ size: 0, docs: [] } as any)),
-        getDocs(collection(firestore, "campaigns")).catch(() => ({ size: 0, docs: [] } as any)),
-        getDocs(collection(firestore, "bank_details")).catch(() => ({ size: 0, docs: [] } as any)),
-        getDocs(collection(firestore, "testimonials")).catch(() => ({ size: 0, docs: [] } as any)),
+        safeGetDocs("publishers"),
+        safeGetDocs("submissions"),
+        safeGetDocs("earnings"),
+        safeGetDocs("campaigns"),
+        safeGetDocs("bank_details"),
+        safeGetDocs("testimonials"),
       ]);
 
       // 1. Publishers: Merge server store and Firestore documents safely
@@ -891,13 +933,22 @@ async function startServer() {
     // Hydrate every admin-facing collection from Firestore so all devices share
     // one canonical snapshot instead of each device's local memory/cache.
     const firestore = getServerFirestore();
-    if (firestore) {
+    if (firestore && Date.now() >= firestoreQuotaExceededUntil) {
       try {
+        const safeGetDocs = async (colName: string) => {
+          try {
+            return await getDocs(collection(firestore, colName));
+          } catch (e: any) {
+            handleFirestoreError(`admin/${colName}`, e);
+            return { size: 0, docs: [] } as any;
+          }
+        };
+
         const [submissionSnapshot, employeeSnapshot, publisherSnapshot, bankSnapshot] = await Promise.all([
-          getDocs(collection(firestore, 'submissions')),
-          getDocs(collection(firestore, 'employees')),
-          getDocs(collection(firestore, 'publishers')),
-          getDocs(collection(firestore, 'bank_details')),
+          safeGetDocs('submissions'),
+          safeGetDocs('employees'),
+          safeGetDocs('publishers'),
+          safeGetDocs('bank_details'),
         ]);
         if (submissionSnapshot.size > 0) {
           const subMap = new Map<string, any>();
@@ -940,7 +991,7 @@ async function startServer() {
           store.settings = { ...(store.settings || {}), ...settingsDoc.data() };
         }
       } catch (error) {
-        console.warn('[Sync] Could not hydrate canonical admin data from Firestore:', error);
+        handleFirestoreError('admin-sync-all', error);
       }
     }
 
@@ -1322,8 +1373,11 @@ async function startServer() {
 
     try {
       const firestore = getServerFirestore();
-      if (firestore) {
-        const cloudSnap = await getDocs(collection(firestore, 'bank_details'));
+      if (firestore && Date.now() >= firestoreQuotaExceededUntil) {
+        const cloudSnap = await getDocs(collection(firestore, 'bank_details')).catch(err => {
+          handleFirestoreError('bank-lookup', err);
+          return { size: 0, docs: [] } as any;
+        });
         const cloudEntry = cloudSnap.docs.find((bankDoc: any) => {
           const data = bankDoc.data() || {};
           return String(data.publisherId || bankDoc.id).trim().toLowerCase() === target;
@@ -1337,7 +1391,7 @@ async function startServer() {
         }
       }
     } catch (err) {
-      console.warn(`[Sync] Firestore bank lookup failed for ${pubId}:`, err);
+      handleFirestoreError(`bank-lookup/${pubId}`, err);
     }
     return res.status(404).json({ success: false, message: "Bank details not found" });
   });
@@ -2332,6 +2386,9 @@ async function startServer() {
     } else if (cleanPath === '/sitemap') {
       title = "Business Sitemap Directory | Public Ads India Official Links";
       description = "Complete directory of all pages, publisher portals, franchise applications, and resource hubs on Public Ads India.";
+    } else if (cleanPath === '/recruitment-tender') {
+      title = "Recruitment & Tenders | Public Ads India | Corporate Procurement";
+      description = "Participate in zero-EMD calling and BPO tenders with Public Ads India. Explore remote job openings, careers, and agency franchises in Kanpur and PAN India.";
     }
 
     let updated = html;
@@ -2413,10 +2470,12 @@ async function startServer() {
       console.warn("[Server Init] Firestore initial sync skipped/failed:", e.message);
     });
 
-    // Periodic sync every 25 seconds to catch cross-device publisher registrations & updates
+    // Periodic sync with smart backoff to protect Firestore quota
     setInterval(() => {
-      syncFromFirestore().catch(() => {});
-    }, 25000);
+      if (Date.now() >= firestoreQuotaExceededUntil) {
+        syncFromFirestore().catch(() => {});
+      }
+    }, 60000);
   });
 }
 

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Trophy, CheckCircle2, Sparkles, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
+import { Trophy, CheckCircle2, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 interface CongratsModalProps {
   publisherInfo: { id: string; name: string } | null;
@@ -51,8 +51,8 @@ export default function CongratsModal({ publisherInfo, onClose }: CongratsModalP
           {/* Celebration Trophy / Badge */}
           <div className="relative mx-auto w-20 h-20 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-500/30 text-white mb-6 animate-bounce">
             <Trophy className="w-10 h-10" />
-            <div className="absolute -top-1 -right-1 w-6 h-6 bg-amber-400 rounded-full flex items-center justify-center text-slate-950 shadow-md">
-              <Sparkles className="w-3.5 h-3.5 animate-spin" />
+            <div className="absolute -top-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-white shadow-md">
+              <CheckCircle2 className="w-3.5 h-3.5" />
             </div>
           </div>
 

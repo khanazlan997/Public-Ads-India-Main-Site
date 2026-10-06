@@ -21,6 +21,8 @@ import BusinessSitemap from './components/BusinessSitemap';
 import ZeroInvestmentLanding from './components/ZeroInvestmentLanding';
 import CongratsModal from './components/CongratsModal';
 import OfflineIndicator from './components/OfflineIndicator';
+import FloatingInquiryTab from './components/FloatingInquiryTab';
+import RecruitmentTender from './components/RecruitmentTender';
 import { motion, AnimatePresence } from 'motion/react';
 
 import { getHourlyHeadline } from './data/seoHeadlines';
@@ -43,6 +45,7 @@ function normalizeRoute(rawPath: string): string {
   if (lower === '/industry' || lower === '/industries' || lower === '/industrysolutions' || lower === '/advertiser' || lower === '/advertiser-apply' || lower === '/advertise') return '/industry';
   if (lower === '/becomeapartner' || lower === '/become-a-partner' || lower === '/partnerships' || lower === '/partner-signup' || lower === '/partnersignup') return '/becomeapartner';
   if (lower === '/sitemap' || lower === '/business-sitemap') return '/sitemap';
+  if (lower === '/recruitment-tender' || lower === '/recruitment' || lower === '/tender' || lower === '/tenders' || lower === '/recruitment-tenders') return '/recruitment-tender';
   return '/404';
 }
 
@@ -162,6 +165,9 @@ function AppContent() {
       } else if (lowerRoute === '/sitemap') {
         title = "Business Sitemap Directory | Public Ads India Official Links";
         description = "Complete directory of all pages, publisher portals, franchise applications, and resource hubs on Public Ads India.";
+      } else if (lowerRoute === '/recruitment-tender') {
+        title = "Recruitment & Tenders | Public Ads India | Corporate Procurement";
+        description = "Participate in zero-EMD calling and BPO tenders with Public Ads India. Explore remote job openings, careers, and agency franchises in Kanpur and PAN India.";
       } else if (lowerRoute === '/admin') {
         title = "Admin Console | Public Ads India Management Panel";
         description = "Secure administrator control panel for campaign status, MIS approvals, and publisher settlements.";
@@ -289,7 +295,8 @@ function AppContent() {
             {route.toLowerCase() === '/industry' && <IndustrySolutions onNavigate={navigateTo} />}
             {route.toLowerCase() === '/becomeapartner' && <BecomeAPartner onNavigate={navigateTo} />}
             {route.toLowerCase() === '/sitemap' && <BusinessSitemap onNavigate={navigateTo} />}
-            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/zero-investment-work', '/blogpage', '/blog', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap'].includes(route.toLowerCase()) && !route.toLowerCase().startsWith('/blog/') && (
+            {route.toLowerCase() === '/recruitment-tender' && <RecruitmentTender onNavigate={navigateTo} />}
+            {!['/home', '/dashboard', '/admin', '/partner', '/employee', '/ads-earning', '/zero-investment-work', '/blogpage', '/blog', '/aboutus', '/overview', '/termandcondition', '/resource', '/industry', '/becomeapartner', '/sitemap', '/recruitment-tender'].includes(route.toLowerCase()) && !route.toLowerCase().startsWith('/blog/') && (
               <NotFoundView onNavigate={navigateTo} />
             )}
           </motion.div>
@@ -327,6 +334,8 @@ function AppContent() {
       />
 
       <OfflineIndicator />
+
+      {!isAdminActive && <FloatingInquiryTab onNavigate={navigateTo} />}
 
     </div>
   );

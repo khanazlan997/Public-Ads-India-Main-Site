@@ -2028,7 +2028,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-100 dark:border-slate-800 mb-4 bg-slate-50 dark:bg-slate-900/30 p-2.5 rounded-xl">
                       <div>
                         <span className="text-[9px] text-slate-400 font-bold uppercase block">KPI (Target)</span>
-                        <span className="text-[10px] text-slate-700 dark:text-slate-350 block mt-0.5 font-semibold h-11 overflow-hidden font-sans">
+                        <span className="text-[10px] text-slate-700 dark:text-slate-350 block mt-0.5 font-semibold font-sans">
                           {camp.kpi}
                         </span>
                       </div>
@@ -2043,7 +2043,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                     {/* Terms */}
                     <div className="mb-4 space-y-1">
                       <span className="text-[9px] text-slate-400 font-bold uppercase block">Terms & Rules</span>
-                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans block h-10 overflow-hidden line-clamp-2">
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed font-sans block">
                         {camp.terms}
                       </p>
                     </div>

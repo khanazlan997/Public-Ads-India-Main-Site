@@ -1688,218 +1688,85 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
       {activeTab === 'dashboard' && (
         <div id="tabPanel-dashboard" className="space-y-8 animate-fade-up">
 
-          {/* TOP SECTION: Newly Live Campaigns Showcase directly on Top of Main Dashboard */}
-          <div className="bg-white dark:bg-[#0d1628] rounded-3xl p-6 border-2 border-emerald-500/30 dark:border-emerald-500/20 shadow-lg shadow-emerald-500/5 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-400/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5 relative z-10">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                    <span>🔥 Newly Live Campaigns ({activeAndAdminCamps.length} Active Deals)</span>
-                  </h4>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
-                    Live Now
-                  </span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">
-                  Active campaigns are live above for instant promotion. Click Open or Copy Link to collect client leads.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('campaign')}
-                  className="text-[11px] font-extrabold px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition cursor-pointer flex items-center gap-1.5 shadow-sm"
-                >
-                  <span>View All Campaigns ↗</span>
-                </button>
-              </div>
-            </div>
-
-            {activeAndAdminCamps.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 text-xs">
-                No campaigns currently active. Admin will activate new campaigns soon.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-                {activeAndAdminCamps.map((camp, idx) => (
-                  <div key={camp.id} className={`p-4 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border flex flex-col justify-between gap-3 transition-all group ${idx === 0 ? 'border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/20' : 'border-slate-200/80 dark:border-slate-800 hover:border-emerald-500/40'}`}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <img 
-                          src={camp.image} 
-                          alt={camp.name} 
-                          className="w-11 h-11 rounded-full object-cover border border-slate-200 bg-white shrink-0 shadow-2xs" 
-                          onError={(e) => {
-                            const target = e.currentTarget;
-                            target.onerror = null;
-                            target.src = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&q=80&w=200';
-                          }}
-                        />
-                        <div>
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <h5 className="text-xs font-black text-slate-900 dark:text-white capitalize group-hover:text-emerald-600 transition-colors">{camp.name}</h5>
-                            {idx === 0 && (
-                              <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-600 text-white animate-pulse">
-                                ⚡ NEW
-                              </span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded font-mono">
-                              {camp.vertical}
-                            </span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 rounded font-mono">
-                              {camp.model}
-                            </span>
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded capitalize font-mono">
-                              {camp.platform}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="text-[9px] font-bold text-slate-400 block uppercase">Payout</span>
-                        <span className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono">₹{camp.payout}</span>
-                      </div>
-                    </div>
-
-                    <div className="text-[10px] text-slate-600 dark:text-slate-300 font-medium bg-white dark:bg-slate-850 p-2 rounded-xl border border-slate-100 dark:border-slate-800 truncate" title={camp.kpi}>
-                      <span className="font-bold text-slate-400 uppercase text-[9px] mr-1">Target:</span>
-                      {camp.kpi || 'Account opening verification'}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1 gap-2">
-                      <div className="text-[9px] text-slate-400 truncate max-w-[140px] font-mono select-all">
-                        {camp.link}
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {(camp.directOpen !== false && (camp.directOpen as any) !== 'false') && (
-                          <a
-                            href={camp.link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white transition-all cursor-pointer shadow-xs"
-                          >
-                            <ExternalLink className="w-3 h-3" />
-                            <span>Open</span>
-                          </a>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => copyCampLink(camp.link, camp.id)}
-                          className={`px-2.5 py-1 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 border transition-all cursor-pointer ${
-                            copiedCampId === camp.id 
-                              ? 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-600 border-emerald-200' 
-                              : 'bg-brand-primary text-white border-transparent hover:bg-blue-700'
-                          }`}
-                        >
-                          {copiedCampId === camp.id ? (
-                            <>
-                              <Check className="w-3 h-3" />
-                              <span>Copied</span>
-                            </>
-                          ) : (
-                            <>
-                              <Copy className="w-3 h-3" />
-                              <span>Copy</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedCampaignId(camp.id);
-                            setActiveTab('datasubmit');
-                          }}
-                          className="px-2.5 py-1 text-[10px] font-black uppercase rounded-lg flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-all cursor-pointer"
-                        >
-                          <span>Submit Lead</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Main cards display */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          {/* Main cards display - 4 boxes side by side (2x2 on phone, 4 on desktop) in square responsive shape */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             
             {/* Card 1: All time total */}
-            <div className="bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-800 text-white rounded-3xl p-6 shadow-xl shadow-indigo-500/10 border border-indigo-400/30 dark:border-indigo-500/30 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-indigo-600 via-blue-600 to-indigo-800 text-white rounded-3xl p-4 sm:p-6 shadow-xl shadow-indigo-500/10 border border-indigo-400/30 dark:border-indigo-500/30 relative overflow-hidden flex flex-col justify-between aspect-square sm:aspect-auto">
               <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
               <div className="flex justify-between items-center relative z-10">
-                <span className="text-xs font-black uppercase tracking-widest text-indigo-100">All-Time Earnings</span>
-                <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-inner">
-                  <IndianRupee className="w-5 h-5 fill-amber-300 animate-bounce" />
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-indigo-100">All-Time Earnings</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-amber-300 shadow-inner">
+                  <IndianRupee className="w-4 h-4 sm:w-5 sm:h-5 fill-amber-300 animate-bounce" />
                 </div>
               </div>
-              <h3 className="text-3xl font-black font-mono mt-4 text-white tracking-tight relative z-10">₹{publisherEarningStats.total}</h3>
-              <p className="text-[11px] text-indigo-100 font-medium mt-2.5 relative z-10">Total payout successfully consolidated.</p>
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-black font-mono text-white tracking-tight relative z-10">₹{publisherEarningStats.total}</h3>
+                <p className="text-[10px] sm:text-[11px] text-indigo-100 font-medium mt-1 sm:mt-2.5 relative z-10 hidden sm:block">Total payout consolidated.</p>
+              </div>
             </div>
 
             {/* Card 2: Last 7 Days */}
-            <div className="bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-emerald-500/25 dark:border-emerald-500/30 shadow-xl shadow-emerald-500/5 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent bg-white dark:bg-[#0d1628] rounded-3xl p-4 sm:p-6 border border-emerald-500/25 dark:border-emerald-500/30 shadow-xl shadow-emerald-500/5 relative overflow-hidden flex flex-col justify-between aspect-square sm:aspect-auto">
               <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl pointer-events-none" />
               <div className="flex justify-between items-center relative z-10">
-                <span className="text-xs font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-400">Last 7 Days</span>
-                <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Calendar className="w-5 h-5" />
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-400">Last 7 Days</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-emerald-500/15 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <Calendar className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4 tracking-tight relative z-10">₹{publisherEarningStats.last7}</h3>
-              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-2.5 relative z-10">Recent payout logs checked.</p>
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight relative z-10">₹{publisherEarningStats.last7}</h3>
+                <p className="text-[10px] sm:text-[11px] text-emerald-600 dark:text-emerald-400 font-bold mt-1 sm:mt-2.5 relative z-10 hidden sm:block">Recent payout logs checked.</p>
+              </div>
             </div>
 
             {/* Card 3: Last 30 Days */}
-            <div className="bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-transparent bg-white dark:bg-[#0d1628] rounded-3xl p-6 border border-sky-500/25 dark:border-sky-500/30 shadow-xl shadow-sky-500/5 relative overflow-hidden">
+            <div className="bg-gradient-to-br from-sky-500/10 via-blue-500/5 to-transparent bg-white dark:bg-[#0d1628] rounded-3xl p-4 sm:p-6 border border-sky-500/25 dark:border-sky-500/30 shadow-xl shadow-sky-500/5 relative overflow-hidden flex flex-col justify-between aspect-square sm:aspect-auto">
               <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-sky-500/10 rounded-full blur-xl pointer-events-none" />
               <div className="flex justify-between items-center relative z-10">
-                <span className="text-xs font-black uppercase tracking-widest text-sky-800 dark:text-sky-400">Last 30 Days</span>
-                <div className="w-10 h-10 rounded-2xl bg-sky-500/15 dark:bg-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400">
-                  <Coins className="w-5 h-5" />
+                <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-sky-800 dark:text-sky-400">Last 30 Days</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-2xl bg-sky-500/15 dark:bg-sky-500/20 flex items-center justify-center text-sky-600 dark:text-sky-400">
+                  <Coins className="w-4 h-4 sm:w-5 sm:h-5" />
                 </div>
               </div>
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white font-mono mt-4 tracking-tight relative z-10">₹{publisherEarningStats.last30}</h3>
-              <p className="text-[11px] text-sky-600 dark:text-sky-400 font-bold mt-2.5 relative z-10">Evaluated active lead cycles.</p>
+              <div>
+                <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white font-mono tracking-tight relative z-10">₹{publisherEarningStats.last30}</h3>
+                <p className="text-[10px] sm:text-[11px] text-sky-600 dark:text-sky-400 font-bold mt-1 sm:mt-2.5 relative z-10 hidden sm:block">Evaluated lead cycles.</p>
+              </div>
             </div>
 
-          </div>
-
-          {/* 2-Column Grid: My Income Desk + Total Work Box Card */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Card 3: Right Dynamic Income Desk Card */}
-            <div className="relative bg-gradient-to-b from-white/90 to-emerald-50/30 dark:from-[#0d1628] dark:to-emerald-950/20 border-2 border-slate-900 dark:border-slate-700 p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-lg group overflow-hidden min-h-[140px] shadow-sm">
+            {/* Card 4: My Income Desk */}
+            <div className="relative bg-gradient-to-b from-white/90 to-emerald-50/30 dark:from-[#0d1628] dark:to-emerald-950/20 border-2 border-slate-900 dark:border-slate-700 p-4 sm:p-6 rounded-3xl flex flex-col justify-between transition-all duration-300 hover:shadow-lg group overflow-hidden aspect-square sm:aspect-auto shadow-sm">
               <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-400/10 rounded-full blur-2xl pointer-events-none group-hover:scale-125 transition-transform" />
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-[10px] uppercase tracking-wider">
-                  <Coins className="w-4 h-4 text-emerald-555 animate-spin" style={{ animationDuration: '8s' }} />
-                  <span>My Income Desk</span>
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 font-bold text-[9px] sm:text-[10px] uppercase tracking-wider">
+                  <Coins className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-555 animate-spin" style={{ animationDuration: '8s' }} />
+                  <span>My Income</span>
                 </div>
-                <span className="text-[8px] px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 font-black rounded-full uppercase tracking-wider">
-                  Instant Disbursal
+                <span className="text-[7px] sm:text-[8px] px-1.5 sm:px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400 font-black rounded-full uppercase tracking-wider">
+                  Instant
                 </span>
               </div>
 
-              <div className="my-3 flex items-baseline gap-1 text-left">
-                <span className="text-sm font-black text-slate-400 dark:text-slate-500">₹</span>
-                <span className="text-3xl font-black text-emerald-600 dark:text-emerald-450 font-mono tracking-tight">
+              <div className="my-1 sm:my-3 flex items-baseline gap-1 text-left relative z-10">
+                <span className="text-xs sm:text-sm font-black text-slate-400 dark:text-slate-500">₹</span>
+                <span className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-450 font-mono tracking-tight">
                   {publisherEarningStats.total}
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none text-left">
+              <div className="flex items-center gap-1 text-[8px] sm:text-[9px] text-slate-400 dark:text-slate-500 font-semibold leading-none text-left relative z-10 hidden sm:flex">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span>Database synced & locked in</span>
+                <span>Synced & locked in</span>
               </div>
             </div>
 
+          </div>
+
+          {/* Additional Stats / Total Work Card */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Total Work Box Card */}
             <div className="relative bg-white dark:bg-[#0d1628] border-2 border-slate-900 dark:border-slate-700 rounded-3xl p-6 transition-all duration-300 hover:shadow-lg overflow-hidden flex flex-col justify-between min-h-[140px] shadow-sm">
               <div className="absolute -top-10 -right-10 w-24 h-24 bg-indigo-500/5 rounded-full blur-2xl pointer-events-none" />
@@ -1936,7 +1803,6 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
                 <span>All submitted leads locked & synced safely</span>
               </div>
             </div>
-
           </div>
 
           {/* My Client Submissions Feed in Main Dashboard */}

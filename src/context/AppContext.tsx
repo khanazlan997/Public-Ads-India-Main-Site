@@ -455,14 +455,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               setPublishers(json.data.publishers);
               try { localStorage.setItem('pai_cached_publishers', JSON.stringify(json.data.publishers)); } catch (e) {}
             }
-  if (Array.isArray(json.data.submissions)) {
-  setSubmissions(json.data.submissions);
-  try { localStorage.setItem('pai_cached_submissions', JSON.stringify(json.data.submissions)); } catch (e) {}
-  }
-  if (Array.isArray(json.data.earnings)) {
-  setEarnings(json.data.earnings);
-  try { localStorage.setItem('pai_cached_earnings', JSON.stringify(json.data.earnings)); } catch (e) {}
-  }
+            if (Array.isArray(json.data.submissions)) {
+              setSubmissions(json.data.submissions);
+              try { localStorage.setItem('pai_cached_submissions', JSON.stringify(json.data.submissions)); } catch (e) {}
+            }
+            if (Array.isArray(json.data.earnings)) {
+              setEarnings(json.data.earnings);
+              try { localStorage.setItem('pai_cached_earnings', JSON.stringify(json.data.earnings)); } catch (e) {}
+            }
+            if (Array.isArray(json.data.campaigns)) {
+              setCampaigns(json.data.campaigns);
+              try { localStorage.setItem('pai_cached_campaigns', JSON.stringify(json.data.campaigns)); } catch (e) {}
+            }
           }
         }
       } catch (e) {}

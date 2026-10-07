@@ -260,16 +260,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(c => ({
-            ...c,
-            active: c.active !== false && String(c.active).toLowerCase() !== 'false'
-          }));
+          return parsed;
         }
       }
-      return snapshotCampaigns.length > 0 ? snapshotCampaigns.map(c => ({ ...c, active: true })) : defaultCampaigns;
-    } catch {
-      return snapshotCampaigns.length > 0 ? snapshotCampaigns.map(c => ({ ...c, active: true })) : defaultCampaigns;
-    }
+    } catch {}
+    return snapshotCampaigns.length > 0 ? snapshotCampaigns : defaultCampaigns;
   });
   
   // Testimonials optimized with localStorage cache to avoid redundant database reads
@@ -890,11 +885,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubCamps: (() => void) | null = null;
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
-        if (snap) {
+        if (snap && snap.docs.length > 0) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-          const updatedCamps = list.length > 0 ? list : snapshotCampaigns;
-          setCampaigns(updatedCamps);
-          safeSetLocal('pai_cached_campaigns', updatedCamps);
+          setCampaigns(list);
+          safeSetLocal('pai_cached_campaigns', list);
         }
       }, (err) => {
         console.warn("Firestore campaigns listener warning:", err);
@@ -955,24 +949,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (snap && snap.size > 0) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
           if (list.length > 0) {
-            setCampaigns(prev => {
-              const base = (prev && prev.length > 0) ? prev : snapshotCampaigns;
-              const map = new Map<string, Campaign>();
-              base.forEach(c => { if (c && c.id) map.set(c.id, c); });
-              list.forEach(c => {
-                if (c && c.id) {
-                  const existing = map.get(c.id) || {};
-                  map.set(c.id, { 
-                    ...existing, 
-                    ...c, 
-                    active: c.active !== false && String(c.active).toLowerCase() !== 'false'
-                  });
-                }
-              });
-              const merged = Array.from(map.values());
-              safeSetLocal('pai_cached_campaigns', merged);
-              return merged;
-            });
+            setCampaigns(list);
+            safeSetLocal('pai_cached_campaigns', list);
           }
         }
       }).catch((err) => {

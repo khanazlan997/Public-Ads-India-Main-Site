@@ -1101,13 +1101,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const matchedEarnings = earnings.filter(e => validPubIds.has((e.publisherId || '').trim().toLowerCase())).slice(0, 5);
   
   // Safe resolution: guarantee clients always receive active campaigns even if offline/cleared
-  const effectiveCampaigns: Campaign[] = (() => {
-    const base = Array.isArray(campaigns) && campaigns.length > 0 ? campaigns : snapshotCampaigns;
-    return base.map(c => ({
-      ...c,
-      active: c.active !== false && String(c.active).toLowerCase() !== 'false'
-    }));
-  })();
+  const effectiveCampaigns: Campaign[] = Array.isArray(campaigns) && campaigns.length > 0 ? campaigns : snapshotCampaigns;
 
   const getCampSortKey = (c: Campaign): number => {
     if (c.updatedAt) {
@@ -1127,7 +1121,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   };
 
   const activeAndAdminCamps = effectiveCampaigns
-    .filter(c => c.active)
+    .filter(c => c.active !== false && String(c.active).toLowerCase() !== 'false')
     .sort((a, b) => getCampSortKey(b) - getCampSortKey(a));
   const pubSubmissions = submissions.filter(s => {
     const sPubId = (s.publisherId || '').trim().toLowerCase();

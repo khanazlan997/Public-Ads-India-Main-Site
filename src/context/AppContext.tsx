@@ -257,9 +257,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [campaigns, setCampaigns] = useState<Campaign[]>(() => {
     try {
       const stored = localStorage.getItem('pai_cached_campaigns');
-      if (stored) {
+      if (stored !== null) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
@@ -889,7 +889,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubCamps: (() => void) | null = null;
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
-        if (snap && snap.docs.length > 0) {
+        if (snap) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
           setCampaigns(list);
           safeSetLocal('pai_cached_campaigns', list);
@@ -950,12 +950,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Direct one-time check from Firestore for campaigns on startup so client devices immediately receive latest campaigns
     try {
       getDocs(collection(db, 'campaigns')).then(snap => {
-        if (snap && snap.size > 0) {
+        if (snap) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-          if (list.length > 0) {
-            setCampaigns(list);
-            safeSetLocal('pai_cached_campaigns', list);
-          }
+          setCampaigns(list);
+          safeSetLocal('pai_cached_campaigns', list);
         }
       }).catch((err) => {
         console.warn("Direct Firestore campaigns initial fetch notice:", err);

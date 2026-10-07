@@ -1101,7 +1101,7 @@ export default function DashboardView({ onNavigate }: DashboardViewProps) {
   const matchedEarnings = earnings.filter(e => validPubIds.has((e.publisherId || '').trim().toLowerCase())).slice(0, 5);
   
   // Safe resolution: guarantee clients always receive active campaigns even if offline/cleared
-  const effectiveCampaigns: Campaign[] = Array.isArray(campaigns) && campaigns.length > 0 ? campaigns : snapshotCampaigns;
+  const effectiveCampaigns: Campaign[] = Array.isArray(campaigns) ? campaigns : snapshotCampaigns;
 
   const getCampSortKey = (c: Campaign): number => {
     if (c.updatedAt) {

@@ -1052,10 +1052,10 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                 India's premier performance marketing ecosystem empowering publishers, media buyers, and financial creators.
               </p>
               
-              {/* ISO 9001:2015 and Dubai expansion Badges - Side-by-Side on Desktop, Stacked on Mobile */}
-              <div className="flex flex-col md:flex-row gap-4 w-full">
+              {/* ISO 9001:2015 and Dubai expansion Badges - Stacked Vertically in Col 1 to prevent any PC/Mobile overlap */}
+              <div className="flex flex-col gap-3 w-full max-w-sm">
                 {/* ISO 9001:2015 Compact Badge */}
-                <div className="w-full max-w-xs flex items-center gap-2.5 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 shadow-xs shrink-0">
+                <div className="w-full flex items-center gap-2.5 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 shadow-xs">
                   <div className="flex items-center gap-2 pr-2.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                     <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <div>
@@ -1069,8 +1069,8 @@ export default function HomeView({ onNavigate }: HomeViewProps) {
                   </div>
                 </div>
 
-                {/* Dubai UAE Branch Badge (Amne-Samne on PC, Stacked on Mobile) */}
-                <div className="w-full max-w-xs flex items-center gap-2.5 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 shadow-xs relative overflow-hidden shrink-0">
+                {/* Dubai UAE Branch Badge */}
+                <div className="w-full flex items-center gap-2.5 bg-white dark:bg-[#0c1424] border border-slate-200/90 dark:border-slate-800/90 rounded-2xl p-2.5 sm:px-3 sm:py-2.5 shadow-xs relative overflow-hidden">
                   <style dangerouslySetInnerHTML={{ __html: `
                     @keyframes slowRainbowCycleSoft {
                       0% { color: #10b981; text-shadow: 0 0 5px rgba(16,185,129,0.25); }

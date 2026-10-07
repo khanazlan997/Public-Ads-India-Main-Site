@@ -886,32 +886,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }).catch(err => console.warn("Firestore publishers startup fetch notice:", err));
     } catch (e) {}
 
-    // Direct real-time live sync for campaigns (ensures newly live campaigns appear immediately)
+    // Direct real-time live sync for campaigns (ensures newly live campaigns or edits appear immediately)
     let unsubCamps: (() => void) | null = null;
     try {
       unsubCamps = onSnapshot(collection(db, 'campaigns'), (snap) => {
-        if (snap && !snap.empty) {
+        if (snap) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Campaign));
-          if (list.length > 0) {
-            setCampaigns(prev => {
-              const base = (prev && prev.length > 0) ? prev : snapshotCampaigns;
-              const map = new Map<string, Campaign>();
-              base.forEach(c => { if (c && c.id) map.set(c.id, c); });
-              list.forEach(c => {
-                if (c && c.id) {
-                  const existing = map.get(c.id) || {};
-                  map.set(c.id, { 
-                    ...existing, 
-                    ...c, 
-                    active: c.active !== false && String(c.active).toLowerCase() !== 'false'
-                  });
-                }
-              });
-              const merged = Array.from(map.values());
-              safeSetLocal('pai_cached_campaigns', merged);
-              return merged;
-            });
-          }
+          const updatedCamps = list.length > 0 ? list : snapshotCampaigns;
+          setCampaigns(updatedCamps);
+          safeSetLocal('pai_cached_campaigns', updatedCamps);
         }
       }, (err) => {
         console.warn("Firestore campaigns listener warning:", err);
@@ -1017,22 +1000,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubSubs: (() => void) | null = null;
     try {
       unsubSubs = onSnapshot(collection(db, 'submissions'), (snap) => {
-        if (snap && !snap.empty) {
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as DataSubmission));
-          if (list.length > 0) {
-            setSubmissions(prev => {
-              const map = new Map<string, DataSubmission>();
-              prev.forEach(s => { if (s && s.id) map.set(s.id, s); });
-              list.forEach(s => { if (s && s.id) map.set(s.id, s); });
-              const merged = Array.from(map.values()).sort((a, b) => {
-                const keyA = (a.submitDate || '') + '_' + (a.id || '');
-                const keyB = (b.submitDate || '') + '_' + (b.id || '');
-                return keyB.localeCompare(keyA);
-              });
-              safeSetLocal('pai_cached_submissions', merged);
-              return merged;
-            });
-          }
+        if (snap) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as DataSubmission)).sort((a, b) => {
+            const keyA = (a.submitDate || '') + '_' + (a.id || '');
+            const keyB = (b.submitDate || '') + '_' + (b.id || '');
+            return keyB.localeCompare(keyA);
+          });
+          setSubmissions(list);
+          safeSetLocal('pai_cached_submissions', list);
         }
       }, (err) => {
         console.warn("Firestore submissions listener notice:", err);
@@ -1042,22 +1017,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Direct one-time startup query for submissions from Firestore
     try {
       getDocs(collection(db, 'submissions')).then(snap => {
-        if (snap && snap.size > 0) {
-          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as DataSubmission));
-          if (list.length > 0) {
-            setSubmissions(prev => {
-              const map = new Map<string, DataSubmission>();
-              prev.forEach(s => { if (s && s.id) map.set(s.id, s); });
-              list.forEach(s => { if (s && s.id) map.set(s.id, s); });
-              const merged = Array.from(map.values()).sort((a, b) => {
-                const keyA = (a.submitDate || '') + '_' + (a.id || '');
-                const keyB = (b.submitDate || '') + '_' + (b.id || '');
-                return keyB.localeCompare(keyA);
-              });
-              safeSetLocal('pai_cached_submissions', merged);
-              return merged;
-            });
-          }
+        if (snap) {
+          const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as DataSubmission)).sort((a, b) => {
+            const keyA = (a.submitDate || '') + '_' + (a.id || '');
+            const keyB = (b.submitDate || '') + '_' + (b.id || '');
+            return keyB.localeCompare(keyA);
+          });
+          setSubmissions(list);
+          safeSetLocal('pai_cached_submissions', list);
         }
       }).catch(err => console.warn("Firestore submissions startup fetch notice:", err));
     } catch (e) {}
@@ -1066,18 +1033,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubEarns: (() => void) | null = null;
     try {
       unsubEarns = onSnapshot(collection(db, 'earnings'), (snap) => {
-        if (snap && !snap.empty) {
+        if (snap) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as EarningRecord));
-          if (list.length > 0) {
-            setEarnings(prev => {
-              const map = new Map<string, EarningRecord>();
-              prev.forEach(e => { if (e && e.id) map.set(e.id, e); });
-              list.forEach(e => { if (e && e.id) map.set(e.id, e); });
-              const merged = Array.from(map.values());
-              safeSetLocal('pai_cached_earnings', merged);
-              return merged;
-            });
-          }
+          setEarnings(list);
+          safeSetLocal('pai_cached_earnings', list);
         }
       }, (err) => {
         console.warn("Firestore earnings listener notice:", err);
@@ -1087,18 +1046,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // Direct one-time startup query for earnings from Firestore
     try {
       getDocs(collection(db, 'earnings')).then(snap => {
-        if (snap && snap.size > 0) {
+        if (snap) {
           const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as EarningRecord));
-          if (list.length > 0) {
-            setEarnings(prev => {
-              const map = new Map<string, EarningRecord>();
-              prev.forEach(e => { if (e && e.id) map.set(e.id, e); });
-              list.forEach(e => { if (e && e.id) map.set(e.id, e); });
-              const merged = Array.from(map.values());
-              safeSetLocal('pai_cached_earnings', merged);
-              return merged;
-            });
-          }
+          setEarnings(list);
+          safeSetLocal('pai_cached_earnings', list);
         }
       }).catch(err => console.warn("Firestore earnings startup fetch notice:", err));
     } catch (e) {}

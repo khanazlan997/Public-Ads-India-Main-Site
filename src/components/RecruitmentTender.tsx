@@ -1,16 +1,21 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ChevronRight, PhoneCall, Calendar, ShieldCheck, 
   Receipt, CheckCircle2, TrendingUp, Banknote, Building2,
-  IndianRupee
+  IndianRupee, X
 } from 'lucide-react';
 
 export default function RecruitmentTender({ onNavigate }: { onNavigate: (route: string) => void }) {
-  
-  const handleWhatsAppRedirect = () => {
-    const text = `Hello Public Ads India, I am interested in the Angelone Traded Campaign (Target: 100 Accounts, Payout: ₹47,000). Please share details on how to start submission!`;
-    window.open(`https://wa.me/918934932418?text=${encodeURIComponent(text)}`, '_blank');
-  };
+  const [showPopup, setShowPopup] = useState(false);
+
+  useEffect(() => {
+    if (!showPopup) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowPopup(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showPopup]);
 
   return (
     <div className="min-h-screen py-6 sm:py-10 md:py-14 px-3.5 sm:px-6 lg:px-8 max-w-5xl mx-auto flex flex-col justify-between selection:bg-blue-500 selection:text-white">
@@ -197,16 +202,16 @@ export default function RecruitmentTender({ onNavigate }: { onNavigate: (route: 
 
           <div className="pt-2">
             <button
-              onClick={handleWhatsAppRedirect}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 sm:py-4 rounded-2xl bg-[#25d366] hover:bg-[#20ba5a] text-white font-black text-xs sm:text-sm tracking-wider transition-all shadow-[0_4px_20px_rgba(37,211,102,0.35)] transform hover:scale-105 active:scale-95 cursor-pointer uppercase"
+              onClick={() => setShowPopup(true)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-7 py-3.5 sm:py-4 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white font-black text-xs sm:text-sm tracking-wider transition-all shadow-[0_4px_20px_rgba(245,158,11,0.35)] transform hover:scale-105 active:scale-95 cursor-pointer uppercase"
             >
-              <span>Connect on Whatsapp</span>
+              <span>Recruitment</span>
               <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5 text-white shrink-0" />
             </button>
           </div>
 
           <div className="text-[10px] sm:text-xs text-slate-400 font-bold tracking-wide pt-1">
-            Official Helpline: <span className="text-slate-200">+91 8934932418</span> (Available 24/7 on WhatsApp)
+            Status: <span className="text-amber-400">Recruitment Stopped</span>
           </div>
         </div>
 
@@ -218,6 +223,35 @@ export default function RecruitmentTender({ onNavigate }: { onNavigate: (route: 
           The Trusted Partner Public Ads India
         </p>
       </footer>
+
+      {/* Offer Soon Popup */}
+      {showPopup && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setShowPopup(false)}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            className="relative bg-white dark:bg-[#0c1424] border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-6 sm:p-8 max-w-xs sm:max-w-sm w-full mx-auto shadow-2xl text-center transform transition-all"
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowPopup(false)}
+              className="absolute top-3.5 right-3.5 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              aria-label="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Exactly "Offer Soon" and nothing else */}
+            <div className="py-5">
+              <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                Offer Soon
+              </h3>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
